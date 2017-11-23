@@ -23,34 +23,19 @@
 #ifndef ___CRYPTOKI_H_INC___
 #define ___CRYPTOKI_H_INC___
 
+#ifdef PACKCRYPTOKI
 #pragma pack(push, cryptoki, 1)
-
-/* Specifies that the function is a DLL entry point. */
-#define CK_IMPORT_SPEC __declspec(dllimport)
-
-/* Define CRYPTOKI_EXPORTS during the build of cryptoki libraries. Do
- * not define it in applications.
- */
-#ifdef CRYPTOKI_EXPORTS
-/* Specified that the function is an exported DLL entry point. */
-#define CK_EXPORT_SPEC __declspec(dllexport) 
-#else
-#define CK_EXPORT_SPEC CK_IMPORT_SPEC 
 #endif
-
-/* Ensures the calling convention for Win32 builds */
-#define CK_CALL_SPEC __cdecl
-
 #define CK_PTR *
 
 #define CK_DECLARE_FUNCTION(returnType, name) \
-  returnType CK_EXPORT_SPEC CK_CALL_SPEC name
+	returnType name
 
 #define CK_DECLARE_FUNCTION_POINTER(returnType, name) \
-  returnType CK_IMPORT_SPEC (CK_CALL_SPEC CK_PTR name)
+	returnType (* name)
 
 #define CK_CALLBACK_FUNCTION(returnType, name) \
-  returnType (CK_CALL_SPEC CK_PTR name)
+	returnType (* name)
 
 #ifndef NULL_PTR
 #define NULL_PTR 0
@@ -58,6 +43,7 @@
 
 #include "pkcs11.h"
 
+#ifdef PACKCRYPTOKI
 #pragma pack(pop, cryptoki)
-
+#endif
 #endif /* ___CRYPTOKI_H_INC___ */
