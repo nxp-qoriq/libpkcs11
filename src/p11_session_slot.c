@@ -6,12 +6,14 @@
 
 #include <gen_func.h>
 #include <tee_slot.h>
+#include <sessions.h>
 
 /* The number of supported slots */
 #define SLOT_COUNT 1
 
 struct slot_info {
 	CK_SLOT_ID 	slot_id;
+//	void		*objDB; will be added with objects related APIs
 };
 
 struct slot_info g_slot_info[SLOT_COUNT];
@@ -184,40 +186,78 @@ CK_RV C_OpenSession(CK_SLOT_ID slotID,
 		    CK_NOTIFY Notify,
 		    CK_SESSION_HANDLE_PTR phSession)
 {
+	CK_RV ret;
+	pApplication = pApplication;
+	Notify = Notify;
+
+	if (!is_lib_initialized())
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
 	if (slotID != TEE_SLOT_ID)
 		return CKR_SLOT_ID_INVALID;
+
+	if (phSession == NULL)
+		return CKR_ARGUMENTS_BAD;
+
+	if (!(flags & CKF_RW_SESSION) == 0)
+		return CKR_ARGUMENTS_BAD;
 
 	if (!(flags & CKF_SERIAL_SESSION))
 		return CKR_SESSION_PARALLEL_NOT_SUPPORTED;
 
-	pApplication = pApplication;
-	Notify = Notify;
-	phSession = phSession;
+	ret = create_session(slotID, flags, phSession);
+	if (ret != CKR_OK)
+		printf("create_session failed \n");
 
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	return ret;
 }
 
 CK_RV C_CloseSession(CK_SESSION_HANDLE hSession)
 {
-	if (hSession == CK_INVALID_HANDLE)
+	CK_RV ret;
+
+	if (!is_lib_initialized())
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	if (!is_session_valid(hSession))
 		return CKR_SESSION_HANDLE_INVALID;
 
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	ret = delete_session(hSession);
+	if (ret != CKR_OK)
+		printf("delete session failed\n");
+
+	return ret;
 }
 
 CK_RV C_CloseAllSessions(CK_SLOT_ID slotID)
 {
-	if (slotID != TEE_SLOT_ID)
-		return CKR_SLOT_ID_INVALID;
+	CK_RV ret;
 
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	if (!is_lib_initialized())
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	ret = delete_all_session(slotID);
+	if (ret != CKR_OK)
+		printf("delete_all_session failed\n");
+
+	return ret;
 }
 
 CK_RV C_GetSessionInfo(CK_SESSION_HANDLE hSession, CK_SESSION_INFO_PTR pInfo)
 {
-	hSession = hSession;
-	pInfo = pInfo;
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	CK_RV ret;
+
+	if (!is_lib_initialized())
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	if (!is_session_valid(hSession))
+		return CKR_SESSION_HANDLE_INVALID;
+
+	ret = get_session_info(hSession, pInfo);
+	if (ret != CKR_OK)
+		printf("get_session_info failed\n");
+
+	return ret;
 }
 
 CK_RV C_GetOperationState(CK_SESSION_HANDLE hSession,

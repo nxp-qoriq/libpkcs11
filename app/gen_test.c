@@ -104,6 +104,30 @@ char *p11_get_ckr( CK_RV rc )
    }
 }
 
+void dump_sess_info( CK_SESSION_INFO *info )
+{
+	printf("   CK_SESSION_INFO:\n");
+	printf("      slotID:         %ld\n", info->slotID );
+	printf("      state:          ");
+	switch (info->state) {
+		case CKS_RO_PUBLIC_SESSION:   printf("CKS_RO_PUBLIC_SESSION\n");
+					      break;
+		case CKS_RW_PUBLIC_SESSION:   printf("CKS_RW_PUBLIC_SESSION\n");
+					      break;
+		case CKS_RO_USER_FUNCTIONS:   printf("CKS_RO_USER_FUNCTIONS\n");
+					      break;
+		case CKS_RW_USER_FUNCTIONS:   printf("CKS_RW_USER_FUNCTIONS\n");
+					      break;
+		case CKS_RW_SO_FUNCTIONS:     printf("CKS_RW_SO_FUNCTIONS\n");
+					      break;
+	}
+	printf("      flags:          %p\n",    (void *)info->flags );
+	printf("      ulDeviceError:  %ld\n",    info->ulDeviceError );
+}
+
+
+
+
 CK_RV do_GetInfo(void)
 {
 	CK_RV rc = 0;
@@ -390,6 +414,225 @@ int do_GetFunctionList( void )
 
 }
 
+CK_RV do_OpenSession( void )
+{
+	CK_SLOT_ID        slot_id;
+	CK_FLAGS          flags;
+	CK_SESSION_HANDLE handle;
+	CK_RV             rc;
+
+	printf("\ndo_OpenSession Starting \n");
+
+	slot_id = TEE_SLOT_ID;
+	flags   = CKF_SERIAL_SESSION;   // read-only session
+
+	printf("Creating R/O Session \n");
+	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &handle );
+	if (rc != CKR_OK)
+		printf("C_OpenSession handle failed rc=%s\n", p11_get_ckr(rc));
+	else
+		printf("R/O Session with handle = 0x%lx created\n", handle);
+
+	printf("Closing Session \n");
+	rc = funcs->C_CloseSession(handle);
+	if (rc != CKR_OK)
+		printf("C_CloseSession handle failed rc=%s\n", p11_get_ckr(rc));
+	else
+		printf("Session Closed\n");
+
+	printf("do_OpenSession Finish\n");
+
+	return rc;
+}
+
+
+//
+//
+CK_RV do_OpenSession2( void )
+{
+	CK_SLOT_ID        slot_id;
+	CK_FLAGS          flags;
+	CK_SESSION_HANDLE h1, h2;
+	CK_RV             rc;
+
+	printf("\ndo_OpenSession2 Start\n");
+
+	slot_id = TEE_SLOT_ID;
+	flags   = CKF_SERIAL_SESSION;   // read-only session
+
+	printf("Creating R/O Session h1\n");
+	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h1 );
+	if (rc != CKR_OK)
+		printf("C_OpenSession h1 failed rc=%s\n", p11_get_ckr(rc));
+	else
+		printf("R/O Session created h1 = 0x%lx created\n", h1);
+
+	printf("Creating R/W Session h2\n");
+	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
+	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h2 );
+	if (rc != CKR_OK)
+		printf("C_OpenSession h2 failed rc=%s\n", p11_get_ckr(rc));
+	else
+		printf("R/W Session created h2 = 0x%lx created\n", h2);
+
+
+	printf("Closing Session h1\n");
+	rc = funcs->C_CloseSession( h1 );
+	if (rc != CKR_OK)
+		printf("C_CloseSession h1 failed rc=%s\n", p11_get_ckr(rc));
+	else
+		printf("C_CloseSession h1 rc=%s\n", p11_get_ckr(rc));
+
+	printf("Closing Session h2\n");
+	rc = funcs->C_CloseSession( h2 );
+	if (rc != CKR_OK)
+		printf("C_CloseSession h2 failed rc=%s\n", p11_get_ckr(rc));
+	else
+		printf("C_CloseSession h2 rc=%s\n", p11_get_ckr(rc));
+
+	printf("do_OpenSession2 Finish\n");
+
+	return rc;
+}
+
+
+//
+//
+CK_RV do_CloseAllSessions( void )
+{
+	CK_SLOT_ID        slot_id;
+	CK_FLAGS          flags;
+	CK_SESSION_HANDLE h1, h2, h3;
+	CK_RV             rc;
+
+	printf("\ndo_CloseAllSessions Starting\n");
+
+	slot_id = TEE_SLOT_ID;
+	flags   = CKF_SERIAL_SESSION;   // read-only session
+
+	printf("Creating R/O Session h1\n");
+	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h1 );
+	if (rc != CKR_OK)
+		printf("C_OpenSession h1 failed rc=%s\n", p11_get_ckr(rc));
+	else
+		printf("R/O Session h1 = 0x%lx created\n", h1);
+
+	printf("Creating R/O Session h2\n");
+	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h2 );
+	if (rc != CKR_OK)
+		printf("C_OpenSession h2 failed rc=%s\n", p11_get_ckr(rc));
+	else
+		printf("R/O Session h2 = 0x%lx created\n", h2);
+
+	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
+	printf("Creating R/W Session h3\n");
+	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h3 );
+	if (rc != CKR_OK)
+		printf("C_OpenSession h3 failed rc=%s\n", p11_get_ckr(rc));
+	else
+		printf("R/W Session h2 = 0x%lx created\n", h2);
+
+	printf("Closing all sessions for TEE_SLOT\n");
+	rc = funcs->C_CloseAllSessions( slot_id );
+	if (rc != CKR_OK)
+		printf("C_CloseAllSessions failed rc=%s\n", p11_get_ckr(rc));
+	else
+		printf("C_CloseAllSessions rc=%s\n", p11_get_ckr(rc));
+
+	printf("do_CloseAllSessions finish ...\n");
+
+	return rc;
+}
+
+
+//
+//
+CK_RV do_GetSessionInfo( void )
+{
+	CK_SLOT_ID        slot_id;
+	CK_FLAGS          flags;
+	CK_SESSION_HANDLE h1, h2, h3;
+	CK_SESSION_INFO   info;
+	CK_RV             rc;
+
+	printf("\ndo_GetSessionInfo Starting\n");
+
+	slot_id = TEE_SLOT_ID;
+	flags = CKF_SERIAL_SESSION;   // read-only session
+
+	printf("Creating R/O Session h1\n");
+	flags = CKF_SERIAL_SESSION;
+	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h1 );
+	if (rc != CKR_OK)
+		printf("C_OpenSession h1 failed rc=%s\n", p11_get_ckr(rc));
+	else
+		printf("R/O Session h1 = 0x%lx created\n", h1);
+
+	printf("Creating R/W Session h2\n");
+	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
+	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h2 );
+	if (rc != CKR_OK)
+		printf("C_OpenSession h2 failed rc=%s\n", p11_get_ckr(rc));
+	else
+		printf("R/W Session h2 = 0x%lx created\n", h1);
+
+	printf("Creating R/O Session h3\n");
+	flags = CKF_SERIAL_SESSION;
+	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h3 );
+	if (rc != CKR_OK)
+		printf("C_OpenSession h3 failed rc=%s\n", p11_get_ckr(rc));
+	else
+		printf("R/O Session h3 = 0x%lx created\n", h3);
+
+	printf("Getting info about session h1\n");
+	rc = funcs->C_GetSessionInfo( h1, &info );
+	if (rc != CKR_OK)
+		printf("C_GetSessionInfo h1 failed rc=%s\n", p11_get_ckr(rc));
+	else
+		dump_sess_info( &info );
+	memset(&info, 0, sizeof(struct CK_SESSION_INFO));
+
+	printf("Getting info about session h2\n");
+	rc = funcs->C_GetSessionInfo( h2, &info );
+	if (rc != CKR_OK)
+		printf("C_GetSessionInfo h2 failed rc=%s\n", p11_get_ckr(rc));
+	else
+		dump_sess_info( &info );
+	memset(&info, 0, sizeof(struct CK_SESSION_INFO));
+
+	printf("Getting info about session h3\n");
+	rc = funcs->C_GetSessionInfo( h3, &info );
+	if (rc != CKR_OK)
+		printf("C_GetSessionInfo h3 failed rc=%s\n", p11_get_ckr(rc));
+	else
+		dump_sess_info( &info );
+
+	printf("Closing all sessions for TEE_SLOT\n");
+	rc = funcs->C_CloseAllSessions( slot_id );
+	if (rc != CKR_OK)
+		printf("C_CloseAllSessions failed rc=%s\n", p11_get_ckr(rc));
+	else
+		printf("C_CloseAllSessions rc=%s\n", p11_get_ckr(rc));
+
+
+	printf("do_GetSessionInfo finish\n");
+
+	return rc;
+}
+
+CK_RV sess_mgmt_functions(void)
+{
+	CK_RV         rc = CKR_OK;
+
+	do_OpenSession();
+	do_OpenSession2();
+	do_CloseAllSessions();
+	do_GetSessionInfo();
+
+	return rc;
+}
+
+
 int main(int argc, char **argv)
 {
 	int rc;
@@ -439,6 +682,10 @@ int main(int argc, char **argv)
 	rv = do_GetMechanismInfo();
 	if (rv != CKR_OK)
 		printf("do_GetMechanismInfo failed\n");
+
+	rv = sess_mgmt_functions();
+	if (rv != CKR_OK)
+		printf("sess_mgmt_functions failed rv=%s\n", p11_get_ckr(rv));
 
 	rv = funcs->C_Finalize(NULL_PTR);
 	if (rv != CKR_OK)
