@@ -37,7 +37,7 @@ CK_RV C_GetSlotList(CK_BBOOL tokenPresent, CK_SLOT_ID_PTR pSlotList, CK_ULONG_PT
 	if (pSlotList == NULL)
 		goto out;
 
-	/* only support 1 slot */
+	/* only support 1 slot which is TEE_SLOT */
 	if (*pulCount >= SLOT_COUNT) {
 		pSlotList[0] = TEE_SLOT_ID;
 		g_slot_info[TEE_SLOT_ID].slot_id = TEE_SLOT_ID;
@@ -58,6 +58,10 @@ CK_RV C_GetSlotInfo(CK_SLOT_ID slotID, CK_SLOT_INFO_PTR pInfo)
 	if (pInfo == NULL)
 		return CKR_ARGUMENTS_BAD;
 
+	/* Currently only one slot is added i.e. TEE_SLOT
+	  * In order to add another slot, need to add 2 files
+	  * just like tee_slot.c and tee_slot.h in src folder
+	  * and add a case for that slot here */
 	switch (slotID) {
 		case TEE_SLOT_ID:
 			Get_TEE_SlotInfo(pInfo);
@@ -199,7 +203,7 @@ CK_RV C_OpenSession(CK_SLOT_ID slotID,
 	if (phSession == NULL)
 		return CKR_ARGUMENTS_BAD;
 
-	if (!(flags & CKF_RW_SESSION) == 0)
+	if ((flags & CKF_RW_SESSION))
 		return CKR_ARGUMENTS_BAD;
 
 	if (!(flags & CKF_SERIAL_SESSION))
@@ -252,6 +256,9 @@ CK_RV C_GetSessionInfo(CK_SESSION_HANDLE hSession, CK_SESSION_INFO_PTR pInfo)
 
 	if (!is_session_valid(hSession))
 		return CKR_SESSION_HANDLE_INVALID;
+
+	if (!pInfo)
+		return CKR_ARGUMENTS_BAD;
 
 	ret = get_session_info(hSession, pInfo);
 	if (ret != CKR_OK)

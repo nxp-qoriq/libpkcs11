@@ -22,8 +22,8 @@ struct mechanisms tee_mechanisms[MAX_MECHANISM_COUNT] = {
 	.algo =     CKM_RSA_PKCS,
 	.info = {
 		.ulMinKeySize = 512,
-		.ulMaxKeySize = 4096,
-		.flags = CKF_HW | CKF_ENCRYPT | CKF_DECRYPT
+		.ulMaxKeySize = 2048,
+		.flags = CKF_SIGN
 	}
 }
 };
