@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 #include <memory.h>
 #include <dlfcn.h>
 
@@ -545,8 +546,125 @@ CK_RV do_CloseAllSessions( void )
 }
 
 
-//
-//
+/* API Routines exercised that take /var/lock/LCK..opencryptoki spinlock.
+ * C_OpenSession
+ * C_CloseSession
+ *
+ * API routines exercised that result in stdll taking
+ * /var/lock/opencryptoki_stdll spinlock.
+ * C_FindObjectsInit
+ * C_FindObjects
+ * C_CreateObject
+ *
+ * 1) Create 3 certificates with different CKA_ID attributes
+ * 2) Search for a particular CKA_ID.  Verify this works.
+ * 3) Search for a non-existant CKA_ID.  Verify this returns nothing.
+ * 4) Specify an empty template.  Verify that all 3 objects are returned.
+ */
+CK_RV do_FindObjects(void)
+{
+	CK_SLOT_ID        slot_id;
+	CK_FLAGS          flags;
+	CK_SESSION_HANDLE h_session;
+	CK_RV             rc = 0;
+
+	CK_BYTE           false = FALSE;
+	CK_ULONG i, j;
+
+	CK_OBJECT_HANDLE  obj_list[10];
+	CK_ULONG          find_count;
+	CK_ULONG          num_existing_objects;
+
+	CK_ATTRIBUTE ck_attr[2];
+	CK_OBJECT_CLASS obj_type;
+	CK_KEY_TYPE key_type;
+	CK_ULONG modulus_bits;
+
+	obj_type = CKO_PRIVATE_KEY;
+	key_type = CKK_RSA;
+
+	ck_attr[0].type = CKA_CLASS;
+	ck_attr[0].pValue = &obj_type;
+	ck_attr[0].ulValueLen = sizeof(CK_OBJECT_CLASS);
+
+	ck_attr[1].type = CKA_KEY_TYPE;
+	ck_attr[1].pValue = &key_type;
+	ck_attr[1].ulValueLen = sizeof(CK_KEY_TYPE);
+
+	printf("starting do_FindObjects\n");
+
+	slot_id = TEE_SLOT_ID;
+
+	/* create a USER R/W session */
+	flags = CKF_SERIAL_SESSION;
+	rc = funcs->C_OpenSession(slot_id, flags, NULL, NULL, &h_session);
+	if (rc != CKR_OK)
+		printf("C_OpenSession handle failed rc=%s\n", p11_get_ckr(rc));
+	else
+		printf("R/O Session with handle = 0x%lx created\n", h_session);
+
+	rc = funcs->C_FindObjectsInit(h_session, ck_attr, 2);
+	if (rc != CKR_OK)
+		return rc;
+
+	rc = funcs->C_FindObjects(h_session, obj_list, 10, &num_existing_objects);
+	if (rc != CKR_OK)
+		return rc;
+
+	rc = funcs->C_FindObjectsFinal(h_session);
+	if (rc != CKR_OK)
+		return rc;
+
+	for (i = 0; i < num_existing_objects; i++)
+		printf("object[%lu] = %lx\n", i, obj_list[i]);
+
+	printf("num_existing_object =%lu\n", num_existing_objects);
+
+	memset(ck_attr, 0, sizeof(CK_ATTRIBUTE) * 2);
+	ck_attr[0].type = CKA_MODULUS;
+	ck_attr[0].pValue = NULL;
+	ck_attr[0].ulValueLen = 0;
+
+	ck_attr[1].type = CKA_PUBLIC_EXPONENT;
+	ck_attr[1].pValue = NULL;
+	ck_attr[1].ulValueLen = 0;
+
+	rc = funcs->C_GetAttributeValue(h_session, obj_list[0], ck_attr, 2);
+	if (rc != CKR_OK) {
+		printf("C_GetAttributeValue() rc = %s\n", p11_get_ckr(rc));
+		for (i = 0; i < 2; i++)
+			printf("ck_attr[%lu].ulValueLen = %ld\n",
+				i, (CK_LONG)ck_attr[i].ulValueLen);
+	} else {
+		for (i = 0; i < 2; i++) {
+			printf("ck_attr[%lu].ulValueLen = %lu\n",
+				i, ck_attr[i].ulValueLen);
+		}
+		ck_attr[0].pValue = (void *)malloc(ck_attr[0].ulValueLen);
+		ck_attr[1].pValue = (void *)malloc(ck_attr[1].ulValueLen);
+		rc = funcs->C_GetAttributeValue(h_session, obj_list[0], ck_attr, 2);
+		for (j = 0; j < ck_attr[0].ulValueLen; j++) {
+			printf("%02x", *((uint8_t *)ck_attr[0].pValue + j));
+			if ((j+1) % 12 == 0)
+				printf("\n");
+		}
+		printf("\n");
+		for (j = 0; j < ck_attr[1].ulValueLen; j++) {
+			printf("%02x", *((uint8_t *)ck_attr[1].pValue + j));
+			if ((j+1) % 12 == 0)
+				printf("\n");
+		}
+	}
+
+	/* done...close the session and verify the object is deleted */
+	rc = funcs->C_CloseSession(h_session);
+	if (rc != CKR_OK)
+		return rc;
+
+	printf("\ndo_FindObjects success \n");
+	return rc;
+}
+
 CK_RV do_GetSessionInfo( void )
 {
 	CK_SLOT_ID        slot_id;
@@ -686,6 +804,10 @@ int main(int argc, char **argv)
 	rv = sess_mgmt_functions();
 	if (rv != CKR_OK)
 		printf("sess_mgmt_functions failed rv=%s\n", p11_get_ckr(rv));
+
+	rv = do_FindObjects();
+	if (rv != CKR_OK)
+		printf("do_FindObjects failed rv=%s\n", p11_get_ckr(rv));
 
 	rv = funcs->C_Finalize(NULL_PTR);
 	if (rv != CKR_OK)

@@ -7,24 +7,15 @@
 #include <gen_func.h>
 #include <tee_slot.h>
 #include <sessions.h>
-
-/* The number of supported slots */
-#define SLOT_COUNT 1
-
-struct slot_info {
-	CK_SLOT_ID 	slot_id;
-//	void		*objDB; will be added with objects related APIs
-};
-
-struct slot_info g_slot_info[SLOT_COUNT];
+#include <objects.h>
 
 /*
  *  SLOT AND TOKEN MANAGEMENT
  */
-
 CK_RV C_GetSlotList(CK_BBOOL tokenPresent, CK_SLOT_ID_PTR pSlotList, CK_ULONG_PTR pulCount)
 {
 	int ret = CKR_OK;
+	struct slot_info *slot_info;
 
 	if (!is_lib_initialized())
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -40,7 +31,8 @@ CK_RV C_GetSlotList(CK_BBOOL tokenPresent, CK_SLOT_ID_PTR pSlotList, CK_ULONG_PT
 	/* only support 1 slot which is TEE_SLOT */
 	if (*pulCount >= SLOT_COUNT) {
 		pSlotList[0] = TEE_SLOT_ID;
-		g_slot_info[TEE_SLOT_ID].slot_id = TEE_SLOT_ID;
+		slot_info = get_global_slot_info(TEE_SLOT_ID);
+		slot_info->slot_id = TEE_SLOT_ID;
 	} else
 		ret =  CKR_BUFFER_TOO_SMALL;
 

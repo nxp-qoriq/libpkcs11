@@ -15,6 +15,13 @@ struct session_node {
 STAILQ_HEAD(sess_list, session_node);
 struct sess_list session_list;
 
+struct slot_info g_slot_info[SLOT_COUNT];
+
+struct slot_info *get_global_slot_info(CK_SLOT_ID slotID)
+{
+	return &g_slot_info[slotID];
+}
+
 CK_BBOOL is_session_valid(CK_SESSION_HANDLE hSession)
 {
 	CK_BBOOL ret = CK_FALSE;
@@ -28,6 +35,17 @@ CK_BBOOL is_session_valid(CK_SESSION_HANDLE hSession)
 	}
 
 	return ret;
+}
+
+session *get_session(CK_SESSION_HANDLE hSession)
+{
+	struct session_node *s;
+
+	if(!is_session_valid(hSession))
+		return NULL;
+
+	s = (struct session_node *)hSession;
+	return &s->sess;
 }
 
 CK_RV create_session(CK_SLOT_ID slotID,  CK_FLAGS flags,

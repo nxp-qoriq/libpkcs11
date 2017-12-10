@@ -25,7 +25,9 @@ LIB_NAME	:= libpkcs11.so
 PKCS11_SRCS	:= p11_general.c \
 		   tee_slot.c \
 		   sessions.c \
-		   p11_session_slot.c
+		   objects.c \
+		   p11_session_slot.c \
+		   p11_object.c
 
 PKCS11_SRC_DIR	:= src
 PKCS11_OBJ_DIR	:= $(OUT_DIR)

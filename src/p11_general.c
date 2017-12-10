@@ -4,6 +4,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <dlfcn.h>
+#include <tee_slot.h>
+#include <objects.h>
 
 #include <securekey_api.h>
 #include <securekey_api_types.h>
@@ -45,7 +47,6 @@ CK_FUNCTION_LIST global_function_list = {
 	.C_SetOperationState  =			C_SetOperationState,
 	.C_Login  =				C_Login,
 	.C_Logout  =				C_Logout,
-#if 0
 	.C_CreateObject  =			C_CreateObject,
 	.C_CopyObject  =			C_CopyObject,
 	.C_DestroyObject  =			C_DestroyObject,
@@ -55,6 +56,7 @@ CK_FUNCTION_LIST global_function_list = {
 	.C_FindObjectsInit  =			C_FindObjectsInit,
 	.C_FindObjects  =			C_FindObjects,
 	.C_FindObjectsFinal  =			C_FindObjectsFinal,
+#if 0
 	.C_EncryptInit  =			C_EncryptInit,
 	.C_Encrypt  =				C_Encrypt,
 	.C_EncryptUpdate  =			C_EncryptUpdate,
@@ -169,6 +171,8 @@ CK_RV C_Finalize(CK_VOID_PTR pReserved)
 
 	if (!is_lib_initialized())
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	destroy_object_list(TEE_SLOT_ID);
 
 	initialized = 0;
  
