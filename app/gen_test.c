@@ -126,13 +126,11 @@ void dump_sess_info( CK_SESSION_INFO *info )
 	printf("      ulDeviceError:  %ld\n",    info->ulDeviceError );
 }
 
-
-
-
 CK_RV do_GetInfo(void)
 {
 	CK_RV rc = 0;
 	CK_INFO info;
+	uint32_t i = 0;
 
 	rc = funcs->C_GetInfo(&info);
 	if (rc != CKR_OK){
@@ -140,8 +138,16 @@ CK_RV do_GetInfo(void)
 		return rc;
 	}
 
-	printf("Library Manufacturer = %s\n", info.manufacturerID);
-	printf("Library Description = %s\n", info.libraryDescription);
+	printf("Library Manufacturer = ");
+	for (i = 0; i < sizeof(info.manufacturerID); i++)
+		printf("%c", info.manufacturerID[i]);
+	printf("\n");
+
+	printf("Library Description = ");
+	for (i = 0; i < sizeof(info.libraryDescription); i++)
+		printf("%c", info.libraryDescription[i]);
+	printf("\n");
+
 	return rc;
 }
 
@@ -197,10 +203,10 @@ cleanup:
 
 CK_RV do_GetSlotInfo(void)
 {
-
 	CK_RV rc = 0;
 	CK_SLOT_ID slot_id = TEE_SLOT_ID;
 	CK_SLOT_INFO info;
+	uint32_t i = 0;
 
 	printf("Testing C_GetSlotInfo\n");
 
@@ -210,8 +216,15 @@ CK_RV do_GetSlotInfo(void)
 		goto cleanup;
 	} else {
 		printf("Slot info of in-use slot received successfully, printing some info\n");
-		printf("Slot Description = %s\n", info.slotDescription);
-		printf("Slot Manufacturer = %s\n", info.manufacturerID);
+		printf("Slot Description = ");
+		for (i = 0; i < sizeof(info.slotDescription); i++)
+			printf("%c", info.slotDescription[i]);
+		printf("\n");
+
+		printf("Slot Manufacturer = ");
+		for (i = 0; i < sizeof(info.manufacturerID); i++)
+			printf("%c", info.manufacturerID[i]);
+		printf("\n");
 	}
 
 	printf("\nTesting with Invalid SLOT ID\n");
@@ -237,6 +250,7 @@ CK_RV do_GetTokenInfo(void)
 	CK_RV rc = 0;
 	CK_SLOT_ID slot_id = TEE_SLOT_ID;
 	CK_TOKEN_INFO info;
+	uint32_t i = 0;
 
 	printf("\nTesting C_GetTokenInfo()\n");
 
@@ -246,8 +260,15 @@ CK_RV do_GetTokenInfo(void)
 		return rc;
 	} else {
 		printf("C_GetTokenInfo returned successfully, printing some info\n");
-		printf("Token Label = %s\n", info.label);
-		printf("Token Manufacturer = %s\n", info.manufacturerID);
+		printf("Token Label = ");
+		for (i = 0; i < sizeof(info.label); i++)
+			printf("%c", info.label[i]);
+		printf("\n");
+
+		printf("Token Manufacturer = ");
+		for (i = 0; i < sizeof(info.manufacturerID); i++)
+			printf("%c", info.manufacturerID[i]);
+		printf("\n");
 	}
 
 	printf("\nTesting with Invalid SLOT ID\n");
