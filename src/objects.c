@@ -190,6 +190,7 @@ key_object_set_default_attributes(struct template_list *tmpl_list)
 static CK_RV
 publ_key_add_default_attributes(struct template_list *tmpl_list)
 {
+	struct template_node *class;
 	struct template_node *subject;
 	struct template_node *encrypt;
 	struct template_node *verify;
@@ -198,6 +199,7 @@ publ_key_add_default_attributes(struct template_list *tmpl_list)
 	struct template_node *trusted;
 	struct template_node *wrap_template;
 
+	CK_ATTRIBUTE    *class_attr = NULL;
 	CK_ATTRIBUTE    *subject_attr = NULL;
 	CK_ATTRIBUTE    *encrypt_attr = NULL;
 	CK_ATTRIBUTE    *verify_attr = NULL;
@@ -215,6 +217,8 @@ publ_key_add_default_attributes(struct template_list *tmpl_list)
 	}
 
 	/* add the default CKO_PUBLIC_KEY attributes */
+	class_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) +
+		sizeof(CK_OBJECT_CLASS));
 	subject_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
 	encrypt_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) +
 		sizeof(CK_BBOOL));
@@ -226,7 +230,7 @@ publ_key_add_default_attributes(struct template_list *tmpl_list)
 	trusted_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
 	wrap_template_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
 
-
+	class = (struct template_node *)malloc(sizeof(struct template_node));
 	subject = (struct template_node *)malloc(sizeof(struct template_node));
 	encrypt = (struct template_node *)malloc(sizeof(struct template_node));
 	verify = (struct template_node *)malloc(sizeof(struct template_node));
@@ -235,12 +239,14 @@ publ_key_add_default_attributes(struct template_list *tmpl_list)
 	trusted = (struct template_node *)malloc(sizeof(struct template_node));
 	wrap_template = (struct template_node *)malloc(sizeof(struct template_node));
 
-	if (!subject_attr || !encrypt_attr ||
+	if (!class_attr || !subject_attr || !encrypt_attr ||
 		!verify_attr  || !verify_recover_attr || !wrap_attr ||
-		!subject || !encrypt || !verify || !verify_recover ||
+		!subject || !class || !encrypt || !verify || !verify_recover ||
 		!wrap || !trusted || !wrap_template || !trusted_attr ||
 		!wrap_template_attr)
 	{
+		if (class_attr)
+			free(class_attr);
 		if (subject_attr)
 			free(subject_attr);
 		if (encrypt_attr)
@@ -253,6 +259,8 @@ publ_key_add_default_attributes(struct template_list *tmpl_list)
 			free(wrap_attr);
 		if (subject)
 			free(subject);
+		if (class)
+			free(class);
 		if (encrypt)
 			free(encrypt);
 		if (verify)
@@ -272,6 +280,11 @@ publ_key_add_default_attributes(struct template_list *tmpl_list)
 
 		return CKR_HOST_MEMORY;
 	}
+
+	class_attr->type = CKA_CLASS;
+	class_attr->ulValueLen = sizeof(CK_OBJECT_CLASS);
+	class_attr->pValue = (CK_BYTE *)class_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_OBJECT_CLASS *)class_attr->pValue = CKO_PUBLIC_KEY;
 
 	subject_attr->type         = CKA_SUBJECT;
 	subject_attr->ulValueLen   = 0;  // empty string
@@ -306,6 +319,7 @@ publ_key_add_default_attributes(struct template_list *tmpl_list)
 	wrap_template_attr->ulValueLen    = 0;
 	wrap_template_attr->pValue        = NULL;
 
+	class->attributes = class_attr;
 	subject->attributes = subject_attr;
 	encrypt->attributes = encrypt_attr;
 	verify->attributes = verify_attr;
@@ -314,6 +328,7 @@ publ_key_add_default_attributes(struct template_list *tmpl_list)
 	trusted->attributes = trusted_attr;
 	wrap_template->attributes = wrap_template_attr;
 
+	template_update_attribute(tmpl_list, class);
 	template_update_attribute(tmpl_list, subject);
 	template_update_attribute(tmpl_list, encrypt);
 	template_update_attribute(tmpl_list, verify);
@@ -332,9 +347,11 @@ rsa_publ_add_default_attributes(struct template_list *tmpl_list)
 	CK_RV rc;
 	struct template_node *keygen_mech;
 	struct template_node *allowed_mech;
+	struct template_node *key_type;
 
 	CK_ATTRIBUTE   *keygen_mech_attr = NULL;
 	CK_ATTRIBUTE   *allowed_mech_attr = NULL;
+	CK_ATTRIBUTE   *key_type_attr = NULL;
 
 	rc = publ_key_add_default_attributes(tmpl_list);
 	if (rc != CKR_OK) {
@@ -342,19 +359,27 @@ rsa_publ_add_default_attributes(struct template_list *tmpl_list)
 		return rc;
 	}
 
+	key_type = (struct template_node *)malloc(sizeof(struct template_node));
 	keygen_mech = (struct template_node *)malloc(sizeof(struct template_node));
 	allowed_mech = (struct template_node *)malloc(sizeof(struct template_node));
 
 	keygen_mech_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
 	allowed_mech_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
 		+ sizeof(CK_MECHANISM_TYPE));
+	key_type_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
+		+ sizeof(CK_KEY_TYPE));
 
-	if (!keygen_mech || !allowed_mech || !keygen_mech_attr ||
-		!allowed_mech_attr) {
+	if (!key_type || !keygen_mech || !allowed_mech ||
+		!keygen_mech_attr || !allowed_mech_attr ||
+		!key_type_attr) {
+		if (key_type)
+			free(key_type);
 		if (keygen_mech)
 			free(keygen_mech);
 		if (allowed_mech)
 			free(allowed_mech);
+		if (key_type_attr)
+			free(key_type_attr);
 		if (keygen_mech_attr)
 			free(keygen_mech_attr);
 		if (allowed_mech_attr)
@@ -362,6 +387,11 @@ rsa_publ_add_default_attributes(struct template_list *tmpl_list)
 
 		return CKR_HOST_MEMORY;
 	}
+
+	key_type_attr->type = CKA_KEY_TYPE;
+	key_type_attr->ulValueLen = sizeof(CK_KEY_TYPE);
+	key_type_attr->pValue = (CK_BYTE *)key_type_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_KEY_TYPE *)key_type_attr->pValue = CKK_RSA;
 
 	keygen_mech_attr->type = CKA_KEY_GEN_MECHANISM;
 	keygen_mech_attr->ulValueLen = 0;
@@ -373,9 +403,11 @@ rsa_publ_add_default_attributes(struct template_list *tmpl_list)
 		+ sizeof(CK_ATTRIBUTE);
 	*(CK_MECHANISM_TYPE_PTR)allowed_mech_attr->pValue = CKM_RSA_PKCS;
 
+	key_type->attributes = key_type_attr;
 	keygen_mech->attributes = keygen_mech_attr;
 	allowed_mech->attributes = allowed_mech_attr;
 
+	template_update_attribute(tmpl_list, key_type);
 	template_update_attribute(tmpl_list, keygen_mech);
 	template_update_attribute(tmpl_list, allowed_mech);
 
@@ -455,6 +487,7 @@ template_add_default_common_attributes(struct template_list *tmpl_list)
 static CK_RV
 priv_key_add_default_attributes(struct template_list *tmpl_list)
 {
+	struct template_node *class;
 	struct template_node *subject;
 	struct template_node *sensitive;
 	struct template_node *decrypt;
@@ -468,6 +501,7 @@ priv_key_add_default_attributes(struct template_list *tmpl_list)
 	struct template_node *unwrap_templ;
 	struct template_node *always_auth;
 
+	CK_ATTRIBUTE *class_attr = NULL;
 	CK_ATTRIBUTE *subject_attr = NULL;
 	CK_ATTRIBUTE *sensitive_attr = NULL;
 	CK_ATTRIBUTE *decrypt_attr = NULL;
@@ -489,6 +523,7 @@ priv_key_add_default_attributes(struct template_list *tmpl_list)
 		return rc;
 	}
 
+	class = (struct template_node *)malloc(sizeof(struct template_node));
 	subject = (struct template_node *)malloc(sizeof(struct template_node));
 	sensitive = (struct template_node *)malloc(sizeof(struct template_node));
 	decrypt = (struct template_node *)malloc(sizeof(struct template_node));
@@ -502,31 +537,33 @@ priv_key_add_default_attributes(struct template_list *tmpl_list)
 	unwrap_templ = (struct template_node *)malloc(sizeof(struct template_node));
 	always_auth = (struct template_node *)malloc(sizeof(struct template_node));
 
-	/* add the default CKO_PUBLIC_KEY attributes*/
-	subject_attr = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE));
-	sensitive_attr = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
-	decrypt_attr = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
-	sign_attr = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
-	sign_recover_attr = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
-	unwrap_attr = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
-	extractable_attr = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
-	never_extr_attr = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
-	always_sens_attr = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
-	wrap_with_trusted_attr = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
-	unwrap_templ_attr = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE));
-	always_auth_attr = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	class_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_OBJECT_CLASS)) ;
+	subject_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
+	sensitive_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	decrypt_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	sign_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	sign_recover_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	unwrap_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	extractable_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	never_extr_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	always_sens_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	wrap_with_trusted_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	unwrap_templ_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
+	always_auth_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
 
-	if (!subject_attr || !sensitive_attr || !decrypt_attr ||
+	if (!class_attr || !subject_attr || !sensitive_attr || !decrypt_attr ||
 			!sign_attr  || !sign_recover_attr ||
 			!unwrap_attr    || !extractable_attr ||
 			!never_extr_attr || !always_sens_attr ||
-			!subject || !decrypt || !sensitive ||
+			!class || !subject || !decrypt || !sensitive ||
 			!sign || !sign_recover || !unwrap ||
 			!extractable || !never_extr || !always_sens ||
 			!wrap_with_trusted || !unwrap_templ ||
 			!always_auth|| !wrap_with_trusted_attr ||
 			!unwrap_templ_attr || !always_auth_attr)
 	{
+		if (class_attr)
+			free(class_attr);
 		if (subject_attr)
 			free(subject_attr);
 		if (sensitive_attr)
@@ -545,6 +582,8 @@ priv_key_add_default_attributes(struct template_list *tmpl_list)
 			free(always_sens_attr);
 		if (never_extr_attr)
 			free(never_extr_attr);
+		if (class)
+			free(class);
 		if (subject)
 			free(subject);
 		if (sensitive_attr)
@@ -578,6 +617,11 @@ priv_key_add_default_attributes(struct template_list *tmpl_list)
 
 		return CKR_HOST_MEMORY;
 	}
+
+	class_attr->type = CKA_CLASS;
+	class_attr->ulValueLen = sizeof(CK_OBJECT_CLASS);
+	class_attr->pValue = (CK_BYTE *)class_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_OBJECT_CLASS *)class_attr->pValue = CKO_PRIVATE_KEY;
 
 	subject_attr->type       = CKA_SUBJECT;
 	subject_attr->ulValueLen = 0;  // empty string
@@ -637,7 +681,7 @@ priv_key_add_default_attributes(struct template_list *tmpl_list)
 	always_auth_attr->pValue     = (CK_BYTE *)always_sens_attr + sizeof(CK_ATTRIBUTE);
 	*(CK_BBOOL *)always_sens_attr->pValue = FALSE;
 
-
+	class->attributes = class_attr;
 	subject->attributes = subject_attr;
 	sensitive->attributes = sensitive_attr;
 	decrypt->attributes = decrypt_attr;
@@ -651,6 +695,7 @@ priv_key_add_default_attributes(struct template_list *tmpl_list)
 	unwrap_templ->attributes = unwrap_templ_attr;
 	always_auth->attributes = always_auth_attr;
 
+	template_update_attribute(tmpl_list, class);
 	template_update_attribute(tmpl_list, subject);
 	template_update_attribute(tmpl_list, sensitive);
 	template_update_attribute(tmpl_list, decrypt);
@@ -674,9 +719,11 @@ rsa_priv_add_default_attributes(struct template_list *tmpl_list)
 	CK_RV rc;
 	struct template_node *keygen_mech;
 	struct template_node *allowed_mech;
+	struct template_node *key_type;
 
 	CK_ATTRIBUTE   *keygen_mech_attr = NULL;
 	CK_ATTRIBUTE   *allowed_mech_attr = NULL;
+	CK_ATTRIBUTE   *key_type_attr = NULL;
 
 	rc = priv_key_add_default_attributes(tmpl_list);
 	if (rc != CKR_OK) {
@@ -684,15 +731,21 @@ rsa_priv_add_default_attributes(struct template_list *tmpl_list)
 		return rc;
 	}
 
+	key_type = (struct template_node *)malloc(sizeof(struct template_node));
 	keygen_mech = (struct template_node *)malloc(sizeof(struct template_node));
 	allowed_mech = (struct template_node *)malloc(sizeof(struct template_node));
 
+	key_type_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
+		+ sizeof(CK_KEY_TYPE));
 	keygen_mech_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
 	allowed_mech_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
 		+ sizeof(CK_MECHANISM_TYPE));
 
-	if (!keygen_mech || !allowed_mech || !keygen_mech_attr ||
-		!allowed_mech_attr) {
+	if (!key_type || !keygen_mech || !allowed_mech ||
+		!keygen_mech_attr || !allowed_mech_attr ||
+		!key_type_attr) {
+		if (key_type)
+			free(key_type);
 		if (keygen_mech)
 			free(keygen_mech);
 		if (allowed_mech)
@@ -701,9 +754,16 @@ rsa_priv_add_default_attributes(struct template_list *tmpl_list)
 			free(keygen_mech_attr);
 		if (allowed_mech_attr)
 			free(allowed_mech_attr);
+		if (key_type_attr)
+			free(key_type_attr);
 
 		return CKR_HOST_MEMORY;
 	}
+
+	key_type_attr->type = CKA_KEY_TYPE;
+	key_type_attr->ulValueLen = sizeof(CK_KEY_TYPE);
+	key_type_attr->pValue = (CK_BYTE *)key_type_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_KEY_TYPE *)key_type_attr->pValue = CKK_RSA;
 
 	keygen_mech_attr->type = CKA_KEY_GEN_MECHANISM;
 	keygen_mech_attr->ulValueLen = 0;
@@ -715,9 +775,11 @@ rsa_priv_add_default_attributes(struct template_list *tmpl_list)
 		+ sizeof(CK_ATTRIBUTE);
 	*(CK_MECHANISM_TYPE_PTR)allowed_mech_attr->pValue = CKM_RSA_PKCS;
 
+	key_type->attributes = key_type_attr;
 	keygen_mech->attributes = keygen_mech_attr;
 	allowed_mech->attributes = allowed_mech_attr;
 
+	template_update_attribute(tmpl_list, key_type);
 	template_update_attribute(tmpl_list, keygen_mech);
 	template_update_attribute(tmpl_list, allowed_mech);
 
@@ -825,7 +887,6 @@ static CK_BBOOL template_has_attribute(struct template_list *tmpl_list,
 
 	STAILQ_FOREACH(temp, tmpl_list, entry) {
 		a = (CK_ATTRIBUTE *)temp->attributes;
-
 		if (type == a->type) {
 			*attr = a;
 			return TRUE;
@@ -1141,13 +1202,13 @@ CK_RV find_matching_objects(CK_OBJECT_HANDLE_PTR object_handle,
 			ret = template_compare(pTemplate, ulCount,
 				&temp->object.template_list);
 			if (ret == TRUE) {
-				object_handle[i] = temp->object.obj_handle;
+				object_handle[i] = (CK_OBJECT_HANDLE)temp;
 				i++;
 			}
 		}
 	} else {
 		STAILQ_FOREACH(temp, obj_list, entry) {
-			object_handle[i] = temp->object.obj_handle;
+			object_handle[i] = (CK_OBJECT_HANDLE)temp;
 			i++;
 		}
 	}
@@ -1165,7 +1226,7 @@ struct object_list *get_object_list(CK_SLOT_ID slotID)
 	return &ginfo->obj_list;
 }
 
-struct object_node *get_object_node(CK_OBJECT_HANDLE hObject,
+CK_BBOOL is_object_handle_valid(CK_OBJECT_HANDLE hObject,
 		CK_SLOT_ID slotID)
 {
 	struct object_list *obj_list;
@@ -1174,11 +1235,11 @@ struct object_node *get_object_node(CK_OBJECT_HANDLE hObject,
 	obj_list = get_object_list(slotID);
 
 	STAILQ_FOREACH(temp, obj_list, entry) {
-		if (temp->object.obj_handle == hObject)
-			return temp;
+		if ((CK_OBJECT_HANDLE)temp == hObject)
+			return TRUE;
 	}
 
-	return NULL;
+	return FALSE;
 }
 
 CK_RV get_attribute_value(struct object_node *obj,
@@ -1191,8 +1252,8 @@ CK_RV get_attribute_value(struct object_node *obj,
 	CK_BBOOL flag;
 	struct template_list *obj_tmpl;
 
-	obj_tmpl = &obj->object.template_list;;
-	
+	obj_tmpl = &obj->object.template_list;
+
 	for (i = 0; i < ulCount; i++) {
 		flag = attributes_check_exportability(obj_tmpl, pTemplate[i].type);
 		if (flag == FALSE) {
@@ -1254,54 +1315,62 @@ CK_RV destroy_object_list(CK_SLOT_ID slotID)
 	return CKR_OK;
 }
 
-#define SK_ATTR_COUNT	7
+#define OBJ_SK_ATTR_COUNT	2
+#define RSA_PUB_SK_ATTR_COUNT	5
+#define RSA_PRIV_SK_ATTR_COUNT	4
 
-SK_ATTRIBUTE_TYPE attr_type[SK_ATTR_COUNT] = {
+SK_ATTRIBUTE_TYPE rsa_pub_attr_type[RSA_PUB_SK_ATTR_COUNT] = {
 	SK_ATTR_LABEL,
 	SK_ATTR_OBJECT_INDEX,
-	SK_ATTR_OBJECT_TYPE,
-	SK_ATTR_KEY_TYPE,
-	SK_ATTR_MODULUS_BITS,
+	SK_ATTR_MODULUS,
+	SK_ATTR_PUBLIC_EXPONENT,
+	SK_ATTR_MODULUS_BITS
+};
+
+SK_ATTRIBUTE_TYPE rsa_priv_attr_type[RSA_PRIV_SK_ATTR_COUNT] = {
+	SK_ATTR_LABEL,
+	SK_ATTR_OBJECT_INDEX,
 	SK_ATTR_MODULUS,
 	SK_ATTR_PUBLIC_EXPONENT
 };
 
-static CK_RV object_add_template(OBJECT *obj)
+static CK_RV object_add_template(OBJECT *obj,
+		SK_ATTRIBUTE_TYPE *sk_attr_type, uint32_t attrCount)
 {
-	SK_ATTRIBUTE temp_sk_attr[SK_ATTR_COUNT], *sk_attr;
+	SK_ATTRIBUTE temp_sk_attr[attrCount], *sk_attr;
 	CK_ATTRIBUTE_PTR ck_attr;
 	SK_RET_CODE ret;
 	uint32_t i = 0;
-	CK_OBJECT_CLASS class = 0;
-	CK_ULONG subclass = 0;
 	CK_RV rc;
 
-	memset(temp_sk_attr, 0, sizeof(SK_ATTRIBUTE) *
-		SK_ATTR_COUNT);
-	for (i = 0; i < SK_ATTR_COUNT; i ++)
-		temp_sk_attr[i].type = attr_type[i];
+	memset(temp_sk_attr, 0, sizeof(SK_ATTRIBUTE) * attrCount);
+	for (i = 0; i < attrCount; i++)
+		temp_sk_attr[i].type = sk_attr_type[i];
 
 	ret = sk_funcs->SK_GetObjectAttribute(obj->obj_handle,
-			temp_sk_attr, SK_ATTR_COUNT);
+			temp_sk_attr, attrCount);
 	if (ret != SKR_OK) {
-		printf("%s, %d SK_GetObjectAttribute failed\n",
-			__func__, __LINE__);
+		printf("%s, %d SK_GetObjectAttribute failed %x\n",
+			__func__, __LINE__, ret);
 		return CKR_GENERAL_ERROR;
 	}
 
-	for (i = 0; i < SK_ATTR_COUNT; i++) {
+	for (i = 0; i < attrCount; i++) {
+		if ((int16_t)temp_sk_attr[i].valueLen == -1)
+			continue;
+
 		sk_attr = (SK_ATTRIBUTE *)malloc(sizeof(SK_ATTRIBUTE) +
 			temp_sk_attr[i].valueLen);
 
-		sk_attr->type = attr_type[i];
+		sk_attr->type = temp_sk_attr[i].type;
 		sk_attr->value = sk_attr + sizeof(SK_ATTRIBUTE);
 		sk_attr->valueLen = temp_sk_attr[i].valueLen;
 
 		ret = sk_funcs->SK_GetObjectAttribute(obj->obj_handle,
 			sk_attr, 1);
 		if (ret != SKR_OK) {
-			printf("%s, %d SK_GetObjectAttribute failed\n",
-				__func__, __LINE__);
+			printf("%s, %d SK_GetObjectAttribute failed with error code = %x\n",
+				__func__, __LINE__, ret);
 			free(sk_attr);
 			return CKR_GENERAL_ERROR;
 		}
@@ -1322,20 +1391,71 @@ static CK_RV object_add_template(OBJECT *obj)
 		free(ck_attr);
 	}
 
-	template_get_class(&obj->template_list, &class, &subclass);
+	return CKR_OK;
+}
 
-	obj->obj_class = class;
-	obj->obj_subclass = subclass;
+static CK_RV create_rsa_pub_key_object(SK_OBJECT_HANDLE hObject,
+			struct object_node **rsa_pub_key)
+{
+	struct object_node *pub_key;
+	CK_RV rc;
 
+	pub_key = (struct object_node *)malloc(sizeof(struct object_node));
+	if (!pub_key) {
+		printf("pub_key object node malloc failed\n");
+		return CKR_HOST_MEMORY;
+	}
+
+	pub_key->object.obj_handle = hObject;
+
+	rc = object_add_template(&pub_key->object, rsa_pub_attr_type,
+				RSA_PUB_SK_ATTR_COUNT);
+	if (rc != CKR_OK) {
+		printf("object_add_template failed\n");
+		free(pub_key);
+		return rc;
+	}
+
+	*rsa_pub_key = pub_key;
+	return CKR_OK;
+}
+
+static CK_RV create_rsa_priv_key_object(SK_OBJECT_HANDLE hObject,
+			struct object_node **rsa_priv_key)
+{
+	struct object_node *priv_key;
+	CK_RV rc;
+
+	priv_key = (struct object_node *)malloc(sizeof(struct object_node));
+	if (!priv_key) {
+		printf("%s, %d, priv_key object node malloc failed\n",
+			__func__, __LINE__);
+		return CKR_HOST_MEMORY;
+	}
+
+	priv_key->object.obj_handle = hObject;
+
+	rc = object_add_template(&priv_key->object, rsa_priv_attr_type,
+				RSA_PRIV_SK_ATTR_COUNT);
+	if (rc != CKR_OK) {
+		printf("template_add_attributes failed\n");
+		free(priv_key);
+		return rc;
+	}
+
+	*rsa_priv_key = priv_key;
 	return CKR_OK;
 }
 
 CK_RV get_all_token_objects(struct object_list *obj_list)
 {
 	uint32_t obj_count, max_obj_count = 50, j = 0;
+	SK_ATTRIBUTE temp_sk_attr[OBJ_SK_ATTR_COUNT];
 	SK_RET_CODE ret;
 	SK_OBJECT_HANDLE objs[max_obj_count];
-	struct object_node *object;
+	SK_KEY_TYPE key_type;
+	SK_OBJECT_TYPE obj_type;
+
 	CK_RV rc;
 
 	ret = sk_funcs->SK_EnumerateObjects(NULL, 0, objs,
@@ -1349,25 +1469,101 @@ CK_RV get_all_token_objects(struct object_list *obj_list)
 		__func__, __LINE__, obj_count);
 
 	for (j = 0; j < obj_count; j++) {
-		object = (struct object_node *)malloc(sizeof(struct object_node));
-		if (!object)
-			return CKR_HOST_MEMORY;
+		memset(temp_sk_attr, 0, sizeof(SK_ATTRIBUTE) *
+			OBJ_SK_ATTR_COUNT);
 
-		object->object.obj_handle = (CK_OBJECT_HANDLE)objs[j];
+		temp_sk_attr[0].type = SK_ATTR_OBJECT_TYPE;
+		temp_sk_attr[0].value = &obj_type;
+		temp_sk_attr[0].valueLen = sizeof(SK_OBJECT_TYPE);
 
-		rc = object_add_template(&object->object);
-		if (rc != CKR_OK) {
-			printf("template_add_attributes failed\n");
-			return rc;
+		temp_sk_attr[1].type = SK_ATTR_KEY_TYPE;
+		temp_sk_attr[1].value = &key_type;
+		temp_sk_attr[1].valueLen = sizeof(SK_KEY_TYPE);
+
+		ret = sk_funcs->SK_GetObjectAttribute(objs[j],
+			temp_sk_attr, OBJ_SK_ATTR_COUNT);
+		if (ret != SKR_OK) {
+			printf("%s, %d SK_GetObjectAttribute failed\n",
+				__func__, __LINE__);
+			return CKR_GENERAL_ERROR;
 		}
 
-		rc = template_add_default_attributes(&object->object);
-		if (rc != CKR_OK) {
-			printf("template_add_default_attributes failed\n");
-			return rc;
-		}
+		switch (obj_type) {
+			case SK_KEY_PAIR:
+				switch (key_type) {
+					case SKK_RSA:
+					{
+						struct object_node *rsa_pub_key, *rsa_priv_key;
 
-		STAILQ_INSERT_HEAD(obj_list, object, entry);
+						rc = create_rsa_pub_key_object(objs[j], &rsa_pub_key);
+						if (rc != CKR_OK) {
+							printf("create_rsa_pub_key_object object node malloc failed\n");
+							return rc;
+						}
+
+						rsa_pub_key->object.obj_class = CKO_PUBLIC_KEY;
+						rsa_pub_key->object.obj_subclass = CKK_RSA;
+
+						rc = template_add_default_attributes(&rsa_pub_key->object);
+						if (rc != CKR_OK) {
+							printf("template_add_default_attributes failed\n");
+							return rc;
+						}
+
+						STAILQ_INSERT_HEAD(obj_list, rsa_pub_key, entry);
+
+						rc = create_rsa_priv_key_object(objs[j], &rsa_priv_key);
+						if (rc != CKR_OK) {
+							printf("create_rsa_priv_key_object object node malloc failed\n");
+							return rc;
+						}
+
+						rsa_priv_key->object.obj_class = CKO_PRIVATE_KEY;
+						rsa_priv_key->object.obj_subclass = CKK_RSA;
+
+						rc = template_add_default_attributes(&rsa_priv_key->object);
+						if (rc != CKR_OK) {
+							printf("template_add_default_attributes failed\n");
+							return rc;
+						}
+						STAILQ_INSERT_HEAD(obj_list, rsa_priv_key, entry);
+					}
+					break;
+					default:
+						return CKR_GENERAL_ERROR;
+				}
+			break;
+			case SK_PUBLIC_KEY:
+				switch (key_type) {
+					case SKK_RSA:
+					{
+						struct object_node *pub_key;
+
+						rc = create_rsa_pub_key_object(objs[j], &pub_key);
+						if (rc != CKR_OK) {
+							printf("create_rsa_pub_key_object object node malloc failed\n");
+							return rc;
+						}
+
+						pub_key->object.obj_class = CKO_PUBLIC_KEY;
+						pub_key->object.obj_subclass = CKK_RSA;
+
+						rc = template_add_default_attributes(&pub_key->object);
+						if (rc != CKR_OK) {
+							printf("template_add_default_attributes failed\n");
+							return rc;
+						}
+
+						STAILQ_INSERT_HEAD(obj_list, pub_key, entry);
+					}
+					break;
+					default:
+						return CKR_ARGUMENTS_BAD;
+				}
+			break;
+			default:
+				return CKR_ARGUMENTS_BAD;
+		}
 	}
 
 	return CKR_OK;

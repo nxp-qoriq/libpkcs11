@@ -580,7 +580,7 @@ CK_RV do_FindObjects(void)
 	CK_KEY_TYPE key_type;
 	CK_ULONG modulus_bits;
 
-	obj_type = CKO_PRIVATE_KEY;
+	obj_type = CKO_PUBLIC_KEY;
 	key_type = CKK_RSA;
 
 	ck_attr[0].type = CKA_CLASS;
@@ -625,7 +625,7 @@ CK_RV do_FindObjects(void)
 	ck_attr[0].pValue = NULL;
 	ck_attr[0].ulValueLen = 0;
 
-	ck_attr[1].type = CKA_PUBLIC_EXPONENT;
+	ck_attr[1].type = CKA_MODULUS_BITS;
 	ck_attr[1].pValue = NULL;
 	ck_attr[1].ulValueLen = 0;
 

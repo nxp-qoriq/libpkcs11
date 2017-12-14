@@ -24,7 +24,7 @@ STAILQ_HEAD(object_list, object_node);
 
 struct object_list *get_object_list(CK_SLOT_ID slotID);
 
-struct object_node *get_object_node(CK_OBJECT_HANDLE hObject,
+CK_BBOOL is_object_handle_valid(CK_OBJECT_HANDLE hObject,
 		CK_SLOT_ID slotID);
 
 CK_RV get_all_token_objects(struct object_list *obj_list);

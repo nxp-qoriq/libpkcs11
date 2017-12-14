@@ -63,6 +63,7 @@ CK_RV C_GetAttributeValue(CK_SESSION_HANDLE hSession,
 {
 	session *sess = NULL;
  	struct object_node *obj_node;
+	CK_BBOOL is_obj_handle_valid;
  
 	if (!is_lib_initialized())
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -77,9 +78,12 @@ CK_RV C_GetAttributeValue(CK_SESSION_HANDLE hSession,
 	if (!sess)
 		return CKR_SESSION_HANDLE_INVALID;
 
-	obj_node = get_object_node(hObject, sess->session_info.slotID);
-	if (!obj_node)
+	is_obj_handle_valid = is_object_handle_valid(hObject,
+		sess->session_info.slotID);
+	if (!is_obj_handle_valid)
 		return CKR_OBJECT_HANDLE_INVALID;
+
+	obj_node = (struct object_node *)hObject;
 
 	return get_attribute_value(obj_node, pTemplate, ulCount);
 }
