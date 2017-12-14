@@ -10,7 +10,7 @@ CK_RV Get_TEE_MechanismList(CK_MECHANISM_TYPE_PTR pMechanismList,
 CK_RV Get_TEE_MechanismInfo(CK_MECHANISM_TYPE type,
 			CK_MECHANISM_INFO_PTR pInfo);
 
-#define MAX_MECHANISM_COUNT	1
+#define MAX_MECHANISM_COUNT	7
 
 struct mechanisms {
 	CK_MECHANISM_TYPE algo ;
@@ -20,6 +20,54 @@ struct mechanisms {
 struct mechanisms tee_mechanisms[MAX_MECHANISM_COUNT] = {
 {
 	.algo =     CKM_RSA_PKCS,
+	.info = {
+		.ulMinKeySize = 512,
+		.ulMaxKeySize = 2048,
+		.flags = CKF_SIGN
+	}
+},
+{
+	.algo =     CKM_MD5_RSA_PKCS,
+	.info = {
+		.ulMinKeySize = 512,
+		.ulMaxKeySize = 2048,
+		.flags = CKF_SIGN
+	}
+},
+{
+	.algo =     CKM_SHA1_RSA_PKCS,
+	.info = {
+		.ulMinKeySize = 512,
+		.ulMaxKeySize = 2048,
+		.flags = CKF_SIGN
+	}
+},
+{
+	.algo =     CKM_SHA224_RSA_PKCS,
+	.info = {
+		.ulMinKeySize = 512,
+		.ulMaxKeySize = 2048,
+		.flags = CKF_SIGN
+	}
+},
+{
+	.algo =     CKM_SHA256_RSA_PKCS,
+	.info = {
+		.ulMinKeySize = 512,
+		.ulMaxKeySize = 2048,
+		.flags = CKF_SIGN
+	}
+},
+{
+	.algo =     CKM_SHA384_RSA_PKCS,
+	.info = {
+		.ulMinKeySize = 512,
+		.ulMaxKeySize = 2048,
+		.flags = CKF_SIGN
+	}
+},
+{
+	.algo =     CKM_SHA512_RSA_PKCS,
 	.info = {
 		.ulMinKeySize = 512,
 		.ulMaxKeySize = 2048,
@@ -84,12 +132,15 @@ CK_RV Get_TEE_MechanismList(CK_MECHANISM_TYPE_PTR pMechanismList,
 			 CK_ULONG_PTR pulCount)
 {
 	unsigned int i;
-
-	if ((sizeof(pMechanismList) / sizeof(CK_MECHANISM_TYPE)) < MAX_MECHANISM_COUNT)
-		return CKR_BUFFER_TOO_SMALL;
+	CK_RV rc = CKR_OK;
 
 	if (pMechanismList == NULL)
 		goto end;
+
+	if (*pulCount < MAX_MECHANISM_COUNT) {
+		rc =  CKR_BUFFER_TOO_SMALL;
+		goto end;
+	}
 
 	for (i = 0; i < MAX_MECHANISM_COUNT; i++) {
 		pMechanismList[i] = tee_mechanisms[i].algo;
@@ -97,7 +148,7 @@ CK_RV Get_TEE_MechanismList(CK_MECHANISM_TYPE_PTR pMechanismList,
 
 end:
 	*pulCount = MAX_MECHANISM_COUNT;
-	return CKR_OK;
+	return rc;
 }
 
 CK_RV Get_TEE_MechanismInfo(CK_MECHANISM_TYPE type,

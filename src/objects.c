@@ -345,6 +345,7 @@ static CK_RV
 rsa_publ_add_default_attributes(struct template_list *tmpl_list)
 {
 	CK_RV rc;
+
 	struct template_node *keygen_mech;
 	struct template_node *allowed_mech;
 	struct template_node *key_type;
@@ -364,8 +365,7 @@ rsa_publ_add_default_attributes(struct template_list *tmpl_list)
 	allowed_mech = (struct template_node *)malloc(sizeof(struct template_node));
 
 	keygen_mech_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
-	allowed_mech_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
-		+ sizeof(CK_MECHANISM_TYPE));
+	allowed_mech_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
 	key_type_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
 		+ sizeof(CK_KEY_TYPE));
 
@@ -398,10 +398,8 @@ rsa_publ_add_default_attributes(struct template_list *tmpl_list)
 	keygen_mech_attr->pValue = NULL;
 
 	allowed_mech_attr->type = CKA_ALLOWED_MECHANISMS;
-	allowed_mech_attr->ulValueLen = 1;
-	allowed_mech_attr->pValue = (CK_MECHANISM_TYPE_PTR)allowed_mech_attr
-		+ sizeof(CK_ATTRIBUTE);
-	*(CK_MECHANISM_TYPE_PTR)allowed_mech_attr->pValue = CKM_RSA_PKCS;
+	allowed_mech_attr->ulValueLen = 0;
+	allowed_mech_attr->pValue = NULL;
 
 	key_type->attributes = key_type_attr;
 	keygen_mech->attributes = keygen_mech_attr;
@@ -717,6 +715,9 @@ static CK_RV
 rsa_priv_add_default_attributes(struct template_list *tmpl_list)
 {
 	CK_RV rc;
+	uint32_t rsa_priv_key_mech_count = 7;
+	CK_MECHANISM_TYPE_PTR mech;
+
 	struct template_node *keygen_mech;
 	struct template_node *allowed_mech;
 	struct template_node *key_type;
@@ -739,7 +740,7 @@ rsa_priv_add_default_attributes(struct template_list *tmpl_list)
 		+ sizeof(CK_KEY_TYPE));
 	keygen_mech_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
 	allowed_mech_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
-		+ sizeof(CK_MECHANISM_TYPE));
+		+ (sizeof(CK_MECHANISM_TYPE) * rsa_priv_key_mech_count));
 
 	if (!key_type || !keygen_mech || !allowed_mech ||
 		!keygen_mech_attr || !allowed_mech_attr ||
@@ -770,10 +771,18 @@ rsa_priv_add_default_attributes(struct template_list *tmpl_list)
 	keygen_mech_attr->pValue = NULL;
 
 	allowed_mech_attr->type = CKA_ALLOWED_MECHANISMS;
-	allowed_mech_attr->ulValueLen = 1;
+	allowed_mech_attr->ulValueLen = rsa_priv_key_mech_count;
 	allowed_mech_attr->pValue = (CK_MECHANISM_TYPE_PTR)allowed_mech_attr
 		+ sizeof(CK_ATTRIBUTE);
-	*(CK_MECHANISM_TYPE_PTR)allowed_mech_attr->pValue = CKM_RSA_PKCS;
+	mech = (CK_MECHANISM_TYPE_PTR)allowed_mech_attr->pValue;
+
+	mech[0] = CKM_RSA_PKCS;
+	mech[1] = CKM_MD5_RSA_PKCS;
+	mech[2] = CKM_SHA1_RSA_PKCS;
+	mech[3] = CKM_SHA224_RSA_PKCS;
+	mech[4] = CKM_SHA256_RSA_PKCS;
+	mech[5] = CKM_SHA384_RSA_PKCS;
+	mech[6] = CKM_SHA512_RSA_PKCS;
 
 	key_type->attributes = key_type_attr;
 	keygen_mech->attributes = keygen_mech_attr;
@@ -1406,6 +1415,7 @@ static CK_RV create_rsa_pub_key_object(SK_OBJECT_HANDLE hObject,
 		return CKR_HOST_MEMORY;
 	}
 
+	memset(pub_key, 0, sizeof(struct object_node));
 	pub_key->object.obj_handle = hObject;
 
 	rc = object_add_template(&pub_key->object, rsa_pub_attr_type,
@@ -1434,6 +1444,7 @@ static CK_RV create_rsa_priv_key_object(SK_OBJECT_HANDLE hObject,
 	}
 
 	priv_key->object.obj_handle = hObject;
+	memset(priv_key, 0, sizeof(struct object_node));
 
 	rc = object_add_template(&priv_key->object, rsa_priv_attr_type,
 				RSA_PRIV_SK_ATTR_COUNT);

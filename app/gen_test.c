@@ -282,18 +282,19 @@ CK_RV do_GetMechanismList(void)
 	 */
 
 	rc = funcs->C_GetMechanismList(slot_id, NULL, &count);
-	if (rc != CKR_OK) {
+	if (rc != CKR_OK)
 		printf("C_GetMechanismList 1 rc=%s\n",p11_get_ckr(rc));
-		return rc;
-	}
+	else
+		printf("C_GetMechanismList 1 returned %lu mechanisms\n", count);
 
-	if (count == 1)
+	if (count == 7)
 		printf("C_GetMechanismList returned correct mechanism count.\n");
 	else
 		printf("C_GetMechanismList did not not return correct"
 			      "mechanism count.\n");
 
-	mech_list = (CK_MECHANISM_TYPE *)malloc( count * sizeof(CK_MECHANISM_TYPE) );
+	mech_list = (CK_MECHANISM_TYPE *)malloc(count *
+		sizeof(CK_MECHANISM_TYPE));
 	if (!mech_list) {
 		printf("malloc failed for mechanism list\n");
 		rc = CKR_HOST_MEMORY;
@@ -338,12 +339,13 @@ CK_RV do_GetMechanismInfo(void)
 	printf("\nTesting C_GetMechanismInfo\n");
 
 	rc = funcs->C_GetMechanismList(slot_id, NULL, &count);
-	if (rc != CKR_OK) {
-		printf("C_GetMechanismList #1 rc=%s\n", p11_get_ckr(rc));
-		return rc;
-	}
+	if (rc != CKR_OK)
+		printf("C_GetMechanismList 1 rc=%s\n",p11_get_ckr(rc));
+	else
+		printf("C_GetMechanismList 1 returned %lu mechanisms\n", count);
 
-	mech_list = (CK_MECHANISM_TYPE *)malloc(count * sizeof(CK_MECHANISM_TYPE));
+	mech_list = (CK_MECHANISM_TYPE *)malloc(count *
+		sizeof(CK_MECHANISM_TYPE));
 	if (!mech_list) {
 		printf("malloc failed for mechanism list\n");
 		rc = CKR_HOST_MEMORY;
@@ -356,7 +358,7 @@ CK_RV do_GetMechanismInfo(void)
 		goto cleanup;
 	}
 
-	if (count == 1)
+	if (count == 7)
 		printf("C_GetMechanismList returned correct mechanism count.\n");
 	else
 		printf("C_GetMechanismList did not not return correct"
