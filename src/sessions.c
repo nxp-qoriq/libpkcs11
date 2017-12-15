@@ -7,27 +7,48 @@
 #include <cryptoki.h>
 #include <sessions.h>
 
-struct session_node {
-	session sess;
-	STAILQ_ENTRY(session_node) entry;
-};
-
-STAILQ_HEAD(sess_list, session_node);
-struct sess_list session_list;
-
-struct slot_info g_slot_info[SLOT_COUNT];
+static struct slot_info g_slot_info[SLOT_COUNT];
 
 struct slot_info *get_global_slot_info(CK_SLOT_ID slotID)
 {
 	return &g_slot_info[slotID];
 }
 
+struct session_list *get_session_list(CK_SLOT_ID slotID)
+{
+	struct slot_info *ginfo;
+
+	if (slotID >= SLOT_COUNT)
+		return NULL;
+
+	ginfo = get_global_slot_info(slotID);
+
+	return &ginfo->sess_list;
+}
+
+CK_RV initialize_session_list(CK_SLOT_ID slotID)
+{
+	struct session_list *sess_list;
+	sess_list = get_session_list(slotID);
+	if (!sess_list)
+		return CKR_ARGUMENTS_BAD;
+
+	STAILQ_INIT(sess_list);
+	return CKR_OK;
+}
+
 CK_BBOOL is_session_valid(CK_SESSION_HANDLE hSession)
 {
 	CK_BBOOL ret = CK_FALSE;
-	struct session_node *temp;
+	struct session_node *temp, *sess;
+	struct session_list *sess_list;
 
-	STAILQ_FOREACH(temp, &session_list, entry) {
+	sess = (struct session_node *)hSession;
+	sess_list= get_session_list(sess->sess.session_info.slotID);
+	if (!sess_list)
+		return ret;
+
+	STAILQ_FOREACH(temp, sess_list, entry) {
 		if ((CK_SESSION_HANDLE)temp == hSession) {
 			ret = CK_TRUE;
 			break;
@@ -51,11 +72,18 @@ session *get_session(CK_SESSION_HANDLE hSession)
 CK_RV create_session(CK_SLOT_ID slotID,  CK_FLAGS flags,
 		CK_SESSION_HANDLE_PTR phSession)
 {
-	struct session_node *s = (struct session_node *)malloc(sizeof(struct session_node));
+	struct session_node *s;
+	struct session_list *sess_list;
+
+	s = (struct session_node *)malloc(sizeof(struct session_node));
 	if (s == NULL) {
 		printf("session_node malloc failed\n");
 		return CKR_HOST_MEMORY;
 	}
+
+	sess_list = get_session_list(slotID);
+	if (!sess_list)
+		return CKR_ARGUMENTS_BAD;
 
 	memset(s, 0, sizeof(struct session_node));
 
@@ -64,7 +92,7 @@ CK_RV create_session(CK_SLOT_ID slotID,  CK_FLAGS flags,
 	s->sess.session_info.state = CKS_RO_PUBLIC_SESSION;
 	s->sess.session_info.ulDeviceError= 0;
 
-	STAILQ_INSERT_HEAD(&session_list, s, entry);
+	STAILQ_INSERT_HEAD(sess_list, s, entry);
 
 	*phSession = (CK_SESSION_HANDLE)s;
 
@@ -74,26 +102,31 @@ CK_RV create_session(CK_SLOT_ID slotID,  CK_FLAGS flags,
 CK_RV delete_session(CK_SESSION_HANDLE hSession)
 {
 	struct session_node *s;
+	struct session_list *sess_list;
 
 	s = (struct session_node *)hSession;
+	sess_list = get_session_list(s->sess.session_info.slotID);
+	if (!sess_list)
+		return CKR_ARGUMENTS_BAD;
 
-	STAILQ_REMOVE(&session_list, s, session_node, entry);
+	STAILQ_REMOVE(sess_list, s, session_node, entry);
 	free(s);
 
 	return CKR_OK;
 }
 
-CK_RV delete_all_session(CK_SLOT_ID slotID)
+CK_RV destroy_session_list(CK_SLOT_ID slotID)
 {
-	struct session_node *temp, *s = NULL;
+	struct session_node *temp;
+	struct session_list *sess_list;
 
-	STAILQ_FOREACH(temp, &session_list, entry) {
-		if (temp->sess.session_info.slotID == slotID) {
-			s =  temp;
-			STAILQ_REMOVE(&session_list, s,
-				session_node, entry);
-			free(s);
-		}
+	sess_list = get_session_list(slotID);
+	if (!sess_list)
+		return CKR_ARGUMENTS_BAD;
+
+	STAILQ_FOREACH(temp, sess_list, entry) {
+		STAILQ_REMOVE(sess_list, temp, session_node, entry);
+		free(temp);
 	}
 
 	return CKR_OK;

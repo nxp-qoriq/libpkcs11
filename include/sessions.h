@@ -20,10 +20,24 @@ typedef struct _session {
 /* The number of supported slots */
 #define SLOT_COUNT 1
 
+struct session_node {
+	session sess;
+	STAILQ_ENTRY(session_node) entry;
+};
+
+STAILQ_HEAD(session_list, session_node);
+
 struct slot_info {
 	CK_SLOT_ID 	slot_id;
 	struct object_list	obj_list;
+	struct session_list	sess_list;
 };
+
+CK_RV initialize_session_list(CK_SLOT_ID slotID);
+
+CK_RV destroy_session_list(CK_SLOT_ID slotID);
+
+struct session_list *get_session_list(CK_SLOT_ID slotID);
 
 session *get_session(CK_SESSION_HANDLE hSession);
 
@@ -33,8 +47,6 @@ CK_RV create_session(CK_SLOT_ID slotID,  CK_FLAGS flags,
 		CK_SESSION_HANDLE_PTR phSession);
 
 CK_RV delete_session(CK_SESSION_HANDLE hSession);
-
-CK_RV delete_all_session(CK_SLOT_ID slotID);
 
 CK_RV get_session_info(CK_SESSION_HANDLE hSession,
 		CK_SESSION_INFO_PTR pInfo);

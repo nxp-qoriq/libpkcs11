@@ -6,6 +6,7 @@
 #include <dlfcn.h>
 #include <tee_slot.h>
 #include <objects.h>
+#include <sessions.h>
 
 #include <securekey_api.h>
 #include <securekey_api_types.h>
@@ -100,6 +101,9 @@ CK_RV C_Initialize(CK_VOID_PTR pInitArgs)
 	if (initialize_object_list(TEE_SLOT_ID) != CKR_OK)
 		return CKR_GENERAL_ERROR;
 
+	if (initialize_session_list(TEE_SLOT_ID) != CKR_OK)
+		return CKR_GENERAL_ERROR;
+
 	return CKR_OK;
 }
 
@@ -112,7 +116,11 @@ CK_RV C_Finalize(CK_VOID_PTR pReserved)
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 
 	/* This need to be updated when we will add more slots */
-	destroy_object_list(TEE_SLOT_ID);
+	if (destroy_object_list(TEE_SLOT_ID) != CKR_OK)
+		return CKR_GENERAL_ERROR;
+
+	if (destroy_session_list(TEE_SLOT_ID) != CKR_OK)
+		return CKR_GENERAL_ERROR;
 
 	pkcs_lib_finish();
  

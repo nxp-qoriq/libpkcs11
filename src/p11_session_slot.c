@@ -232,9 +232,9 @@ CK_RV C_CloseAllSessions(CK_SLOT_ID slotID)
 	if (!is_lib_initialized())
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 
-	ret = delete_all_session(slotID);
+	ret = destroy_session_list(slotID);
 	if (ret != CKR_OK)
-		printf("delete_all_session failed\n");
+		printf("destroy_session_list failed\n");
 
 	return ret;
 }
