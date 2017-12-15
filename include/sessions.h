@@ -47,4 +47,6 @@ CK_RV get_session_info(CK_SESSION_HANDLE hSession,
 
 struct slot_info *get_global_slot_info(CK_SLOT_ID slotID);
 
+struct SK_FUNCTION_LIST *get_slot_function_list(CK_SLOT_ID slotID);
+
 #endif

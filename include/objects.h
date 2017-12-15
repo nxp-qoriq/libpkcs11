@@ -22,6 +22,8 @@ typedef struct object{
 	CK_ULONG		obj_subclass;
 	/* List containing the templates associated with this object */
 	struct template_list	template_list;
+	/* Token/Slot ID with which this object is associated */
+	CK_SLOT_ID		slotID;
 } OBJECT;
 
 /* Objects are maintained as list of object_node */
@@ -36,7 +38,8 @@ struct object_list *get_object_list(CK_SLOT_ID slotID);
 CK_BBOOL is_object_handle_valid(CK_OBJECT_HANDLE hObject,
 		CK_SLOT_ID slotID);
 
-CK_RV get_all_token_objects(struct object_list *obj_list);
+CK_RV get_all_token_objects(struct object_list *obj_list,
+		CK_SLOT_ID slotID);
 
 CK_RV destroy_object_list(CK_SLOT_ID slotID);
 

@@ -31,7 +31,7 @@ CK_RV C_Initialize(CK_VOID_PTR pInitArgs)
 	if (pInitArgs != NULL)
 		return CKR_ARGUMENTS_BAD;
 
-	rc = get_function_list();
+	rc = get_function_list(TEE_SLOT_ID);
 	if (!rc) {
 		printf("get_function_list(), rc=%d\n", rc);
 		return CKR_GENERAL_ERROR;

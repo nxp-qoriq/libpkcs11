@@ -139,7 +139,8 @@ CK_RV C_FindObjectsInit(CK_SESSION_HANDLE hSession,
 		return CKR_ARGUMENTS_BAD;
 
 	if (STAILQ_EMPTY(obj_list)) {
-		rc = get_all_token_objects(obj_list);
+		rc = get_all_token_objects(obj_list,
+			sess->session_info.slotID);
 		if (rc != CKR_OK) {
 			printf("get_all_token_objects failed\n");
 			return rc;

@@ -12,8 +12,6 @@
 #include <securekey_api.h>
 #include <securekey_api_types.h>
 
-extern SK_FUNCTION_LIST  *sk_funcs;
-
 static CK_BBOOL is_attribute_defined(CK_ATTRIBUTE_TYPE type)
 {
 	if (type >= CKA_VENDOR_DEFINED)
@@ -1376,10 +1374,15 @@ static CK_RV object_add_template(OBJECT *obj,
 		SK_ATTRIBUTE_TYPE *sk_attr_type, uint32_t attrCount)
 {
 	SK_ATTRIBUTE temp_sk_attr[attrCount], *sk_attr;
+	SK_FUNCTION_LIST_PTR sk_funcs = NULL;
 	CK_ATTRIBUTE_PTR ck_attr;
 	SK_RET_CODE ret;
 	uint32_t i = 0;
 	CK_RV rc;
+
+	sk_funcs = get_slot_function_list(obj->slotID);
+	if (!sk_funcs)
+		return CKR_ARGUMENTS_BAD;
 
 	memset(temp_sk_attr, 0, sizeof(SK_ATTRIBUTE) * attrCount);
 	for (i = 0; i < attrCount; i++)
@@ -1435,7 +1438,7 @@ static CK_RV object_add_template(OBJECT *obj,
 }
 
 static CK_RV create_rsa_pub_key_object(SK_OBJECT_HANDLE hObject,
-			struct object_node **rsa_pub_key)
+		struct object_node **rsa_pub_key, CK_SLOT_ID slotID)
 {
 	struct object_node *pub_key;
 	CK_RV rc;
@@ -1450,9 +1453,10 @@ static CK_RV create_rsa_pub_key_object(SK_OBJECT_HANDLE hObject,
 	STAILQ_INIT(&pub_key->object.template_list);
 
 	pub_key->object.sk_obj_handle = hObject;
+	pub_key->object.slotID = slotID;
 
 	rc = object_add_template(&pub_key->object, rsa_pub_attr_type,
-				RSA_PUB_SK_ATTR_COUNT);
+			RSA_PUB_SK_ATTR_COUNT);
 	if (rc != CKR_OK) {
 		printf("object_add_template failed\n");
 		free(pub_key);
@@ -1464,7 +1468,7 @@ static CK_RV create_rsa_pub_key_object(SK_OBJECT_HANDLE hObject,
 }
 
 static CK_RV create_rsa_priv_key_object(SK_OBJECT_HANDLE hObject,
-			struct object_node **rsa_priv_key)
+		struct object_node **rsa_priv_key, CK_SLOT_ID slotID)
 {
 	struct object_node *priv_key;
 	CK_RV rc;
@@ -1476,12 +1480,14 @@ static CK_RV create_rsa_priv_key_object(SK_OBJECT_HANDLE hObject,
 		return CKR_HOST_MEMORY;
 	}
 
-	priv_key->object.sk_obj_handle = hObject;
 	memset(priv_key, 0, sizeof(struct object_node));
 	STAILQ_INIT(&priv_key->object.template_list);
 
+	priv_key->object.sk_obj_handle = hObject;
+	priv_key->object.slotID = slotID;
+
 	rc = object_add_template(&priv_key->object, rsa_priv_attr_type,
-				RSA_PRIV_SK_ATTR_COUNT);
+			RSA_PRIV_SK_ATTR_COUNT);
 	if (rc != CKR_OK) {
 		printf("template_add_attributes failed\n");
 		free(priv_key);
@@ -1492,16 +1498,22 @@ static CK_RV create_rsa_priv_key_object(SK_OBJECT_HANDLE hObject,
 	return CKR_OK;
 }
 
-CK_RV get_all_token_objects(struct object_list *obj_list)
+CK_RV get_all_token_objects(struct object_list *obj_list,
+		CK_SLOT_ID slotID)
 {
 	uint32_t obj_count, max_obj_count = 50, j = 0;
 	SK_ATTRIBUTE temp_sk_attr[OBJ_SK_ATTR_COUNT];
+	SK_FUNCTION_LIST_PTR sk_funcs = NULL;
 	SK_RET_CODE ret;
 	SK_OBJECT_HANDLE objs[max_obj_count];
 	SK_KEY_TYPE key_type;
 	SK_OBJECT_TYPE obj_type;
 
 	CK_RV rc;
+
+	sk_funcs = get_slot_function_list(slotID);
+	if (!sk_funcs)
+		return CKR_ARGUMENTS_BAD;
 
 	ret = sk_funcs->SK_EnumerateObjects(NULL, 0, objs,
 			max_obj_count, &obj_count);
@@ -1540,7 +1552,7 @@ CK_RV get_all_token_objects(struct object_list *obj_list)
 					{
 						struct object_node *rsa_pub_key, *rsa_priv_key;
 
-						rc = create_rsa_pub_key_object(objs[j], &rsa_pub_key);
+						rc = create_rsa_pub_key_object(objs[j], &rsa_pub_key, slotID);
 						if (rc != CKR_OK) {
 							printf("create_rsa_pub_key_object object node malloc failed\n");
 							return rc;
@@ -1557,7 +1569,7 @@ CK_RV get_all_token_objects(struct object_list *obj_list)
 
 						STAILQ_INSERT_HEAD(obj_list, rsa_pub_key, entry);
 
-						rc = create_rsa_priv_key_object(objs[j], &rsa_priv_key);
+						rc = create_rsa_priv_key_object(objs[j], &rsa_priv_key, slotID);
 						if (rc != CKR_OK) {
 							printf("create_rsa_priv_key_object object node malloc failed\n");
 							return rc;
@@ -1584,7 +1596,7 @@ CK_RV get_all_token_objects(struct object_list *obj_list)
 					{
 						struct object_node *pub_key;
 
-						rc = create_rsa_pub_key_object(objs[j], &pub_key);
+						rc = create_rsa_pub_key_object(objs[j], &pub_key, slotID);
 						if (rc != CKR_OK) {
 							printf("create_rsa_pub_key_object object node malloc failed\n");
 							return rc;
