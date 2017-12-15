@@ -68,7 +68,10 @@ CK_RV C_GetAttributeValue(CK_SESSION_HANDLE hSession,
 	if (!is_lib_initialized())
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 
-	if (pTemplate == NULL && ulCount > 0)
+	if (pTemplate == NULL)
+		return CKR_ARGUMENTS_BAD;
+
+	if (ulCount == 0)
 		return CKR_ARGUMENTS_BAD;
 
 	if(!is_session_valid(hSession))
@@ -132,6 +135,8 @@ CK_RV C_FindObjectsInit(CK_SESSION_HANDLE hSession,
 	* Not going again to Securekey libraryfor any objects.
 	*/
 	obj_list = get_object_list(sess->session_info.slotID);
+	if (!obj_list)
+		return CKR_ARGUMENTS_BAD;
 
 	if (STAILQ_EMPTY(obj_list)) {
 		rc = get_all_token_objects(obj_list);

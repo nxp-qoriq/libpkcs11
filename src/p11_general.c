@@ -30,6 +30,15 @@ static CK_FUNCTION_LIST global_function_list;
 /*
  *  GENERAL-PURPOSE FUNCTIONS
  */
+static void pkcs_lib_init(void)
+{
+	initialized = 1;
+}
+
+static void pkcs_lib_finish(void)
+{
+	initialized = 0;
+}
 
 CK_BBOOL is_lib_initialized(void)
 {
@@ -85,7 +94,11 @@ CK_RV C_Initialize(CK_VOID_PTR pInitArgs)
 		return CKR_GENERAL_ERROR;
 	}
 
-	initialized = 1;
+	pkcs_lib_init();
+
+	/* This need to be updated when we will add more slots */
+	if (initialize_object_list(TEE_SLOT_ID) != CKR_OK)
+		return CKR_GENERAL_ERROR;
 
 	return CKR_OK;
 }
@@ -98,9 +111,10 @@ CK_RV C_Finalize(CK_VOID_PTR pReserved)
 	if (!is_lib_initialized())
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 
+	/* This need to be updated when we will add more slots */
 	destroy_object_list(TEE_SLOT_ID);
 
-	initialized = 0;
+	pkcs_lib_finish();
  
 	return CKR_OK;
 }
@@ -114,8 +128,8 @@ CK_RV C_GetInfo(CK_INFO_PTR pInfo)
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 
 	if (cryptoki_info.manufacturerID[0] == 0) {
-		cryptoki_info.cryptokiVersion.major = 0x2;
-		cryptoki_info.cryptokiVersion.minor = 0x28;
+		cryptoki_info.cryptokiVersion.major = CRYPTOKI_VERSION_MAJOR;
+		cryptoki_info.cryptokiVersion.minor = CRYPTOKI_VERSION_MINOR;
 
 		memset(cryptoki_info.manufacturerID, ' ', sizeof(cryptoki_info.manufacturerID));
 		strncpy((char *)cryptoki_info.manufacturerID, "NXP", strlen("NXP"));

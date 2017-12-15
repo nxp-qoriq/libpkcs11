@@ -4,10 +4,15 @@
 #include <objects.h>
 
 typedef struct _session {
+	/* Information about this session */
 	CK_SESSION_INFO		session_info;
+	/* Objects matching the template during Find operation are kept
+	  * in this find_list */
 	CK_OBJECT_HANDLE_PTR	find_list;
+	/* Number of objects in find_list */
 	CK_ULONG		find_count;
-	CK_ATTRIBUTE_PTR	find_template;
+	/* op_active will be set when any operation find/crypto is in
+	  * progress */
 	CK_BBOOL		op_active;
 	//SIGN_VERIFY_CONTEXT  sign_ctx; will be added with Crypto related APIs
 } session;

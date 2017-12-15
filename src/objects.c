@@ -864,6 +864,11 @@ static CK_RV template_add_attributes(OBJECT *obj,
 		attr->type = pTemplate[i].type;
 		attr->ulValueLen = pTemplate[i].ulValueLen;
 
+		/* If there is anything in the ulValueLen, then a complete
+		  * buffer for CK_ATTRIBUTE + ulValueLen is allocated
+		  * and pValue will point to buffer_start +
+		  * sizeof(CK_ATTRIBUTE).
+		  */
 		if (attr->ulValueLen != 0) {
 			attr->pValue = (CK_BYTE *)attr + sizeof(CK_ATTRIBUTE);
 			memcpy(attr->pValue, pTemplate[i].pValue,
@@ -1020,14 +1025,13 @@ static CK_BBOOL attributes_check_exportability(struct template_list *tmpl_list,
 		if (sensitive_val == FALSE && extractable_val == TRUE)
 			return TRUE;
 	} else {
-		/* technically, we should throw an error here... */
 		return FALSE;
 	}
 
-	/* at this point, we know the object must have CKA_SENSITIVE = TRUE
+	/* So we know the object is having CKA_SENSITIVE = TRUE
 	 * or CKA_EXTRACTABLE = FALSE (or both).
-	 * need to determine whether the particular attribute in question is
-	 * a "sensitive" attribute.
+	 * now we need to check if particular attribute in question is
+	 * a "sensitive" attribute or not.
 	 */
 	if (class == CKO_PRIVATE_KEY) {
 		switch (subclass) {
@@ -1230,6 +1234,9 @@ struct object_list *get_object_list(CK_SLOT_ID slotID)
 {
 	struct slot_info *ginfo;
 
+	if (slotID >= SLOT_COUNT)
+		return NULL;
+
 	ginfo = get_global_slot_info(slotID);
 
 	return &ginfo->obj_list;
@@ -1242,6 +1249,8 @@ CK_BBOOL is_object_handle_valid(CK_OBJECT_HANDLE hObject,
 	struct object_node *temp;
 
 	obj_list = get_object_list(slotID);
+	if (!obj_list)
+		return FALSE;
 
 	STAILQ_FOREACH(temp, obj_list, entry) {
 		if ((CK_OBJECT_HANDLE)temp == hObject)
@@ -1294,12 +1303,27 @@ CK_RV get_attribute_value(struct object_node *obj,
 	return ret;
 }
 
+CK_RV initialize_object_list(CK_SLOT_ID slotID)
+{
+	struct object_list *obj_list;
+	obj_list = get_object_list(slotID);
+	if (!obj_list)
+		return CKR_ARGUMENTS_BAD;
+
+	STAILQ_INIT(obj_list);
+	return CKR_OK;
+}
+
 CK_RV destroy_object_list(CK_SLOT_ID slotID)
 {
-	struct object_list *obj_list = get_object_list(slotID);
+	struct object_list *obj_list;
 	struct template_list *tmpl_list;
 	struct object_node *obj_temp;
 	struct template_node *tmpl_temp;
+
+	obj_list = get_object_list(slotID);
+	if (!obj_list)
+		return CKR_ARGUMENTS_BAD;
 
 	if (!STAILQ_EMPTY(obj_list)) {
 		STAILQ_FOREACH(obj_temp, obj_list, entry) {
@@ -1307,13 +1331,17 @@ CK_RV destroy_object_list(CK_SLOT_ID slotID)
 			tmpl_list = &obj->template_list;
 			STAILQ_FOREACH(tmpl_temp, tmpl_list, entry) {
 				STAILQ_REMOVE(tmpl_list, tmpl_temp, template_node, entry);
+				if (tmpl_temp->attributes)
+					free(tmpl_temp->attributes);
+				free(tmpl_temp);
 			}
 #if 0
 			if (STAILQ_EMPTY(tmpl_list))
 				printf("Template list destroyed successfuly\n");
 #endif
 
-			STAILQ_REMOVE(obj_list, obj_temp, object_node, entry);			
+			STAILQ_REMOVE(obj_list, obj_temp, object_node, entry);
+			free(obj_temp);
 		}
 	}
 #if 0
@@ -1356,7 +1384,7 @@ static CK_RV object_add_template(OBJECT *obj,
 	for (i = 0; i < attrCount; i++)
 		temp_sk_attr[i].type = sk_attr_type[i];
 
-	ret = sk_funcs->SK_GetObjectAttribute(obj->obj_handle,
+	ret = sk_funcs->SK_GetObjectAttribute(obj->sk_obj_handle,
 			temp_sk_attr, attrCount);
 	if (ret != SKR_OK) {
 		printf("%s, %d SK_GetObjectAttribute failed %x\n",
@@ -1370,12 +1398,14 @@ static CK_RV object_add_template(OBJECT *obj,
 
 		sk_attr = (SK_ATTRIBUTE *)malloc(sizeof(SK_ATTRIBUTE) +
 			temp_sk_attr[i].valueLen);
+		if (!sk_attr)
+			return CKR_HOST_MEMORY;
 
 		sk_attr->type = temp_sk_attr[i].type;
 		sk_attr->value = sk_attr + sizeof(SK_ATTRIBUTE);
 		sk_attr->valueLen = temp_sk_attr[i].valueLen;
 
-		ret = sk_funcs->SK_GetObjectAttribute(obj->obj_handle,
+		ret = sk_funcs->SK_GetObjectAttribute(obj->sk_obj_handle,
 			sk_attr, 1);
 		if (ret != SKR_OK) {
 			printf("%s, %d SK_GetObjectAttribute failed with error code = %x\n",
@@ -1416,7 +1446,9 @@ static CK_RV create_rsa_pub_key_object(SK_OBJECT_HANDLE hObject,
 	}
 
 	memset(pub_key, 0, sizeof(struct object_node));
-	pub_key->object.obj_handle = hObject;
+	STAILQ_INIT(&pub_key->object.template_list);
+
+	pub_key->object.sk_obj_handle = hObject;
 
 	rc = object_add_template(&pub_key->object, rsa_pub_attr_type,
 				RSA_PUB_SK_ATTR_COUNT);
@@ -1443,8 +1475,9 @@ static CK_RV create_rsa_priv_key_object(SK_OBJECT_HANDLE hObject,
 		return CKR_HOST_MEMORY;
 	}
 
-	priv_key->object.obj_handle = hObject;
+	priv_key->object.sk_obj_handle = hObject;
 	memset(priv_key, 0, sizeof(struct object_node));
+	STAILQ_INIT(&priv_key->object.template_list);
 
 	rc = object_add_template(&priv_key->object, rsa_priv_attr_type,
 				RSA_PRIV_SK_ATTR_COUNT);
@@ -1541,7 +1574,7 @@ CK_RV get_all_token_objects(struct object_list *obj_list)
 					}
 					break;
 					default:
-						return CKR_GENERAL_ERROR;
+						continue;
 				}
 			break;
 			case SK_PUBLIC_KEY:
@@ -1569,11 +1602,11 @@ CK_RV get_all_token_objects(struct object_list *obj_list)
 					}
 					break;
 					default:
-						return CKR_ARGUMENTS_BAD;
+						continue;
 				}
 			break;
 			default:
-				return CKR_ARGUMENTS_BAD;
+				continue;
 		}
 	}
 
