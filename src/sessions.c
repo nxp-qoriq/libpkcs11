@@ -6,13 +6,7 @@
 
 #include <cryptoki.h>
 #include <sessions.h>
-
-static struct slot_info g_slot_info[SLOT_COUNT];
-
-struct slot_info *get_global_slot_info(CK_SLOT_ID slotID)
-{
-	return &g_slot_info[slotID];
-}
+#include <general.h>
 
 struct session_list *get_session_list(CK_SLOT_ID slotID)
 {

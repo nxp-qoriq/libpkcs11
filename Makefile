@@ -23,6 +23,7 @@ all: libpkcs11 app install
 LIB_NAME	:= libpkcs11.so
 
 PKCS11_SRCS	:= p11_general.c \
+		   general.c \
 		   tee_slot.c \
 		   sessions.c \
 		   objects.c \

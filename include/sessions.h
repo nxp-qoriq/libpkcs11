@@ -27,12 +27,6 @@ struct session_node {
 
 STAILQ_HEAD(session_list, session_node);
 
-struct slot_info {
-	CK_SLOT_ID 	slot_id;
-	struct object_list	obj_list;
-	struct session_list	sess_list;
-};
-
 CK_RV initialize_session_list(CK_SLOT_ID slotID);
 
 CK_RV destroy_session_list(CK_SLOT_ID slotID);

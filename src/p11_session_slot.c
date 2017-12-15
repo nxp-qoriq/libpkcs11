@@ -4,7 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#include <gen_func.h>
+#include <general.h>
 #include <tee_slot.h>
 #include <sessions.h>
 #include <objects.h>

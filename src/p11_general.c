@@ -7,16 +7,7 @@
 #include <tee_slot.h>
 #include <objects.h>
 #include <sessions.h>
-
-#include <securekey_api.h>
-#include <securekey_api_types.h>
-
-CK_BBOOL is_lib_initialized(void);
-
-SK_FUNCTION_LIST  *sk_funcs;
-
-/* Flag to find if cryptoki library is initialised or not */
-CK_ULONG	initialized;
+#include <general.h>
 
 /*
  * Information about this cryptoki implementation
@@ -31,55 +22,6 @@ static CK_FUNCTION_LIST global_function_list;
 /*
  *  GENERAL-PURPOSE FUNCTIONS
  */
-static void pkcs_lib_init(void)
-{
-	initialized = 1;
-}
-
-static void pkcs_lib_finish(void)
-{
-	initialized = 0;
-}
-
-CK_BBOOL is_lib_initialized(void)
-{
-	return initialized != 0;
-}
-
-static int get_function_list(void)
-{
-	SK_RET_CODE	rc;
-	SK_RET_CODE	(*pfoo)(SK_FUNCTION_LIST_PTR_PTR);
-	void    *d;
-	const char    *e;
-	const char    *f = "libsecurekey.so";
-
-	e = getenv("SECUREKEY_LIB");
-	if ( e == NULL)
-		e = f;
-
-	d = dlopen(e, RTLD_NOW);
-	if ( d == NULL ) {
-		printf("dlopen failed %s\n", dlerror());
-		return FALSE;
-	}
-
-	pfoo = (SK_RET_CODE (*)(SK_FUNCTION_LIST_PTR_PTR))dlsym(d, "SK_GetFunctionList");
-	if (pfoo == NULL ) {
-		return FALSE;
-	}
-
-	rc = pfoo(&sk_funcs);
-
-	if (rc != SKR_OK) {
-		printf("SK_GetFunctionList rc=%u", rc);
-		return FALSE;
-	}
-
-	return TRUE;
-
-}
-
 CK_RV C_Initialize(CK_VOID_PTR pInitArgs)
 {
 	int rc;

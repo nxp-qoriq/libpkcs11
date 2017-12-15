@@ -7,6 +7,7 @@
 #include <cryptoki.h>
 #include <objects.h>
 #include <sessions.h>
+#include <general.h>
 
 #include <securekey_api.h>
 #include <securekey_api_types.h>
@@ -1242,6 +1243,55 @@ struct object_list *get_object_list(CK_SLOT_ID slotID)
 	return &ginfo->obj_list;
 }
 
+CK_RV initialize_object_list(CK_SLOT_ID slotID)
+{
+	struct object_list *obj_list;
+	obj_list = get_object_list(slotID);
+	if (!obj_list)
+		return CKR_ARGUMENTS_BAD;
+
+	STAILQ_INIT(obj_list);
+	return CKR_OK;
+}
+
+CK_RV destroy_object_list(CK_SLOT_ID slotID)
+{
+	struct object_list *obj_list;
+	struct template_list *tmpl_list;
+	struct object_node *obj_temp;
+	struct template_node *tmpl_temp;
+
+	obj_list = get_object_list(slotID);
+	if (!obj_list)
+		return CKR_ARGUMENTS_BAD;
+
+	if (!STAILQ_EMPTY(obj_list)) {
+		STAILQ_FOREACH(obj_temp, obj_list, entry) {
+			OBJECT *obj = &obj_temp->object;
+			tmpl_list = &obj->template_list;
+			STAILQ_FOREACH(tmpl_temp, tmpl_list, entry) {
+				STAILQ_REMOVE(tmpl_list, tmpl_temp, template_node, entry);
+				if (tmpl_temp->attributes)
+					free(tmpl_temp->attributes);
+				free(tmpl_temp);
+			}
+#if 0
+			if (STAILQ_EMPTY(tmpl_list))
+				printf("Template list destroyed successfuly\n");
+#endif
+
+			STAILQ_REMOVE(obj_list, obj_temp, object_node, entry);
+			free(obj_temp);
+		}
+	}
+#if 0
+	if (STAILQ_EMPTY(obj_list))
+		printf("Object list destroyed successfuly\n");
+#endif
+
+	return CKR_OK;
+}
+
 CK_BBOOL is_object_handle_valid(CK_OBJECT_HANDLE hObject,
 		CK_SLOT_ID slotID)
 {
@@ -1301,55 +1351,6 @@ CK_RV get_attribute_value(struct object_node *obj,
 	}
 
 	return ret;
-}
-
-CK_RV initialize_object_list(CK_SLOT_ID slotID)
-{
-	struct object_list *obj_list;
-	obj_list = get_object_list(slotID);
-	if (!obj_list)
-		return CKR_ARGUMENTS_BAD;
-
-	STAILQ_INIT(obj_list);
-	return CKR_OK;
-}
-
-CK_RV destroy_object_list(CK_SLOT_ID slotID)
-{
-	struct object_list *obj_list;
-	struct template_list *tmpl_list;
-	struct object_node *obj_temp;
-	struct template_node *tmpl_temp;
-
-	obj_list = get_object_list(slotID);
-	if (!obj_list)
-		return CKR_ARGUMENTS_BAD;
-
-	if (!STAILQ_EMPTY(obj_list)) {
-		STAILQ_FOREACH(obj_temp, obj_list, entry) {
-			OBJECT *obj = &obj_temp->object;
-			tmpl_list = &obj->template_list;
-			STAILQ_FOREACH(tmpl_temp, tmpl_list, entry) {
-				STAILQ_REMOVE(tmpl_list, tmpl_temp, template_node, entry);
-				if (tmpl_temp->attributes)
-					free(tmpl_temp->attributes);
-				free(tmpl_temp);
-			}
-#if 0
-			if (STAILQ_EMPTY(tmpl_list))
-				printf("Template list destroyed successfuly\n");
-#endif
-
-			STAILQ_REMOVE(obj_list, obj_temp, object_node, entry);
-			free(obj_temp);
-		}
-	}
-#if 0
-	if (STAILQ_EMPTY(obj_list))
-		printf("Object list destroyed successfuly\n");
-#endif
-
-	return CKR_OK;
 }
 
 #define OBJ_SK_ATTR_COUNT	2
