@@ -4,6 +4,8 @@
 #include <sys/queue.h>
 #include <securekey_api_types.h>
 
+#define MAX_FIND_LIST_OBJECTS  50
+
 /* Attributes in each objects are maintained as template nodes */
 struct template_node {
 	CK_ATTRIBUTE_PTR		attributes;

@@ -602,6 +602,7 @@ CK_RV do_FindObjects(void)
 	CK_OBJECT_CLASS obj_type;
 	CK_KEY_TYPE key_type;
 	CK_ULONG modulus_bits;
+	CK_ULONG count = 0;
 
 	obj_type = CKO_PUBLIC_KEY;
 	key_type = CKK_RSA;
@@ -630,18 +631,28 @@ CK_RV do_FindObjects(void)
 	if (rc != CKR_OK)
 		return rc;
 
-	rc = funcs->C_FindObjects(h_session, obj_list, 10, &num_existing_objects);
-	if (rc != CKR_OK)
-		return rc;
+	for (i = 0; i < 10; i++) {
+		rc = funcs->C_FindObjects(h_session, &obj_list[i], 1, &num_existing_objects);
+		if (rc != CKR_OK)
+			return rc;
+
+		if (num_existing_objects) {
+			printf("object[%lu] = %lx\n", i, obj_list[i]);
+			count++;
+		} else {
+			printf("find_list empty \n");
+			break;
+		}
+	}
 
 	rc = funcs->C_FindObjectsFinal(h_session);
 	if (rc != CKR_OK)
 		return rc;
 
-	for (i = 0; i < num_existing_objects; i++)
+	for (i = 0; i < count; i++)
 		printf("object[%lu] = %lx\n", i, obj_list[i]);
 
-	printf("num_existing_object =%lu\n", num_existing_objects);
+	printf("num_existing_object =%lu\n", count);
 
 	memset(ck_attr, 0, sizeof(CK_ATTRIBUTE) * 2);
 	ck_attr[0].type = CKA_MODULUS;

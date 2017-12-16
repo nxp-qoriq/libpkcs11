@@ -8,6 +8,8 @@
 #include <securekey_api.h>
 #include <securekey_api_types.h>
 
+#define P11_MIN(a, b)  ((a) < (b) ? (a) : (b))
+
 struct slot_info {
 	CK_SLOT_ID 	slot_id;
 	struct object_list	obj_list;

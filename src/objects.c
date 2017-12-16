@@ -1210,12 +1210,20 @@ CK_RV find_matching_objects(CK_OBJECT_HANDLE_PTR object_handle,
 			if (ret == TRUE) {
 				object_handle[i] = (CK_OBJECT_HANDLE)temp;
 				i++;
+				if (i == MAX_FIND_LIST_OBJECTS) {
+					printf("Currently supports max of 50 objects\n");
+					break;
+				}
 			}
 		}
 	} else {
 		STAILQ_FOREACH(temp, obj_list, entry) {
 			object_handle[i] = (CK_OBJECT_HANDLE)temp;
 			i++;
+			if (i == MAX_FIND_LIST_OBJECTS) {
+				printf("Currently supports max of 50 objects\n");
+				break;
+			}
 		}
 	}
 
@@ -1495,11 +1503,11 @@ static CK_RV create_rsa_priv_key_object(SK_OBJECT_HANDLE hObject,
 CK_RV get_all_token_objects(struct object_list *obj_list,
 		CK_SLOT_ID slotID)
 {
-	uint32_t obj_count, max_obj_count = 50, j = 0;
+	uint32_t obj_count, j = 0;
 	SK_ATTRIBUTE temp_sk_attr[OBJ_SK_ATTR_COUNT];
 	SK_FUNCTION_LIST_PTR sk_funcs = NULL;
 	SK_RET_CODE ret;
-	SK_OBJECT_HANDLE objs[max_obj_count];
+	SK_OBJECT_HANDLE objs[MAX_FIND_LIST_OBJECTS];
 	SK_KEY_TYPE key_type;
 	SK_OBJECT_TYPE obj_type;
 
@@ -1509,8 +1517,10 @@ CK_RV get_all_token_objects(struct object_list *obj_list,
 	if (!sk_funcs)
 		return CKR_ARGUMENTS_BAD;
 
+	/* For now only 50 objects are read from token and maintained
+	  * in PKCS library */
 	ret = sk_funcs->SK_EnumerateObjects(NULL, 0, objs,
-			max_obj_count, &obj_count);
+			MAX_FIND_LIST_OBJECTS, &obj_count);
 	if (ret != SKR_OK) {
 		printf("SK_EnumerateObjects failed with ret code 0x%x\n", ret);
 		return CKR_GENERAL_ERROR;

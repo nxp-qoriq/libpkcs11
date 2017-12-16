@@ -11,6 +11,8 @@ typedef struct _session {
 	CK_OBJECT_HANDLE_PTR	find_list;
 	/* Number of objects in find_list */
 	CK_ULONG		find_count;
+	/* Current position in find_list */
+	CK_ULONG		find_idx;
 	/* op_active will be set when any operation find/crypto is in
 	  * progress */
 	CK_BBOOL		op_active;

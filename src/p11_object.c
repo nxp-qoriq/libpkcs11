@@ -10,7 +10,6 @@
 #include <sessions.h>
 #include <objects.h>
 
-#define MAX_FIND_LIST_OBJECTS	50
 /*
  * OBJECT MANAGEMENT FUNCTIONS
  */
@@ -179,6 +178,7 @@ CK_RV C_FindObjectsInit(CK_SESSION_HANDLE hSession,
 		sess->find_count = objCount;
 	}
 
+	sess->find_idx = 0;
 	sess->op_active = CK_TRUE;
 
 	return CKR_OK;
@@ -190,6 +190,7 @@ CK_RV C_FindObjects(CK_SESSION_HANDLE hSession,
 		CK_ULONG_PTR pulObjectCount)
 {
 	session *sess = NULL;
+	CK_ULONG count = 0;
 
 	if (!is_lib_initialized())
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -207,11 +208,15 @@ CK_RV C_FindObjects(CK_SESSION_HANDLE hSession,
 	if (!phObject || !pulObjectCount)
 		return CKR_ARGUMENTS_BAD;
 
-	if (ulMaxObjectCount < sess->find_count)
-		return CKR_ARGUMENTS_BAD;
+	count = P11_MIN(ulMaxObjectCount,
+		(sess->find_count - sess->find_idx));
 
-	memcpy(phObject, sess->find_list, (sess->find_count * sizeof(CK_OBJECT_HANDLE)));
-	*pulObjectCount = sess->find_count;
+	if (count)
+		memcpy(phObject, sess->find_list + sess->find_idx,
+			count * sizeof(CK_OBJECT_HANDLE));
+	*pulObjectCount = count;
+
+	sess->find_idx += count;
 
 	return CKR_OK;
 }
@@ -235,9 +240,12 @@ CK_RV C_FindObjectsFinal(CK_SESSION_HANDLE hSession)
 
 	sess->op_active = CK_FALSE;
 	sess->find_count = 0;
-	memset(sess->find_list, 0, sizeof(CK_OBJECT_HANDLE) *
-		MAX_FIND_LIST_OBJECTS);
-	free(sess->find_list);
+	sess->find_idx = 0;
+	if (sess->find_list) {
+		memset(sess->find_list, 0, sizeof(CK_OBJECT_HANDLE) *
+			MAX_FIND_LIST_OBJECTS);
+		free(sess->find_list);
+	}
 
 	return CKR_OK;
 }
