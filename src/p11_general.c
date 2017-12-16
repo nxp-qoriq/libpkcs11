@@ -129,7 +129,6 @@ CK_RV C_GetFunctionList(CK_FUNCTION_LIST_PTR_PTR ppFunctionList)
 	global_function_list.C_FindObjectsInit  =	C_FindObjectsInit;
 	global_function_list.C_FindObjects  =		C_FindObjects;
 	global_function_list.C_FindObjectsFinal  =	C_FindObjectsFinal;
-#if 0
 	global_function_list.C_EncryptInit  =		C_EncryptInit;
 	global_function_list.C_Encrypt  =		C_Encrypt;
 	global_function_list.C_EncryptUpdate  =		C_EncryptUpdate;
@@ -166,7 +165,6 @@ CK_RV C_GetFunctionList(CK_FUNCTION_LIST_PTR_PTR ppFunctionList)
 	global_function_list.C_DeriveKey  =		C_DeriveKey;
 	global_function_list.C_SeedRandom  =		C_SeedRandom;
 	global_function_list.C_GenerateRandom  =	C_GenerateRandom;
-#endif
 	global_function_list.C_GetFunctionStatus  =	C_GetFunctionStatus;
 	global_function_list.C_CancelFunction  =	C_CancelFunction;
 #if 0

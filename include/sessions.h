@@ -3,6 +3,16 @@
 
 #include <objects.h>
 
+typedef struct _sign_verify_context {
+	CK_OBJECT_HANDLE	key; /* Key handle */
+	CK_MECHANISM		mech; /* current sign mechanism */
+	CK_BYTE			*context; /* temporary work area */
+	CK_ULONG		context_len;
+	CK_BBOOL		multi;	/* is this a multi-part operation? */
+	CK_BBOOL		recover; /* are we in recover mode? */
+	CK_BBOOL		active; /* Is Sign already initialized? */
+} sign_verify_context;
+
 typedef struct _session {
 	/* Information about this session */
 	CK_SESSION_INFO		session_info;
@@ -16,7 +26,8 @@ typedef struct _session {
 	/* op_active will be set when any operation find/crypto is in
 	  * progress */
 	CK_BBOOL		op_active;
-	//SIGN_VERIFY_CONTEXT  sign_ctx; will be added with Crypto related APIs
+	/* Sign context info per session */
+	sign_verify_context sign_ctx;
 } session;
 
 /* The number of supported slots */

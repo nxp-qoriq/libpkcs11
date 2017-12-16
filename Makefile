@@ -28,7 +28,9 @@ PKCS11_SRCS	:= p11_general.c \
 		   sessions.c \
 		   objects.c \
 		   p11_session_slot.c \
-		   p11_object.c
+		   p11_object.c \
+		   p11_crypto.c \
+		   crypto.c
 
 PKCS11_SRC_DIR	:= src
 PKCS11_OBJ_DIR	:= $(OUT_DIR)
