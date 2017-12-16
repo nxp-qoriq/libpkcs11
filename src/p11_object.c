@@ -88,7 +88,7 @@ CK_RV C_GetAttributeValue(CK_SESSION_HANDLE hSession,
 
 	obj_node = (struct object_node *)hObject;
 
-	return get_attribute_value(obj_node, pTemplate, ulCount);
+	return get_attr_value(obj_node, pTemplate, ulCount);
 }
 
 CK_RV C_SetAttributeValue(CK_SESSION_HANDLE hSession,

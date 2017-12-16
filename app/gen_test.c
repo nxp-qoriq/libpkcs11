@@ -10,97 +10,97 @@
 
 CK_FUNCTION_LIST  *funcs;
 
-#define _sym2str(X)     case X: return #X
+#define err2str(X)     case X: return #X
 
-// p11_get_ckr - return textual interpretation of a CKR_ error code
+// p11_get_error_string - return textual interpretation of a CKR_ error code
 // @rc is the CKR_.. error
 
-char *p11_get_ckr( CK_RV rc )
+char *p11_get_error_string( CK_RV rc )
 {
    switch (rc) {
-      _sym2str(CKR_OK);
-      _sym2str(CKR_CANCEL);
-      _sym2str(CKR_HOST_MEMORY);
-      _sym2str(CKR_SLOT_ID_INVALID);
-      _sym2str(CKR_GENERAL_ERROR);
-      _sym2str(CKR_FUNCTION_FAILED);
-      _sym2str(CKR_ARGUMENTS_BAD);
-      _sym2str(CKR_NO_EVENT);
-      _sym2str(CKR_NEED_TO_CREATE_THREADS);
-      _sym2str(CKR_CANT_LOCK);
-      _sym2str(CKR_ATTRIBUTE_READ_ONLY);
-      _sym2str(CKR_ATTRIBUTE_SENSITIVE);
-      _sym2str(CKR_ATTRIBUTE_TYPE_INVALID);
-      _sym2str(CKR_ATTRIBUTE_VALUE_INVALID);
-      _sym2str(CKR_DATA_INVALID);
-      _sym2str(CKR_DATA_LEN_RANGE);
-      _sym2str(CKR_DEVICE_ERROR);
-      _sym2str(CKR_DEVICE_MEMORY);
-      _sym2str(CKR_DEVICE_REMOVED);
-      _sym2str(CKR_ENCRYPTED_DATA_INVALID);
-      _sym2str(CKR_ENCRYPTED_DATA_LEN_RANGE);
-      _sym2str(CKR_FUNCTION_CANCELED);
-      _sym2str(CKR_FUNCTION_NOT_PARALLEL);
-      _sym2str(CKR_FUNCTION_NOT_SUPPORTED);
-      _sym2str(CKR_KEY_HANDLE_INVALID);
-      _sym2str(CKR_KEY_SIZE_RANGE);
-      _sym2str(CKR_KEY_TYPE_INCONSISTENT);
-      _sym2str(CKR_KEY_NOT_NEEDED);
-      _sym2str(CKR_KEY_CHANGED);
-      _sym2str(CKR_KEY_NEEDED);
-      _sym2str(CKR_KEY_INDIGESTIBLE);
-      _sym2str(CKR_KEY_FUNCTION_NOT_PERMITTED);
-      _sym2str(CKR_KEY_NOT_WRAPPABLE);
-      _sym2str(CKR_KEY_UNEXTRACTABLE);
-      _sym2str(CKR_MECHANISM_INVALID);
-      _sym2str(CKR_MECHANISM_PARAM_INVALID);
-      _sym2str(CKR_OBJECT_HANDLE_INVALID);
-      _sym2str(CKR_OPERATION_ACTIVE);
-      _sym2str(CKR_OPERATION_NOT_INITIALIZED);
-      _sym2str(CKR_PIN_INCORRECT);
-      _sym2str(CKR_PIN_INVALID);
-      _sym2str(CKR_PIN_LEN_RANGE);
-      _sym2str(CKR_PIN_EXPIRED);
-      _sym2str(CKR_PIN_LOCKED);
-      _sym2str(CKR_SESSION_CLOSED);
-      _sym2str(CKR_SESSION_COUNT);
-      _sym2str(CKR_SESSION_HANDLE_INVALID);
-      _sym2str(CKR_SESSION_PARALLEL_NOT_SUPPORTED);
-      _sym2str(CKR_SESSION_READ_ONLY);
-      _sym2str(CKR_SESSION_EXISTS);
-      _sym2str(CKR_SESSION_READ_ONLY_EXISTS);
-      _sym2str(CKR_SESSION_READ_WRITE_SO_EXISTS);
-      _sym2str(CKR_SIGNATURE_INVALID);
-      _sym2str(CKR_SIGNATURE_LEN_RANGE);
-      _sym2str(CKR_TEMPLATE_INCOMPLETE);
-      _sym2str(CKR_TEMPLATE_INCONSISTENT);
-      _sym2str(CKR_TOKEN_NOT_PRESENT);
-      _sym2str(CKR_TOKEN_NOT_RECOGNIZED);
-      _sym2str(CKR_TOKEN_WRITE_PROTECTED);
-      _sym2str(CKR_UNWRAPPING_KEY_HANDLE_INVALID);
-      _sym2str(CKR_UNWRAPPING_KEY_SIZE_RANGE);
-      _sym2str(CKR_UNWRAPPING_KEY_TYPE_INCONSISTENT);
-      _sym2str(CKR_USER_ALREADY_LOGGED_IN);
-      _sym2str(CKR_USER_NOT_LOGGED_IN);
-      _sym2str(CKR_USER_PIN_NOT_INITIALIZED);
-      _sym2str(CKR_USER_TYPE_INVALID);
-      _sym2str(CKR_USER_ANOTHER_ALREADY_LOGGED_IN);
-      _sym2str(CKR_USER_TOO_MANY_TYPES);
-      _sym2str(CKR_WRAPPED_KEY_INVALID);
-      _sym2str(CKR_WRAPPED_KEY_LEN_RANGE);
-      _sym2str(CKR_WRAPPING_KEY_HANDLE_INVALID);
-      _sym2str(CKR_WRAPPING_KEY_SIZE_RANGE);
-      _sym2str(CKR_WRAPPING_KEY_TYPE_INCONSISTENT);
-      _sym2str(CKR_RANDOM_SEED_NOT_SUPPORTED);
-      _sym2str(CKR_RANDOM_NO_RNG);
-      _sym2str(CKR_BUFFER_TOO_SMALL);
-      _sym2str(CKR_SAVED_STATE_INVALID);
-      _sym2str(CKR_INFORMATION_SENSITIVE);
-      _sym2str(CKR_STATE_UNSAVEABLE);
-      _sym2str(CKR_CRYPTOKI_NOT_INITIALIZED);
-      _sym2str(CKR_CRYPTOKI_ALREADY_INITIALIZED);
-      _sym2str(CKR_MUTEX_BAD);
-      _sym2str(CKR_MUTEX_NOT_LOCKED);
+      err2str(CKR_OK);
+      err2str(CKR_CANCEL);
+      err2str(CKR_HOST_MEMORY);
+      err2str(CKR_SLOT_ID_INVALID);
+      err2str(CKR_GENERAL_ERROR);
+      err2str(CKR_FUNCTION_FAILED);
+      err2str(CKR_ARGUMENTS_BAD);
+      err2str(CKR_NO_EVENT);
+      err2str(CKR_NEED_TO_CREATE_THREADS);
+      err2str(CKR_CANT_LOCK);
+      err2str(CKR_ATTRIBUTE_READ_ONLY);
+      err2str(CKR_ATTRIBUTE_SENSITIVE);
+      err2str(CKR_ATTRIBUTE_TYPE_INVALID);
+      err2str(CKR_ATTRIBUTE_VALUE_INVALID);
+      err2str(CKR_DATA_INVALID);
+      err2str(CKR_DATA_LEN_RANGE);
+      err2str(CKR_DEVICE_ERROR);
+      err2str(CKR_DEVICE_MEMORY);
+      err2str(CKR_DEVICE_REMOVED);
+      err2str(CKR_ENCRYPTED_DATA_INVALID);
+      err2str(CKR_ENCRYPTED_DATA_LEN_RANGE);
+      err2str(CKR_FUNCTION_CANCELED);
+      err2str(CKR_FUNCTION_NOT_PARALLEL);
+      err2str(CKR_FUNCTION_NOT_SUPPORTED);
+      err2str(CKR_KEY_HANDLE_INVALID);
+      err2str(CKR_KEY_SIZE_RANGE);
+      err2str(CKR_KEY_TYPE_INCONSISTENT);
+      err2str(CKR_KEY_NOT_NEEDED);
+      err2str(CKR_KEY_CHANGED);
+      err2str(CKR_KEY_NEEDED);
+      err2str(CKR_KEY_INDIGESTIBLE);
+      err2str(CKR_KEY_FUNCTION_NOT_PERMITTED);
+      err2str(CKR_KEY_NOT_WRAPPABLE);
+      err2str(CKR_KEY_UNEXTRACTABLE);
+      err2str(CKR_MECHANISM_INVALID);
+      err2str(CKR_MECHANISM_PARAM_INVALID);
+      err2str(CKR_OBJECT_HANDLE_INVALID);
+      err2str(CKR_OPERATION_ACTIVE);
+      err2str(CKR_OPERATION_NOT_INITIALIZED);
+      err2str(CKR_PIN_INCORRECT);
+      err2str(CKR_PIN_INVALID);
+      err2str(CKR_PIN_LEN_RANGE);
+      err2str(CKR_PIN_EXPIRED);
+      err2str(CKR_PIN_LOCKED);
+      err2str(CKR_SESSION_CLOSED);
+      err2str(CKR_SESSION_COUNT);
+      err2str(CKR_SESSION_HANDLE_INVALID);
+      err2str(CKR_SESSION_PARALLEL_NOT_SUPPORTED);
+      err2str(CKR_SESSION_READ_ONLY);
+      err2str(CKR_SESSION_EXISTS);
+      err2str(CKR_SESSION_READ_ONLY_EXISTS);
+      err2str(CKR_SESSION_READ_WRITE_SO_EXISTS);
+      err2str(CKR_SIGNATURE_INVALID);
+      err2str(CKR_SIGNATURE_LEN_RANGE);
+      err2str(CKR_TEMPLATE_INCOMPLETE);
+      err2str(CKR_TEMPLATE_INCONSISTENT);
+      err2str(CKR_TOKEN_NOT_PRESENT);
+      err2str(CKR_TOKEN_NOT_RECOGNIZED);
+      err2str(CKR_TOKEN_WRITE_PROTECTED);
+      err2str(CKR_UNWRAPPING_KEY_HANDLE_INVALID);
+      err2str(CKR_UNWRAPPING_KEY_SIZE_RANGE);
+      err2str(CKR_UNWRAPPING_KEY_TYPE_INCONSISTENT);
+      err2str(CKR_USER_ALREADY_LOGGED_IN);
+      err2str(CKR_USER_NOT_LOGGED_IN);
+      err2str(CKR_USER_PIN_NOT_INITIALIZED);
+      err2str(CKR_USER_TYPE_INVALID);
+      err2str(CKR_USER_ANOTHER_ALREADY_LOGGED_IN);
+      err2str(CKR_USER_TOO_MANY_TYPES);
+      err2str(CKR_WRAPPED_KEY_INVALID);
+      err2str(CKR_WRAPPED_KEY_LEN_RANGE);
+      err2str(CKR_WRAPPING_KEY_HANDLE_INVALID);
+      err2str(CKR_WRAPPING_KEY_SIZE_RANGE);
+      err2str(CKR_WRAPPING_KEY_TYPE_INCONSISTENT);
+      err2str(CKR_RANDOM_SEED_NOT_SUPPORTED);
+      err2str(CKR_RANDOM_NO_RNG);
+      err2str(CKR_BUFFER_TOO_SMALL);
+      err2str(CKR_SAVED_STATE_INVALID);
+      err2str(CKR_INFORMATION_SENSITIVE);
+      err2str(CKR_STATE_UNSAVEABLE);
+      err2str(CKR_CRYPTOKI_NOT_INITIALIZED);
+      err2str(CKR_CRYPTOKI_ALREADY_INITIALIZED);
+      err2str(CKR_MUTEX_BAD);
+      err2str(CKR_MUTEX_NOT_LOCKED);
       default:					return "UNKNOWN";
    }
 }
@@ -134,7 +134,7 @@ CK_RV do_GetInfo(void)
 
 	rc = funcs->C_GetInfo(&info);
 	if (rc != CKR_OK){
-		printf("C_GetInfo() rc=%s\n", p11_get_ckr(rc));
+		printf("C_GetInfo() rc=%s\n", p11_get_error_string(rc));
 		return rc;
 	}
 
@@ -168,7 +168,7 @@ CK_RV do_GetSlotList(void)
 	 */
 	rc = funcs->C_GetSlotList(tokenPresent, NULL, &ulCount);
 	if (rc != CKR_OK) {
-		printf("C_GetSlotList failed rc=%s\n", p11_get_ckr(rc));
+		printf("C_GetSlotList failed rc=%s\n", p11_get_error_string(rc));
 		goto cleanup;
 	}
 
@@ -187,7 +187,7 @@ CK_RV do_GetSlotList(void)
 	/* Get the slots */
 	rc = funcs->C_GetSlotList(tokenPresent, pSlotList, &ulCount);
 	if (rc != CKR_OK) {
-		printf("C_GetSlotList rc=%s\n", p11_get_ckr(rc));
+		printf("C_GetSlotList rc=%s\n", p11_get_error_string(rc));
 		goto cleanup;
 	}
 
@@ -212,7 +212,7 @@ CK_RV do_GetSlotInfo(void)
 
 	rc = funcs->C_GetSlotInfo(slot_id, &info);
 	if (rc != CKR_OK) {
-		printf("C_GetSlotInfo() failed rc = %s\n", p11_get_ckr(rc));
+		printf("C_GetSlotInfo() failed rc = %s\n", p11_get_error_string(rc));
 		goto cleanup;
 	} else {
 		printf("Slot info of in-use slot received successfully, printing some info\n");
@@ -232,7 +232,7 @@ CK_RV do_GetSlotInfo(void)
 
 	if (rc != CKR_SLOT_ID_INVALID) {
 		printf("C_GetSlotInfo returned %s instead of"
-			      " CKR_SLOT_ID_INVALID.\n", p11_get_ckr(rc));
+			      " CKR_SLOT_ID_INVALID.\n", p11_get_error_string(rc));
 		rc = CKR_FUNCTION_FAILED; // dont confuse loop in main
 		goto cleanup;
 	} else {
@@ -256,7 +256,7 @@ CK_RV do_GetTokenInfo(void)
 
 	rc = funcs->C_GetTokenInfo(slot_id, &info);
 	if (rc != CKR_OK) {
-		printf("C_GetTokenInfo failed rc=%s\n", p11_get_ckr(rc));
+		printf("C_GetTokenInfo failed rc=%s\n", p11_get_error_string(rc));
 		return rc;
 	} else {
 		printf("C_GetTokenInfo returned successfully, printing some info\n");
@@ -274,7 +274,7 @@ CK_RV do_GetTokenInfo(void)
 	printf("\nTesting with Invalid SLOT ID\n");
 	rc = funcs->C_GetTokenInfo(999, &info);
 	if (rc != CKR_SLOT_ID_INVALID) {
-		printf("C_GetTokenInfo() failed rc = %s\n", p11_get_ckr(rc));
+		printf("C_GetTokenInfo() failed rc = %s\n", p11_get_error_string(rc));
 		goto cleanup;
 	}
 
@@ -304,7 +304,7 @@ CK_RV do_GetMechanismList(void)
 
 	rc = funcs->C_GetMechanismList(slot_id, NULL, &count);
 	if (rc != CKR_OK)
-		printf("C_GetMechanismList 1 rc=%s\n",p11_get_ckr(rc));
+		printf("C_GetMechanismList 1 rc=%s\n",p11_get_error_string(rc));
 	else
 		printf("C_GetMechanismList 1 returned %lu mechanisms\n", count);
 
@@ -324,7 +324,7 @@ CK_RV do_GetMechanismList(void)
 
 	rc = funcs->C_GetMechanismList(slot_id, mech_list, &count);
 	if (rc != CKR_OK) {
-		printf("C_GetMechanismList 2 rc=%s\n", p11_get_ckr(rc));
+		printf("C_GetMechanismList 2 rc=%s\n", p11_get_error_string(rc));
 		goto cleanup;
 	} else
 		printf("Mechanism listing from current slot\n");
@@ -333,7 +333,7 @@ CK_RV do_GetMechanismList(void)
 
 	if (rc != CKR_SLOT_ID_INVALID) {
 		printf("C_GetMechanismList() returned %s instead of"
-			      " CKR_SLOT_ID_INVALID.\n", p11_get_ckr(rc));
+			      " CKR_SLOT_ID_INVALID.\n", p11_get_error_string(rc));
 		rc = CKR_FUNCTION_FAILED;
 		goto cleanup;
 	} else {
@@ -361,7 +361,7 @@ CK_RV do_GetMechanismInfo(void)
 
 	rc = funcs->C_GetMechanismList(slot_id, NULL, &count);
 	if (rc != CKR_OK)
-		printf("C_GetMechanismList 1 rc=%s\n",p11_get_ckr(rc));
+		printf("C_GetMechanismList 1 rc=%s\n",p11_get_error_string(rc));
 	else
 		printf("C_GetMechanismList 1 returned %lu mechanisms\n", count);
 
@@ -375,7 +375,7 @@ CK_RV do_GetMechanismInfo(void)
 
 	rc = funcs->C_GetMechanismList(slot_id, mech_list, &count);
 	if (rc != CKR_OK) {
-		printf("C_GetMechanismList #2 rc=%s\n", p11_get_ckr(rc));
+		printf("C_GetMechanismList #2 rc=%s\n", p11_get_error_string(rc));
 		goto cleanup;
 	}
 
@@ -392,7 +392,7 @@ CK_RV do_GetMechanismInfo(void)
 	}
 
 	if (rc != CKR_OK)
-		printf("C_GetMechanismInfo rc=%s\n", p11_get_ckr(rc));
+		printf("C_GetMechanismInfo rc=%s\n", p11_get_error_string(rc));
 	else
 		printf("C_GetMechanismInfo was successful.\n");
 
@@ -453,14 +453,14 @@ CK_RV do_OpenSession( void )
 	printf("Creating R/O Session \n");
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &handle );
 	if (rc != CKR_OK)
-		printf("C_OpenSession handle failed rc=%s\n", p11_get_ckr(rc));
+		printf("C_OpenSession handle failed rc=%s\n", p11_get_error_string(rc));
 	else
 		printf("R/O Session with handle = 0x%lx created\n", handle);
 
 	printf("Closing Session \n");
 	rc = funcs->C_CloseSession(handle);
 	if (rc != CKR_OK)
-		printf("C_CloseSession handle failed rc=%s\n", p11_get_ckr(rc));
+		printf("C_CloseSession handle failed rc=%s\n", p11_get_error_string(rc));
 	else
 		printf("Session Closed\n");
 
@@ -487,7 +487,7 @@ CK_RV do_OpenSession2( void )
 	printf("Creating R/O Session h1\n");
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h1 );
 	if (rc != CKR_OK)
-		printf("C_OpenSession h1 failed rc=%s\n", p11_get_ckr(rc));
+		printf("C_OpenSession h1 failed rc=%s\n", p11_get_error_string(rc));
 	else
 		printf("R/O Session created h1 = 0x%lx created\n", h1);
 
@@ -495,7 +495,7 @@ CK_RV do_OpenSession2( void )
 	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h2 );
 	if (rc != CKR_OK)
-		printf("C_OpenSession h2 failed rc=%s\n", p11_get_ckr(rc));
+		printf("C_OpenSession h2 failed rc=%s\n", p11_get_error_string(rc));
 	else
 		printf("R/W Session created h2 = 0x%lx created\n", h2);
 
@@ -503,16 +503,16 @@ CK_RV do_OpenSession2( void )
 	printf("Closing Session h1\n");
 	rc = funcs->C_CloseSession( h1 );
 	if (rc != CKR_OK)
-		printf("C_CloseSession h1 failed rc=%s\n", p11_get_ckr(rc));
+		printf("C_CloseSession h1 failed rc=%s\n", p11_get_error_string(rc));
 	else
-		printf("C_CloseSession h1 rc=%s\n", p11_get_ckr(rc));
+		printf("C_CloseSession h1 rc=%s\n", p11_get_error_string(rc));
 
 	printf("Closing Session h2\n");
 	rc = funcs->C_CloseSession( h2 );
 	if (rc != CKR_OK)
-		printf("C_CloseSession h2 failed rc=%s\n", p11_get_ckr(rc));
+		printf("C_CloseSession h2 failed rc=%s\n", p11_get_error_string(rc));
 	else
-		printf("C_CloseSession h2 rc=%s\n", p11_get_ckr(rc));
+		printf("C_CloseSession h2 rc=%s\n", p11_get_error_string(rc));
 
 	printf("do_OpenSession2 Finish\n");
 
@@ -537,14 +537,14 @@ CK_RV do_CloseAllSessions( void )
 	printf("Creating R/O Session h1\n");
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h1 );
 	if (rc != CKR_OK)
-		printf("C_OpenSession h1 failed rc=%s\n", p11_get_ckr(rc));
+		printf("C_OpenSession h1 failed rc=%s\n", p11_get_error_string(rc));
 	else
 		printf("R/O Session h1 = 0x%lx created\n", h1);
 
 	printf("Creating R/O Session h2\n");
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h2 );
 	if (rc != CKR_OK)
-		printf("C_OpenSession h2 failed rc=%s\n", p11_get_ckr(rc));
+		printf("C_OpenSession h2 failed rc=%s\n", p11_get_error_string(rc));
 	else
 		printf("R/O Session h2 = 0x%lx created\n", h2);
 
@@ -552,16 +552,16 @@ CK_RV do_CloseAllSessions( void )
 	printf("Creating R/W Session h3\n");
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h3 );
 	if (rc != CKR_OK)
-		printf("C_OpenSession h3 failed rc=%s\n", p11_get_ckr(rc));
+		printf("C_OpenSession h3 failed rc=%s\n", p11_get_error_string(rc));
 	else
 		printf("R/W Session h2 = 0x%lx created\n", h2);
 
 	printf("Closing all sessions for TEE_SLOT\n");
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK)
-		printf("C_CloseAllSessions failed rc=%s\n", p11_get_ckr(rc));
+		printf("C_CloseAllSessions failed rc=%s\n", p11_get_error_string(rc));
 	else
-		printf("C_CloseAllSessions rc=%s\n", p11_get_ckr(rc));
+		printf("C_CloseAllSessions rc=%s\n", p11_get_error_string(rc));
 
 	printf("do_CloseAllSessions finish ...\n");
 
@@ -622,7 +622,7 @@ CK_RV do_FindObjects(void)
 	flags = CKF_SERIAL_SESSION;
 	rc = funcs->C_OpenSession(slot_id, flags, NULL, NULL, &h_session);
 	if (rc != CKR_OK)
-		printf("C_OpenSession handle failed rc=%s\n", p11_get_ckr(rc));
+		printf("C_OpenSession handle failed rc=%s\n", p11_get_error_string(rc));
 	else
 		printf("R/O Session with handle = 0x%lx created\n", h_session);
 
@@ -654,7 +654,7 @@ CK_RV do_FindObjects(void)
 
 	rc = funcs->C_GetAttributeValue(h_session, obj_list[0], ck_attr, 2);
 	if (rc != CKR_OK) {
-		printf("C_GetAttributeValue() rc = %s\n", p11_get_ckr(rc));
+		printf("C_GetAttributeValue() rc = %s\n", p11_get_error_string(rc));
 		for (i = 0; i < 2; i++)
 			printf("ck_attr[%lu].ulValueLen = %ld\n",
 				i, (CK_LONG)ck_attr[i].ulValueLen);
@@ -705,7 +705,7 @@ CK_RV do_GetSessionInfo( void )
 	flags = CKF_SERIAL_SESSION;
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h1 );
 	if (rc != CKR_OK)
-		printf("C_OpenSession h1 failed rc=%s\n", p11_get_ckr(rc));
+		printf("C_OpenSession h1 failed rc=%s\n", p11_get_error_string(rc));
 	else
 		printf("R/O Session h1 = 0x%lx created\n", h1);
 
@@ -713,7 +713,7 @@ CK_RV do_GetSessionInfo( void )
 	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h2 );
 	if (rc != CKR_OK)
-		printf("C_OpenSession h2 failed rc=%s\n", p11_get_ckr(rc));
+		printf("C_OpenSession h2 failed rc=%s\n", p11_get_error_string(rc));
 	else
 		printf("R/W Session h2 = 0x%lx created\n", h1);
 
@@ -721,14 +721,14 @@ CK_RV do_GetSessionInfo( void )
 	flags = CKF_SERIAL_SESSION;
 	rc = funcs->C_OpenSession( slot_id, flags, NULL, NULL, &h3 );
 	if (rc != CKR_OK)
-		printf("C_OpenSession h3 failed rc=%s\n", p11_get_ckr(rc));
+		printf("C_OpenSession h3 failed rc=%s\n", p11_get_error_string(rc));
 	else
 		printf("R/O Session h3 = 0x%lx created\n", h3);
 
 	printf("Getting info about session h1\n");
 	rc = funcs->C_GetSessionInfo( h1, &info );
 	if (rc != CKR_OK)
-		printf("C_GetSessionInfo h1 failed rc=%s\n", p11_get_ckr(rc));
+		printf("C_GetSessionInfo h1 failed rc=%s\n", p11_get_error_string(rc));
 	else
 		dump_sess_info( &info );
 	memset(&info, 0, sizeof(struct CK_SESSION_INFO));
@@ -736,7 +736,7 @@ CK_RV do_GetSessionInfo( void )
 	printf("Getting info about session h2\n");
 	rc = funcs->C_GetSessionInfo( h2, &info );
 	if (rc != CKR_OK)
-		printf("C_GetSessionInfo h2 failed rc=%s\n", p11_get_ckr(rc));
+		printf("C_GetSessionInfo h2 failed rc=%s\n", p11_get_error_string(rc));
 	else
 		dump_sess_info( &info );
 	memset(&info, 0, sizeof(struct CK_SESSION_INFO));
@@ -744,16 +744,16 @@ CK_RV do_GetSessionInfo( void )
 	printf("Getting info about session h3\n");
 	rc = funcs->C_GetSessionInfo( h3, &info );
 	if (rc != CKR_OK)
-		printf("C_GetSessionInfo h3 failed rc=%s\n", p11_get_ckr(rc));
+		printf("C_GetSessionInfo h3 failed rc=%s\n", p11_get_error_string(rc));
 	else
 		dump_sess_info( &info );
 
 	printf("Closing all sessions for TEE_SLOT\n");
 	rc = funcs->C_CloseAllSessions( slot_id );
 	if (rc != CKR_OK)
-		printf("C_CloseAllSessions failed rc=%s\n", p11_get_ckr(rc));
+		printf("C_CloseAllSessions failed rc=%s\n", p11_get_error_string(rc));
 	else
-		printf("C_CloseAllSessions rc=%s\n", p11_get_ckr(rc));
+		printf("C_CloseAllSessions rc=%s\n", p11_get_error_string(rc));
 
 
 	printf("do_GetSessionInfo finish\n");
@@ -826,15 +826,15 @@ int main(int argc, char **argv)
 
 	rv = sess_mgmt_functions();
 	if (rv != CKR_OK)
-		printf("sess_mgmt_functions failed rv=%s\n", p11_get_ckr(rv));
+		printf("sess_mgmt_functions failed rv=%s\n", p11_get_error_string(rv));
 
 	rv = do_FindObjects();
 	if (rv != CKR_OK)
-		printf("do_FindObjects failed rv=%s\n", p11_get_ckr(rv));
+		printf("do_FindObjects failed rv=%s\n", p11_get_error_string(rv));
 
 	rv = funcs->C_Finalize(NULL_PTR);
 	if (rv != CKR_OK)
-		printf("C_Finalize failed rv=%s\n", p11_get_ckr(rv));
+		printf("C_Finalize failed rv=%s\n", p11_get_error_string(rv));
 
 	if (rv == CKR_OK)
 		printf("PKCS Library initialised finalised successfully\n");

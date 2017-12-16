@@ -12,12 +12,12 @@
 #include <securekey_api.h>
 #include <securekey_api_types.h>
 
-static CK_BBOOL is_attribute_defined(CK_ATTRIBUTE_TYPE type)
+static CK_BBOOL p11_is_attribute_defined(CK_ATTRIBUTE_TYPE attr_type)
 {
-	if (type >= CKA_VENDOR_DEFINED)
+	if (attr_type >= CKA_VENDOR_DEFINED)
 		return TRUE;
 
-	switch (type)
+	switch (attr_type)
 	{
 		case  CKA_CLASS:
 		case  CKA_TOKEN:
@@ -43,15 +43,6 @@ static CK_BBOOL is_attribute_defined(CK_ATTRIBUTE_TYPE type)
 		case  CKA_DERIVE:
 		case  CKA_START_DATE:
 		case  CKA_END_DATE:
-		case  CKA_MODULUS:
-		case  CKA_MODULUS_BITS:
-		case  CKA_PUBLIC_EXPONENT:
-		case  CKA_PRIVATE_EXPONENT:
-		case  CKA_PRIME_1:
-		case  CKA_PRIME_2:
-		case  CKA_EXPONENT_1:
-		case  CKA_EXPONENT_2:
-		case  CKA_COEFFICIENT:
 		case  CKA_PRIME:
 		case  CKA_SUBPRIME:
 		case  CKA_BASE:
@@ -75,13 +66,22 @@ static CK_BBOOL is_attribute_defined(CK_ATTRIBUTE_TYPE type)
 		case  CKA_OWNER:
 		case  CKA_ATTR_TYPES:
 		case  CKA_TRUSTED:
+		case  CKA_MODULUS:
+		case  CKA_MODULUS_BITS:
+		case  CKA_PUBLIC_EXPONENT:
+		case  CKA_PRIVATE_EXPONENT:
+		case  CKA_PRIME_1:
+		case  CKA_PRIME_2:
+		case  CKA_EXPONENT_1:
+		case  CKA_EXPONENT_2:
+		case  CKA_COEFFICIENT:
 			return TRUE;
 		default:
 			return FALSE;
 	}
 }
 
-static CK_RV template_update_attribute(struct template_list *tmpl_list,
+static CK_RV p11_template_update_attr(struct template_list *tmpl_list,
 		struct template_node *tmpl_node)
 {
 	CK_ATTRIBUTE *attr = NULL;
@@ -109,10 +109,8 @@ static CK_RV template_update_attribute(struct template_list *tmpl_list,
 
 	return CKR_OK;
 }
-
-
 static CK_RV
-key_object_set_default_attributes(struct template_list *tmpl_list)
+key_object_set_default_attr(struct template_list *tmpl_list)
 {
 	struct template_node *sdate;
 	struct template_node *edate;
@@ -178,16 +176,16 @@ key_object_set_default_attributes(struct template_list *tmpl_list)
 	derive->attributes = derive_attr;
 	local->attributes = local_attr;
 
-	template_update_attribute(tmpl_list, sdate);
-	template_update_attribute(tmpl_list, edate);
-	template_update_attribute(tmpl_list, derive);
-	template_update_attribute(tmpl_list, local);
+	p11_template_update_attr(tmpl_list, sdate);
+	p11_template_update_attr(tmpl_list, edate);
+	p11_template_update_attr(tmpl_list, derive);
+	p11_template_update_attr(tmpl_list, local);
 
 	return CKR_OK;
 }
 
 static CK_RV
-publ_key_add_default_attributes(struct template_list *tmpl_list)
+pubk_add_default_attr(struct template_list *tmpl_list)
 {
 	struct template_node *class;
 	struct template_node *subject;
@@ -209,9 +207,9 @@ publ_key_add_default_attributes(struct template_list *tmpl_list)
 
 	CK_RV            rc;
 
-	rc = key_object_set_default_attributes(tmpl_list);
+	rc = key_object_set_default_attr(tmpl_list);
 	if (rc != CKR_OK){
-		printf("key_object_set_default_attributes failed\n");
+		printf("key_object_set_default_attr failed\n");
 		return rc;
 	}
 
@@ -327,21 +325,21 @@ publ_key_add_default_attributes(struct template_list *tmpl_list)
 	trusted->attributes = trusted_attr;
 	wrap_template->attributes = wrap_template_attr;
 
-	template_update_attribute(tmpl_list, class);
-	template_update_attribute(tmpl_list, subject);
-	template_update_attribute(tmpl_list, encrypt);
-	template_update_attribute(tmpl_list, verify);
-	template_update_attribute(tmpl_list, verify_recover);
-	template_update_attribute(tmpl_list, wrap);
-	template_update_attribute(tmpl_list, trusted);
-	template_update_attribute(tmpl_list, wrap_template);
+	p11_template_update_attr(tmpl_list, class);
+	p11_template_update_attr(tmpl_list, subject);
+	p11_template_update_attr(tmpl_list, encrypt);
+	p11_template_update_attr(tmpl_list, verify);
+	p11_template_update_attr(tmpl_list, verify_recover);
+	p11_template_update_attr(tmpl_list, wrap);
+	p11_template_update_attr(tmpl_list, trusted);
+	p11_template_update_attr(tmpl_list, wrap_template);
 
 	return CKR_OK;
 }
 
 
 static CK_RV
-rsa_publ_add_default_attributes(struct template_list *tmpl_list)
+rsa_pubk_add_default_attr(struct template_list *tmpl_list)
 {
 	CK_RV rc;
 
@@ -353,9 +351,9 @@ rsa_publ_add_default_attributes(struct template_list *tmpl_list)
 	CK_ATTRIBUTE   *allowed_mech_attr = NULL;
 	CK_ATTRIBUTE   *key_type_attr = NULL;
 
-	rc = publ_key_add_default_attributes(tmpl_list);
+	rc = pubk_add_default_attr(tmpl_list);
 	if (rc != CKR_OK) {
-		printf("publ_key_set_default_attributes failed\n");
+		printf("pubk_add_default_attr failed\n");
 		return rc;
 	}
 
@@ -404,85 +402,15 @@ rsa_publ_add_default_attributes(struct template_list *tmpl_list)
 	keygen_mech->attributes = keygen_mech_attr;
 	allowed_mech->attributes = allowed_mech_attr;
 
-	template_update_attribute(tmpl_list, key_type);
-	template_update_attribute(tmpl_list, keygen_mech);
-	template_update_attribute(tmpl_list, allowed_mech);
-
-	return CKR_OK;
-}
-
-
-/* template_set_default_common_attributes()
- *
- * Set the default attributes common to all objects:
- *
- *	CKA_TOKEN:	TRUE
- *	CKA_PRIVATE:	FALSE -- Cryptoki leaves this up to the token to decide
- *	CKA_MODIFIABLE:	FALSE
- */
-static CK_RV
-template_add_default_common_attributes(struct template_list *tmpl_list)
-{
-	struct template_node *token_node;
-	struct template_node *priv_node;
-	struct template_node *mod_node;
-
-	CK_ATTRIBUTE *token_attr;
-	CK_ATTRIBUTE *priv_attr;
-	CK_ATTRIBUTE *mod_attr;
-
-	token_node = (struct template_node *)malloc(sizeof(struct template_node));
-	priv_node = (struct template_node *)malloc(sizeof(struct template_node));
-	mod_node = (struct template_node *)malloc(sizeof(struct template_node));
-
-	/* add the default common attributes */
-	token_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
-			+ sizeof(CK_BBOOL));
-	priv_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
-			+ sizeof(CK_BBOOL));
-	mod_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
-			+ sizeof(CK_BBOOL));
-
-	if (!token_attr || !priv_attr || !mod_attr ||!token_node ||
-		!priv_node || !mod_node) {
-		if (token_attr) free(token_attr);
-		if (priv_attr) free(priv_attr);
-		if (mod_attr) free(mod_attr);
-		if (token_node) free(token_node);
-		if (priv_node) free(priv_node);
-		if (mod_node) free(mod_node);
-
-		return CKR_HOST_MEMORY;
-	}
-
-	token_attr->type = CKA_TOKEN;
-	token_attr->ulValueLen = sizeof(CK_BBOOL);
-	token_attr->pValue = (CK_BYTE *)token_attr + sizeof(CK_ATTRIBUTE);
-	*(CK_BBOOL *)token_attr->pValue = TRUE;
-
-	priv_attr->type = CKA_PRIVATE;
-	priv_attr->ulValueLen = sizeof(CK_BBOOL);
-	priv_attr->pValue = (CK_BYTE *)priv_attr + sizeof(CK_ATTRIBUTE);
-	*(CK_BBOOL *)priv_attr->pValue = FALSE;
-
-	mod_attr->type = CKA_MODIFIABLE;
-	mod_attr->ulValueLen = sizeof(CK_BBOOL);
-	mod_attr->pValue = (CK_BYTE *)mod_attr + sizeof(CK_ATTRIBUTE);
-	*(CK_BBOOL *)mod_attr->pValue = FALSE;
-
-	token_node->attributes = token_attr;
-	priv_node->attributes = priv_attr;
-	mod_node->attributes = mod_attr;
-
-	template_update_attribute(tmpl_list, token_node);
-	template_update_attribute(tmpl_list, priv_node);
-	template_update_attribute(tmpl_list, mod_node);
+	p11_template_update_attr(tmpl_list, key_type);
+	p11_template_update_attr(tmpl_list, keygen_mech);
+	p11_template_update_attr(tmpl_list, allowed_mech);
 
 	return CKR_OK;
 }
 
 static CK_RV
-priv_key_add_default_attributes(struct template_list *tmpl_list)
+privk_add_default_attr(struct template_list *tmpl_list)
 {
 	struct template_node *class;
 	struct template_node *subject;
@@ -514,9 +442,9 @@ priv_key_add_default_attributes(struct template_list *tmpl_list)
 	CK_RV	rc;
 
 
-	rc = key_object_set_default_attributes(tmpl_list);
+	rc = key_object_set_default_attr(tmpl_list);
 	if (rc != CKR_OK){
-		printf("key_object_set_default_attributes failed\n");
+		printf("key_object_set_default_attr failed\n");
 		return rc;
 	}
 
@@ -692,26 +620,26 @@ priv_key_add_default_attributes(struct template_list *tmpl_list)
 	unwrap_templ->attributes = unwrap_templ_attr;
 	always_auth->attributes = always_auth_attr;
 
-	template_update_attribute(tmpl_list, class);
-	template_update_attribute(tmpl_list, subject);
-	template_update_attribute(tmpl_list, sensitive);
-	template_update_attribute(tmpl_list, decrypt);
-	template_update_attribute(tmpl_list, sign);
-	template_update_attribute(tmpl_list, sign_recover);
-	template_update_attribute(tmpl_list, unwrap);
-	template_update_attribute(tmpl_list, extractable);
-	template_update_attribute(tmpl_list, never_extr);
-	template_update_attribute(tmpl_list, always_sens);
-	template_update_attribute(tmpl_list, wrap_with_trusted);
-	template_update_attribute(tmpl_list, unwrap_templ);
-	template_update_attribute(tmpl_list, always_auth);
+	p11_template_update_attr(tmpl_list, class);
+	p11_template_update_attr(tmpl_list, subject);
+	p11_template_update_attr(tmpl_list, sensitive);
+	p11_template_update_attr(tmpl_list, decrypt);
+	p11_template_update_attr(tmpl_list, sign);
+	p11_template_update_attr(tmpl_list, sign_recover);
+	p11_template_update_attr(tmpl_list, unwrap);
+	p11_template_update_attr(tmpl_list, extractable);
+	p11_template_update_attr(tmpl_list, never_extr);
+	p11_template_update_attr(tmpl_list, always_sens);
+	p11_template_update_attr(tmpl_list, wrap_with_trusted);
+	p11_template_update_attr(tmpl_list, unwrap_templ);
+	p11_template_update_attr(tmpl_list, always_auth);
 
 	return CKR_OK;
 }
 
 
 static CK_RV
-rsa_priv_add_default_attributes(struct template_list *tmpl_list)
+rsa_privk_add_default_attr(struct template_list *tmpl_list)
 {
 	CK_RV rc;
 	uint32_t rsa_priv_key_mech_count = 7;
@@ -725,9 +653,9 @@ rsa_priv_add_default_attributes(struct template_list *tmpl_list)
 	CK_ATTRIBUTE   *allowed_mech_attr = NULL;
 	CK_ATTRIBUTE   *key_type_attr = NULL;
 
-	rc = priv_key_add_default_attributes(tmpl_list);
+	rc = privk_add_default_attr(tmpl_list);
 	if (rc != CKR_OK) {
-		printf("priv_key_set_default_attributes failed\n");
+		printf("privk_add_default_attr failed\n");
 		return rc;
 	}
 
@@ -787,14 +715,83 @@ rsa_priv_add_default_attributes(struct template_list *tmpl_list)
 	keygen_mech->attributes = keygen_mech_attr;
 	allowed_mech->attributes = allowed_mech_attr;
 
-	template_update_attribute(tmpl_list, key_type);
-	template_update_attribute(tmpl_list, keygen_mech);
-	template_update_attribute(tmpl_list, allowed_mech);
+	p11_template_update_attr(tmpl_list, key_type);
+	p11_template_update_attr(tmpl_list, keygen_mech);
+	p11_template_update_attr(tmpl_list, allowed_mech);
 
 	return CKR_OK;
 }
 
-static CK_RV template_add_default_attributes(OBJECT *obj)
+/* p11_template_add_default_common_attr()
+ *
+ * Set the default attributes common to all objects:
+ *
+ *	CKA_TOKEN:	TRUE
+ *	CKA_PRIVATE:	FALSE -- Cryptoki leaves this up to the token to decide
+ *	CKA_MODIFIABLE:	FALSE
+ */
+static CK_RV
+p11_template_add_default_common_attr(struct template_list *tmpl_list)
+{
+	struct template_node *token_node;
+	struct template_node *priv_node;
+	struct template_node *mod_node;
+
+	CK_ATTRIBUTE *token_attr;
+	CK_ATTRIBUTE *priv_attr;
+	CK_ATTRIBUTE *mod_attr;
+
+	token_node = (struct template_node *)malloc(sizeof(struct template_node));
+	priv_node = (struct template_node *)malloc(sizeof(struct template_node));
+	mod_node = (struct template_node *)malloc(sizeof(struct template_node));
+
+	/* add the default common attributes */
+	token_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
+			+ sizeof(CK_BBOOL));
+	priv_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
+			+ sizeof(CK_BBOOL));
+	mod_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
+			+ sizeof(CK_BBOOL));
+
+	if (!token_attr || !priv_attr || !mod_attr ||!token_node ||
+		!priv_node || !mod_node) {
+		if (token_attr) free(token_attr);
+		if (priv_attr) free(priv_attr);
+		if (mod_attr) free(mod_attr);
+		if (token_node) free(token_node);
+		if (priv_node) free(priv_node);
+		if (mod_node) free(mod_node);
+
+		return CKR_HOST_MEMORY;
+	}
+
+	token_attr->type = CKA_TOKEN;
+	token_attr->ulValueLen = sizeof(CK_BBOOL);
+	token_attr->pValue = (CK_BYTE *)token_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)token_attr->pValue = TRUE;
+
+	priv_attr->type = CKA_PRIVATE;
+	priv_attr->ulValueLen = sizeof(CK_BBOOL);
+	priv_attr->pValue = (CK_BYTE *)priv_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)priv_attr->pValue = FALSE;
+
+	mod_attr->type = CKA_MODIFIABLE;
+	mod_attr->ulValueLen = sizeof(CK_BBOOL);
+	mod_attr->pValue = (CK_BYTE *)mod_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)mod_attr->pValue = FALSE;
+
+	token_node->attributes = token_attr;
+	priv_node->attributes = priv_attr;
+	mod_node->attributes = mod_attr;
+
+	p11_template_update_attr(tmpl_list, token_node);
+	p11_template_update_attr(tmpl_list, priv_node);
+	p11_template_update_attr(tmpl_list, mod_node);
+
+	return CKR_OK;
+}
+
+static CK_RV p11_template_add_default_attr(OBJECT *obj)
 {
 	CK_RV rc;
 
@@ -804,9 +801,9 @@ static CK_RV template_add_default_attributes(OBJECT *obj)
 	subclass = obj->obj_subclass;
 
 	/* first add the default common attributes */
-	rc = template_add_default_common_attributes(&obj->template_list);
+	rc = p11_template_add_default_common_attr(&obj->template_list);
 	if (rc != CKR_OK) {
-		printf("template_set_default_common_attributes failed.\n");
+		printf("p11_template_add_default_common_attr failed.\n");
 		return rc;
 	}
 
@@ -815,7 +812,7 @@ static CK_RV template_add_default_attributes(OBJECT *obj)
 		case CKO_PUBLIC_KEY:
 			switch (subclass) {
 				case CKK_RSA:
-					return rsa_publ_add_default_attributes(&obj->template_list);
+					return rsa_pubk_add_default_attr(&obj->template_list);
 				default:
 					printf("%s, %d Invalid Attribute\n", __func__,__LINE__);
 					return CKR_ATTRIBUTE_VALUE_INVALID;
@@ -824,7 +821,7 @@ static CK_RV template_add_default_attributes(OBJECT *obj)
 		case CKO_PRIVATE_KEY:
 			switch (subclass) {
 				case CKK_RSA:
-					return rsa_priv_add_default_attributes(&obj->template_list);
+					return rsa_privk_add_default_attr(&obj->template_list);
 				default:
 					printf("%s, %d Invalid Attribute\n", __func__,__LINE__);
 					return CKR_ATTRIBUTE_VALUE_INVALID;
@@ -837,9 +834,7 @@ static CK_RV template_add_default_attributes(OBJECT *obj)
 	}
 }
 
-
-/* template_add_attributes() */
-static CK_RV template_add_attributes(OBJECT *obj,
+static CK_RV p11_template_add_attr(OBJECT *obj,
 		CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount)
 {
 	struct template_node *tmpl_node;
@@ -848,7 +843,7 @@ static CK_RV template_add_attributes(OBJECT *obj,
 
 	for (i = 0; i < ulCount; i++) {
 
-		if (!is_attribute_defined(pTemplate[i].type)) {
+		if (!p11_is_attribute_defined(pTemplate[i].type)) {
 			printf("Template type invalid \n");
 			continue;
 		}
@@ -877,19 +872,19 @@ static CK_RV template_add_attributes(OBJECT *obj,
 
 		tmpl_node = malloc(sizeof(struct template_node));
 		if (!tmpl_node) {
-			printf("template malloc failed\n");
+			printf("template node malloc failed\n");
 			return CKR_HOST_MEMORY;
 		}
 
 		tmpl_node->attributes = attr;
 
-		template_update_attribute(&obj->template_list, tmpl_node);
+		p11_template_update_attr(&obj->template_list, tmpl_node);
 	}
 
 	return CKR_OK;
 }
 
-static CK_BBOOL template_has_attribute(struct template_list *tmpl_list,
+static CK_BBOOL p11_template_check_attr(struct template_list *tmpl_list,
 		CK_ATTRIBUTE_TYPE type, CK_ATTRIBUTE **attr)
 {
 	CK_ATTRIBUTE *a = NULL;
@@ -910,8 +905,7 @@ static CK_BBOOL template_has_attribute(struct template_list *tmpl_list,
 	return FALSE;
 }
 
-/* template_compare() */
-CK_BBOOL template_compare(CK_ATTRIBUTE *t1, CK_ULONG ulCount,
+CK_BBOOL p11_template_compare(CK_ATTRIBUTE *t1, CK_ULONG ulCount,
 		struct template_list *tmpl_list)
 {
 	CK_ATTRIBUTE *attr1 = NULL;
@@ -925,7 +919,7 @@ CK_BBOOL template_compare(CK_ATTRIBUTE *t1, CK_ULONG ulCount,
 	attr1 = t1;
 
 	for (i = 0; i < ulCount; i++) {
-		rc = template_has_attribute(tmpl_list, attr1->type, &attr2);
+		rc = p11_template_check_attr(tmpl_list, attr1->type, &attr2);
 		if (rc == FALSE)
 			return FALSE;
 
@@ -941,7 +935,7 @@ CK_BBOOL template_compare(CK_ATTRIBUTE *t1, CK_ULONG ulCount,
 	return TRUE;
 }
 
-static CK_BBOOL template_get_class(struct template_list *tmpl_list,
+static CK_BBOOL p11_template_get_class(struct template_list *tmpl_list,
 	CK_ULONG *class, CK_ULONG *subclass)
 {
 	CK_BBOOL found = FALSE;
@@ -973,7 +967,7 @@ static CK_BBOOL template_get_class(struct template_list *tmpl_list,
 }
 
 static CK_BBOOL
-rsa_priv_check_exportability(CK_ATTRIBUTE_TYPE type)
+check_rsa_privk_exportability(CK_ATTRIBUTE_TYPE type)
 {
 	switch (type) {
 		case CKA_PRIVATE_EXPONENT:
@@ -988,7 +982,7 @@ rsa_priv_check_exportability(CK_ATTRIBUTE_TYPE type)
 	}
 }
 
-static CK_BBOOL attributes_check_exportability(struct template_list *tmpl_list,
+static CK_BBOOL check_attr_exportability(struct template_list *tmpl_list,
 		CK_ATTRIBUTE_TYPE type)
 {
 	CK_ATTRIBUTE *sensitive = NULL;
@@ -1001,7 +995,7 @@ static CK_BBOOL attributes_check_exportability(struct template_list *tmpl_list,
 	if (!tmpl_list)
 		return FALSE;
 
-	template_get_class(tmpl_list, &class, &subclass);
+	p11_template_get_class(tmpl_list, &class, &subclass);
 
 	/* Early exits:
 	 * 1) CKA_SENSITIVE and CKA_EXTRACTABLE only apply to private key
@@ -1014,9 +1008,9 @@ static CK_BBOOL attributes_check_exportability(struct template_list *tmpl_list,
 	if (class != CKO_PRIVATE_KEY && class != CKO_SECRET_KEY)
 		return TRUE;
 
-	sensitive_val = template_has_attribute(tmpl_list, CKA_SENSITIVE,
+	sensitive_val = p11_template_check_attr(tmpl_list, CKA_SENSITIVE,
 				&sensitive);
-	extractable_val = template_has_attribute(tmpl_list, CKA_EXTRACTABLE,
+	extractable_val = p11_template_check_attr(tmpl_list, CKA_EXTRACTABLE,
 				&extractable);
 	if (sensitive_val && extractable_val) {
 		sensitive_val = *(CK_BBOOL *)sensitive->pValue;
@@ -1035,7 +1029,7 @@ static CK_BBOOL attributes_check_exportability(struct template_list *tmpl_list,
 	if (class == CKO_PRIVATE_KEY) {
 		switch (subclass) {
 		case CKK_RSA:
-			return rsa_priv_check_exportability(type);
+			return check_rsa_privk_exportability(type);
 
 		default:
 			return TRUE;
@@ -1211,7 +1205,7 @@ CK_RV find_matching_objects(CK_OBJECT_HANDLE_PTR object_handle,
 
 	if (ulCount != 0) {
 		STAILQ_FOREACH(temp, obj_list, entry) {
-			ret = template_compare(pTemplate, ulCount,
+			ret = p11_template_compare(pTemplate, ulCount,
 				&temp->object.template_list);
 			if (ret == TRUE) {
 				object_handle[i] = (CK_OBJECT_HANDLE)temp;
@@ -1308,7 +1302,7 @@ CK_BBOOL is_object_handle_valid(CK_OBJECT_HANDLE hObject,
 	return FALSE;
 }
 
-CK_RV get_attribute_value(struct object_node *obj,
+CK_RV get_attr_value(struct object_node *obj,
 		CK_ATTRIBUTE_PTR pTemplate,
 		CK_ULONG ulCount)
 {
@@ -1321,14 +1315,14 @@ CK_RV get_attribute_value(struct object_node *obj,
 	obj_tmpl = &obj->object.template_list;
 
 	for (i = 0; i < ulCount; i++) {
-		flag = attributes_check_exportability(obj_tmpl, pTemplate[i].type);
+		flag = check_attr_exportability(obj_tmpl, pTemplate[i].type);
 		if (flag == FALSE) {
 			ret = CKR_ATTRIBUTE_SENSITIVE;
 			pTemplate[i].ulValueLen = (CK_ULONG)-1;
 			continue;
 		}
 
-		flag = template_has_attribute(obj_tmpl, pTemplate[i].type, &attr);
+		flag = p11_template_check_attr(obj_tmpl, pTemplate[i].type, &attr);
 		if (flag == FALSE) {
 			ret = CKR_ATTRIBUTE_TYPE_INVALID;
 			pTemplate[i].ulValueLen = (CK_ULONG)-1;
@@ -1424,9 +1418,9 @@ static CK_RV object_add_template(OBJECT *obj,
 			return CKR_GENERAL_ERROR;
 		}
 
-		rc = template_add_attributes(obj, ck_attr, 1);
+		rc = p11_template_add_attr(obj, ck_attr, 1);
 		if (rc != CKR_OK) {
-			printf("template_add_attributes failed\n");
+			printf("p11_template_add_attr failed\n");
 			return rc;
 		}
 
@@ -1489,7 +1483,7 @@ static CK_RV create_rsa_priv_key_object(SK_OBJECT_HANDLE hObject,
 	rc = object_add_template(&priv_key->object, rsa_priv_attr_type,
 			RSA_PRIV_SK_ATTR_COUNT);
 	if (rc != CKR_OK) {
-		printf("template_add_attributes failed\n");
+		printf("object_add_template failed\n");
 		free(priv_key);
 		return rc;
 	}
@@ -1561,9 +1555,9 @@ CK_RV get_all_token_objects(struct object_list *obj_list,
 						rsa_pub_key->object.obj_class = CKO_PUBLIC_KEY;
 						rsa_pub_key->object.obj_subclass = CKK_RSA;
 
-						rc = template_add_default_attributes(&rsa_pub_key->object);
+						rc = p11_template_add_default_attr(&rsa_pub_key->object);
 						if (rc != CKR_OK) {
-							printf("template_add_default_attributes failed\n");
+							printf("p11_template_add_default_attr failed\n");
 							return rc;
 						}
 
@@ -1578,9 +1572,9 @@ CK_RV get_all_token_objects(struct object_list *obj_list,
 						rsa_priv_key->object.obj_class = CKO_PRIVATE_KEY;
 						rsa_priv_key->object.obj_subclass = CKK_RSA;
 
-						rc = template_add_default_attributes(&rsa_priv_key->object);
+						rc = p11_template_add_default_attr(&rsa_priv_key->object);
 						if (rc != CKR_OK) {
-							printf("template_add_default_attributes failed\n");
+							printf("p11_template_add_default_attr failed\n");
 							return rc;
 						}
 						STAILQ_INSERT_HEAD(obj_list, rsa_priv_key, entry);
@@ -1605,9 +1599,9 @@ CK_RV get_all_token_objects(struct object_list *obj_list,
 						pub_key->object.obj_class = CKO_PUBLIC_KEY;
 						pub_key->object.obj_subclass = CKK_RSA;
 
-						rc = template_add_default_attributes(&pub_key->object);
+						rc = p11_template_add_default_attr(&pub_key->object);
 						if (rc != CKR_OK) {
-							printf("template_add_default_attributes failed\n");
+							printf("p11_template_add_default_attr failed\n");
 							return rc;
 						}
 

@@ -45,14 +45,14 @@ CK_RV destroy_object_list(CK_SLOT_ID slotID);
 
 CK_RV initialize_object_list(CK_SLOT_ID slotID);
 
-CK_BBOOL template_compare(CK_ATTRIBUTE *t1, CK_ULONG ulCount,
+CK_BBOOL p11_template_compare(CK_ATTRIBUTE *t1, CK_ULONG ulCount,
 		struct template_list *tmpl_list);
 
 CK_RV find_matching_objects(CK_OBJECT_HANDLE_PTR object_handle,
 	struct object_list *obj_list, CK_ATTRIBUTE_PTR pTemplate,
 	CK_ULONG ulCount, CK_ULONG *pobjCount);
 
-CK_RV get_attribute_value(struct object_node *obj,
+CK_RV get_attr_value(struct object_node *obj,
 		CK_ATTRIBUTE_PTR pTemplate,
 		CK_ULONG ulCount);
 #endif
