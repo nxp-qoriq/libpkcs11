@@ -23,6 +23,6 @@ void pkcs_lib_init(void);
 
 void pkcs_lib_finish(void);
 
-int get_function_list(CK_SLOT_ID slotID);
+CK_RV initialize_slot(CK_SLOT_ID slotID);
 
 #endif

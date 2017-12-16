@@ -53,27 +53,22 @@ CK_BBOOL is_lib_initialized(void)
 	return initialized != 0;
 }
 
-int get_function_list(CK_SLOT_ID slotID)
+static int get_function_list(CK_SLOT_ID slotID, char *library)
 {
 	SK_RET_CODE	rc;
 	SK_RET_CODE	(*pfoo)(SK_FUNCTION_LIST_PTR_PTR);
 	void    *d;
-	const char    *e;
-	const char    *f = "libsecurekey.so";
+	const char    *f = library;
 	struct slot_info *s_info;
 
-	e = getenv("SECUREKEY_LIB");
-	if ( e == NULL)
-		e = f;
-
-	d = dlopen(e, RTLD_NOW);
-	if ( d == NULL ) {
+	d = dlopen(f, RTLD_NOW);
+	if (d == NULL) {
 		printf("dlopen failed %s\n", dlerror());
 		return FALSE;
 	}
 
 	pfoo = (SK_RET_CODE (*)(SK_FUNCTION_LIST_PTR_PTR))dlsym(d, "SK_GetFunctionList");
-	if (pfoo == NULL ) {
+	if (pfoo == NULL) {
 		return FALSE;
 	}
 
@@ -91,3 +86,31 @@ int get_function_list(CK_SLOT_ID slotID)
 
 }
 
+CK_RV initialize_slot(CK_SLOT_ID slotID)
+{
+	char library[20];
+	CK_RV rc;
+
+	switch (slotID) {
+		case TEE_SLOT_ID:
+			memcpy(library, "libsecurekey.so", sizeof("libsecurekey.so"));
+			break;
+		default:
+			printf("Invalid Slot ID\n");
+			return CKR_ARGUMENTS_BAD;
+	}
+
+	rc = get_function_list(slotID, library);
+	if (!rc) {
+		printf("get_function_list(), rc=%lu\n", rc);
+		return CKR_GENERAL_ERROR;
+	}
+
+	if (initialize_object_list(slotID) != CKR_OK)
+		return CKR_GENERAL_ERROR;
+
+	if (initialize_session_list(slotID) != CKR_OK)
+		return CKR_GENERAL_ERROR;
+
+	return CKR_OK;
+}

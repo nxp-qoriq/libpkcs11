@@ -24,28 +24,22 @@ static CK_FUNCTION_LIST global_function_list;
  */
 CK_RV C_Initialize(CK_VOID_PTR pInitArgs)
 {
-	int rc;
+	CK_RV rc;
+	uint32_t i = 0;
+
 	if (is_lib_initialized())
 		return CKR_CRYPTOKI_ALREADY_INITIALIZED;
 
 	if (pInitArgs != NULL)
 		return CKR_ARGUMENTS_BAD;
 
-	rc = get_function_list(TEE_SLOT_ID);
-	if (!rc) {
-		printf("get_function_list(), rc=%d\n", rc);
-		return CKR_GENERAL_ERROR;
-	}
-
 	pkcs_lib_init();
 
-	/* This need to be updated when we will add more slots */
-	if (initialize_object_list(TEE_SLOT_ID) != CKR_OK)
-		return CKR_GENERAL_ERROR;
-
-	if (initialize_session_list(TEE_SLOT_ID) != CKR_OK)
-		return CKR_GENERAL_ERROR;
-
+	for (i = 0; i < SLOT_COUNT; i++) {
+		rc = initialize_slot(i);
+		if (rc)
+			return CKR_GENERAL_ERROR;
+	}
 	return CKR_OK;
 }
 
