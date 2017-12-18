@@ -513,7 +513,7 @@ CK_RV C_SeedRandom(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pSeed,
 	hSession = hSession;
 	pSeed = pSeed;
 	ulSeedLen = ulSeedLen;
-	return CKR_RANDOM_SEED_NOT_SUPPORTED;
+	return CKR_RANDOM_NO_RNG;
 }
 
 CK_RV C_GenerateRandom(CK_SESSION_HANDLE hSession, CK_BYTE_PTR RandomData,
@@ -522,5 +522,5 @@ CK_RV C_GenerateRandom(CK_SESSION_HANDLE hSession, CK_BYTE_PTR RandomData,
 	hSession = hSession;
 	RandomData = RandomData;
 	ulRandomLen = ulRandomLen;
-	return CKR_RANDOM_SEED_NOT_SUPPORTED;
+	return CKR_RANDOM_NO_RNG;
 }

@@ -84,11 +84,15 @@ CK_RV C_GetTokenInfo(CK_SLOT_ID slotID, CK_TOKEN_INFO_PTR pInfo)
 	return CKR_OK;
 }
 
-CK_RV C_WaitForSlotEvent(CK_FLAGS flags, CK_SLOT_ID_PTR pSlot, CK_VOID_PTR pRserved)
+CK_RV C_WaitForSlotEvent(CK_FLAGS flags, CK_SLOT_ID_PTR pSlot,
+			CK_VOID_PTR pRserved)
 {
 	flags = flags;
 	pSlot = pSlot;
 	pRserved = pRserved;
+
+	/* Currently since we are not supporting any removable token
+	  * it is better to return CKR_FUNCTION_NOT_SUPPORTED */
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 

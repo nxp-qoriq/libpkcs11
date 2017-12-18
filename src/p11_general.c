@@ -167,9 +167,7 @@ CK_RV C_GetFunctionList(CK_FUNCTION_LIST_PTR_PTR ppFunctionList)
 	global_function_list.C_GenerateRandom  =	C_GenerateRandom;
 	global_function_list.C_GetFunctionStatus  =	C_GetFunctionStatus;
 	global_function_list.C_CancelFunction  =	C_CancelFunction;
-#if 0
 	global_function_list.C_WaitForSlotEvent  =	C_WaitForSlotEvent;
-#endif
 	*ppFunctionList = &global_function_list;
  
 	return CKR_OK;
