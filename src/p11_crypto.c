@@ -200,9 +200,6 @@ CK_RV C_SignInit(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism,
 	if (!sess)
 		return CKR_SESSION_HANDLE_INVALID;
 
-	if (sess->op_active == CK_TRUE)
-		return CKR_OPERATION_ACTIVE;
-
 	/* Check for valid object handle */
 	valid = is_object_handle_valid(hKey, sess->session_info.slotID);
 	if (valid != TRUE)
@@ -222,13 +219,29 @@ CK_RV C_Sign(CK_SESSION_HANDLE hSession,
 	     CK_BYTE_PTR pSignature,
 	     CK_ULONG_PTR pulSignatureLen)
 {
-	hSession = hSession;
-	pData = pData;
-	ulDataLen = ulDataLen;
-	pSignature = pSignature;
-	pulSignatureLen = pulSignatureLen;
+	session *sess = NULL;
+	CK_RV rc;
 
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	if (!is_lib_initialized())
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	if (!pData || !pulSignatureLen)
+		return CKR_ARGUMENTS_BAD;
+
+	if (!is_session_valid(hSession))
+		return CKR_SESSION_HANDLE_INVALID;
+
+	sess = get_session(hSession);
+	if (!sess)
+		return CKR_SESSION_HANDLE_INVALID;
+
+	/* Call sign function */
+	rc = sign(hSession, sess, pData, ulDataLen, pSignature,
+		  pulSignatureLen);
+	if (rc != CKR_OK)
+		return rc;
+
+	return CKR_OK;
 }
 
 CK_RV C_SignUpdate(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pPart,
