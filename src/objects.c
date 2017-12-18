@@ -209,7 +209,7 @@ pubk_add_default_attr(struct template_list *tmpl_list)
 
 	rc = key_object_set_default_attr(tmpl_list);
 	if (rc != CKR_OK){
-		printf("key_object_set_default_attr failed\n");
+		print_error("key_object_set_default_attr failed\n");
 		return rc;
 	}
 
@@ -354,7 +354,7 @@ rsa_pubk_add_default_attr(struct template_list *tmpl_list)
 
 	rc = pubk_add_default_attr(tmpl_list);
 	if (rc != CKR_OK) {
-		printf("pubk_add_default_attr failed\n");
+		print_error("pubk_add_default_attr failed\n");
 		return rc;
 	}
 
@@ -445,7 +445,7 @@ privk_add_default_attr(struct template_list *tmpl_list)
 
 	rc = key_object_set_default_attr(tmpl_list);
 	if (rc != CKR_OK){
-		printf("key_object_set_default_attr failed\n");
+		print_error("key_object_set_default_attr failed\n");
 		return rc;
 	}
 
@@ -656,7 +656,7 @@ rsa_privk_add_default_attr(struct template_list *tmpl_list)
 
 	rc = privk_add_default_attr(tmpl_list);
 	if (rc != CKR_OK) {
-		printf("privk_add_default_attr failed\n");
+		print_error("privk_add_default_attr failed\n");
 		return rc;
 	}
 
@@ -804,7 +804,7 @@ static CK_RV p11_template_add_default_attr(OBJECT *obj)
 	/* first add the default common attributes */
 	rc = p11_template_add_default_common_attr(&obj->template_list);
 	if (rc != CKR_OK) {
-		printf("p11_template_add_default_common_attr failed.\n");
+		print_error("p11_template_add_default_common_attr failed.\n");
 		return rc;
 	}
 
@@ -815,7 +815,7 @@ static CK_RV p11_template_add_default_attr(OBJECT *obj)
 				case CKK_RSA:
 					return rsa_pubk_add_default_attr(&obj->template_list);
 				default:
-					printf("%s, %d Invalid Attribute\n", __func__,__LINE__);
+					print_error("Invalid Attribute\n");
 					return CKR_ATTRIBUTE_VALUE_INVALID;
 			}
 
@@ -824,13 +824,12 @@ static CK_RV p11_template_add_default_attr(OBJECT *obj)
 				case CKK_RSA:
 					return rsa_privk_add_default_attr(&obj->template_list);
 				default:
-					printf("%s, %d Invalid Attribute\n", __func__,__LINE__);
+					print_error("Invalid Attribute\n");
 					return CKR_ATTRIBUTE_VALUE_INVALID;
 			}
 
 		default:
-			printf("%s, %d Invalid Attribute\n", __func__,
-					__LINE__);
+			print_error("Invalid Attribute\n");
 			return CKR_ATTRIBUTE_VALUE_INVALID;
 	}
 }
@@ -845,14 +844,14 @@ static CK_RV p11_template_add_attr(OBJECT *obj,
 	for (i = 0; i < ulCount; i++) {
 
 		if (!p11_is_attribute_defined(pTemplate[i].type)) {
-			printf("Template type invalid \n");
+			print_error("Template type invalid \n");
 			continue;
 		}
 
 		attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) +
 					      pTemplate[i].ulValueLen);
 		if (!attr) {
-			printf("attr malloc failed\n");
+			print_error("attr malloc failed\n");
 			return CKR_HOST_MEMORY;
 		}
 
@@ -873,7 +872,7 @@ static CK_RV p11_template_add_attr(OBJECT *obj,
 
 		tmpl_node = malloc(sizeof(struct template_node));
 		if (!tmpl_node) {
-			printf("template node malloc failed\n");
+			print_error("template node malloc failed\n");
 			return CKR_HOST_MEMORY;
 		}
 
@@ -1090,7 +1089,7 @@ static CK_RV map_sk_to_pkcs_attr(SK_ATTRIBUTE *sk_attrs,
 
 					break;
 				default:
-					printf("Ojbect type not supported\n");
+					print_error("Ojbect type not supported\n");
 					return CKR_ATTRIBUTE_TYPE_INVALID;
 			}
 			break;
@@ -1113,7 +1112,7 @@ static CK_RV map_sk_to_pkcs_attr(SK_ATTRIBUTE *sk_attrs,
 					break;
 
 				default:
-					printf("Key type not supported\n");
+					print_error("Key type not supported\n");
 					return CKR_ATTRIBUTE_TYPE_INVALID;
 			}
 			break;
@@ -1212,7 +1211,7 @@ CK_RV find_matching_objects(CK_OBJECT_HANDLE_PTR object_handle,
 				object_handle[i] = (CK_OBJECT_HANDLE)temp;
 				i++;
 				if (i == MAX_FIND_LIST_OBJECTS) {
-					printf("Currently supports max of 50 objects\n");
+					print_error("Currently supports max of 50 objects\n");
 					break;
 				}
 			}
@@ -1222,7 +1221,7 @@ CK_RV find_matching_objects(CK_OBJECT_HANDLE_PTR object_handle,
 			object_handle[i] = (CK_OBJECT_HANDLE)temp;
 			i++;
 			if (i == MAX_FIND_LIST_OBJECTS) {
-				printf("Currently supports max of 50 objects\n");
+				print_error("Currently supports max of 50 objects\n");
 				break;
 			}
 		}
@@ -1394,8 +1393,7 @@ static CK_RV object_add_template(OBJECT *obj,
 	ret = sk_funcs->SK_GetObjectAttribute(obj->sk_obj_handle,
 			temp_sk_attr, attrCount);
 	if (ret != SKR_OK) {
-		printf("%s, %d SK_GetObjectAttribute failed %x\n",
-			__func__, __LINE__, ret);
+		print_error("SK_GetObjectAttribute failed %x\n", ret);
 		return CKR_GENERAL_ERROR;
 	}
 
@@ -1415,8 +1413,7 @@ static CK_RV object_add_template(OBJECT *obj,
 		ret = sk_funcs->SK_GetObjectAttribute(obj->sk_obj_handle,
 			sk_attr, 1);
 		if (ret != SKR_OK) {
-			printf("%s, %d SK_GetObjectAttribute failed with error code = %x\n",
-				__func__, __LINE__, ret);
+			print_error("SK_GetObjectAttribute failed with error code = %x\n", ret);
 			free(sk_attr);
 			return CKR_GENERAL_ERROR;
 		}
@@ -1429,7 +1426,7 @@ static CK_RV object_add_template(OBJECT *obj,
 
 		rc = p11_template_add_attr(obj, ck_attr, 1);
 		if (rc != CKR_OK) {
-			printf("p11_template_add_attr failed\n");
+			print_error("p11_template_add_attr failed\n");
 			return rc;
 		}
 
@@ -1448,7 +1445,7 @@ static CK_RV create_rsa_pub_key_object(SK_OBJECT_HANDLE hObject,
 
 	pub_key = (struct object_node *)malloc(sizeof(struct object_node));
 	if (!pub_key) {
-		printf("pub_key object node malloc failed\n");
+		print_error("pub_key object node malloc failed\n");
 		return CKR_HOST_MEMORY;
 	}
 
@@ -1461,7 +1458,7 @@ static CK_RV create_rsa_pub_key_object(SK_OBJECT_HANDLE hObject,
 	rc = object_add_template(&pub_key->object, rsa_pub_attr_type,
 			RSA_PUB_SK_ATTR_COUNT);
 	if (rc != CKR_OK) {
-		printf("object_add_template failed\n");
+		print_error("object_add_template failed\n");
 		free(pub_key);
 		return rc;
 	}
@@ -1478,8 +1475,7 @@ static CK_RV create_rsa_priv_key_object(SK_OBJECT_HANDLE hObject,
 
 	priv_key = (struct object_node *)malloc(sizeof(struct object_node));
 	if (!priv_key) {
-		printf("%s, %d, priv_key object node malloc failed\n",
-			__func__, __LINE__);
+		print_error("priv_key object node malloc failed\n");
 		return CKR_HOST_MEMORY;
 	}
 
@@ -1492,7 +1488,7 @@ static CK_RV create_rsa_priv_key_object(SK_OBJECT_HANDLE hObject,
 	rc = object_add_template(&priv_key->object, rsa_priv_attr_type,
 			RSA_PRIV_SK_ATTR_COUNT);
 	if (rc != CKR_OK) {
-		printf("object_add_template failed\n");
+		print_error("object_add_template failed\n");
 		free(priv_key);
 		return rc;
 	}
@@ -1523,12 +1519,9 @@ CK_RV get_all_token_objects(struct object_list *obj_list,
 	ret = sk_funcs->SK_EnumerateObjects(NULL, 0, objs,
 			MAX_FIND_LIST_OBJECTS, &obj_count);
 	if (ret != SKR_OK) {
-		printf("SK_EnumerateObjects failed with ret code 0x%x\n", ret);
+		print_error("SK_EnumerateObjects failed with ret code 0x%x\n", ret);
 		return CKR_GENERAL_ERROR;
 	}
-
-	printf("%s,%d SK_EnumerateObjects returned %u objects\n",
-		__func__, __LINE__, obj_count);
 
 	for (j = 0; j < obj_count; j++) {
 		memset(temp_sk_attr, 0, sizeof(SK_ATTRIBUTE) *
@@ -1545,8 +1538,7 @@ CK_RV get_all_token_objects(struct object_list *obj_list,
 		ret = sk_funcs->SK_GetObjectAttribute(objs[j],
 			temp_sk_attr, OBJ_SK_ATTR_COUNT);
 		if (ret != SKR_OK) {
-			printf("%s, %d SK_GetObjectAttribute failed\n",
-				__func__, __LINE__);
+			print_error("SK_GetObjectAttribute failed\n");
 			return CKR_GENERAL_ERROR;
 		}
 
@@ -1559,7 +1551,7 @@ CK_RV get_all_token_objects(struct object_list *obj_list,
 
 						rc = create_rsa_pub_key_object(objs[j], &rsa_pub_key, slotID);
 						if (rc != CKR_OK) {
-							printf("create_rsa_pub_key_object object node malloc failed\n");
+							print_error("create_rsa_pub_key_object object node malloc failed\n");
 							return rc;
 						}
 
@@ -1568,7 +1560,7 @@ CK_RV get_all_token_objects(struct object_list *obj_list,
 
 						rc = p11_template_add_default_attr(&rsa_pub_key->object);
 						if (rc != CKR_OK) {
-							printf("p11_template_add_default_attr failed\n");
+							print_error("p11_template_add_default_attr failed\n");
 							return rc;
 						}
 
@@ -1576,7 +1568,7 @@ CK_RV get_all_token_objects(struct object_list *obj_list,
 
 						rc = create_rsa_priv_key_object(objs[j], &rsa_priv_key, slotID);
 						if (rc != CKR_OK) {
-							printf("create_rsa_priv_key_object object node malloc failed\n");
+							print_error("create_rsa_priv_key_object object node malloc failed\n");
 							return rc;
 						}
 
@@ -1585,7 +1577,7 @@ CK_RV get_all_token_objects(struct object_list *obj_list,
 
 						rc = p11_template_add_default_attr(&rsa_priv_key->object);
 						if (rc != CKR_OK) {
-							printf("p11_template_add_default_attr failed\n");
+							print_error("p11_template_add_default_attr failed\n");
 							return rc;
 						}
 						STAILQ_INSERT_HEAD(obj_list, rsa_priv_key, entry);
@@ -1603,7 +1595,7 @@ CK_RV get_all_token_objects(struct object_list *obj_list,
 
 						rc = create_rsa_pub_key_object(objs[j], &pub_key, slotID);
 						if (rc != CKR_OK) {
-							printf("create_rsa_pub_key_object object node malloc failed\n");
+							print_error("create_rsa_pub_key_object object node malloc failed\n");
 							return rc;
 						}
 
@@ -1612,7 +1604,7 @@ CK_RV get_all_token_objects(struct object_list *obj_list,
 
 						rc = p11_template_add_default_attr(&pub_key->object);
 						if (rc != CKR_OK) {
-							printf("p11_template_add_default_attr failed\n");
+							print_error("p11_template_add_default_attr failed\n");
 							return rc;
 						}
 

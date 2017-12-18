@@ -63,7 +63,7 @@ static int get_function_list(CK_SLOT_ID slotID, char *library)
 
 	d = dlopen(f, RTLD_NOW);
 	if (d == NULL) {
-		printf("dlopen failed %s\n", dlerror());
+		print_error("dlopen failed %s\n", dlerror());
 		return FALSE;
 	}
 
@@ -78,7 +78,7 @@ static int get_function_list(CK_SLOT_ID slotID, char *library)
 
 	rc = pfoo(&s_info->sk_funcs);
 	if (rc != SKR_OK) {
-		printf("SK_GetFunctionList rc=%u", rc);
+		print_error("SK_GetFunctionList rc=%u", rc);
 		return FALSE;
 	}
 
@@ -96,13 +96,13 @@ CK_RV initialize_slot(CK_SLOT_ID slotID)
 			memcpy(library, "libsecurekey.so", sizeof("libsecurekey.so"));
 			break;
 		default:
-			printf("Invalid Slot ID\n");
+			print_error("Invalid Slot ID\n");
 			return CKR_ARGUMENTS_BAD;
 	}
 
 	rc = get_function_list(slotID, library);
 	if (!rc) {
-		printf("get_function_list(), rc=%lu\n", rc);
+		print_error("get_function_list(), rc=%lu\n", rc);
 		return CKR_GENERAL_ERROR;
 	}
 

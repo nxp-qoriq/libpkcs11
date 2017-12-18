@@ -141,7 +141,7 @@ CK_RV C_FindObjectsInit(CK_SESSION_HANDLE hSession,
 		rc = get_all_token_objects(obj_list,
 			sess->session_info.slotID);
 		if (rc != CKR_OK) {
-			printf("get_all_token_objects failed\n");
+			print_error("get_all_token_objects failed\n");
 			return rc;
 		}
 	}
@@ -154,7 +154,7 @@ CK_RV C_FindObjectsInit(CK_SESSION_HANDLE hSession,
 	if (sess->find_list == NULL) {
 		sess->find_list = (CK_OBJECT_HANDLE *)malloc(MAX_FIND_LIST_OBJECTS * sizeof(CK_OBJECT_HANDLE));
 		if (!sess->find_list){
-			printf("sess->find_list malloc failed\n");
+			print_error("sess->find_list malloc failed\n");
 			return CKR_HOST_MEMORY;
 		} else
 			memset(sess->find_list, 0x0, MAX_FIND_LIST_OBJECTS * sizeof(CK_OBJECT_HANDLE));

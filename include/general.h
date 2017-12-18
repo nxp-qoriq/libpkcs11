@@ -8,6 +8,27 @@
 #include <securekey_api.h>
 #include <securekey_api_types.h>
 
+#define	PRINT_ERROR
+
+#ifdef PRINT_ERROR
+#define print_error(msg, ...) { \
+printf("[libpkcs11:%s, %d] Error: ", __func__, __LINE__); \
+printf(msg, ##__VA_ARGS__); \
+}
+#else
+#define print_error(msg, ...)
+#endif
+
+#ifdef PRINT_INFO
+#define print_info(msg, ...) { \
+printf("[libpkcs11:%s, %d] Info: ", __func__, __LINE__); \
+printf(msg, ##__VA_ARGS__); \
+}
+#else
+#define print_info(msg, ...)
+#endif
+
+
 #define P11_MIN(a, b)  ((a) < (b) ? (a) : (b))
 
 struct slot_info {

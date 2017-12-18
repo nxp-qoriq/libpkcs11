@@ -71,7 +71,7 @@ CK_RV create_session(CK_SLOT_ID slotID,  CK_FLAGS flags,
 
 	s = (struct session_node *)malloc(sizeof(struct session_node));
 	if (s == NULL) {
-		printf("session_node malloc failed\n");
+		print_error("session_node malloc failed\n");
 		return CKR_HOST_MEMORY;
 	}
 

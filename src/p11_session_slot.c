@@ -207,7 +207,7 @@ CK_RV C_OpenSession(CK_SLOT_ID slotID,
 
 	ret = create_session(slotID, flags, phSession);
 	if (ret != CKR_OK)
-		printf("create_session failed \n");
+		print_error("create_session failed \n");
 
 	return ret;
 }
@@ -224,7 +224,7 @@ CK_RV C_CloseSession(CK_SESSION_HANDLE hSession)
 
 	ret = delete_session(hSession);
 	if (ret != CKR_OK)
-		printf("delete session failed\n");
+		print_error("delete session failed\n");
 
 	return ret;
 }
@@ -238,7 +238,7 @@ CK_RV C_CloseAllSessions(CK_SLOT_ID slotID)
 
 	ret = destroy_session_list(slotID);
 	if (ret != CKR_OK)
-		printf("destroy_session_list failed\n");
+		print_error("destroy_session_list failed\n");
 
 	return ret;
 }
@@ -258,7 +258,7 @@ CK_RV C_GetSessionInfo(CK_SESSION_HANDLE hSession, CK_SESSION_INFO_PTR pInfo)
 
 	ret = get_session_info(hSession, pInfo);
 	if (ret != CKR_OK)
-		printf("get_session_info failed\n");
+		print_error("get_session_info failed\n");
 
 	return ret;
 }
