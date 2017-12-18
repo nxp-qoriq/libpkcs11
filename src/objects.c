@@ -29,52 +29,52 @@ static CK_BBOOL p11_is_attribute_defined(CK_ATTRIBUTE_TYPE attr_type)
 		case  CKA_ISSUER:
 		case  CKA_SERIAL_NUMBER:
 		case  CKA_KEY_TYPE:
-		case  CKA_SUBJECT:
 		case  CKA_ID:
+		case  CKA_SUBJECT:
 		case  CKA_SENSITIVE:
-		case  CKA_ENCRYPT:
 		case  CKA_DECRYPT:
+		case  CKA_ENCRYPT:
 		case  CKA_WRAP:
-		case  CKA_UNWRAP:
 		case  CKA_SIGN:
+		case  CKA_UNWRAP:
 		case  CKA_SIGN_RECOVER:
 		case  CKA_VERIFY:
-		case  CKA_VERIFY_RECOVER:
 		case  CKA_DERIVE:
+		case  CKA_VERIFY_RECOVER:
 		case  CKA_START_DATE:
 		case  CKA_END_DATE:
 		case  CKA_PRIME:
-		case  CKA_SUBPRIME:
 		case  CKA_BASE:
+		case  CKA_SUBPRIME:
 		case  CKA_VALUE_BITS:
-		case  CKA_VALUE_LEN:
 		case  CKA_EXTRACTABLE:
 		case  CKA_LOCAL:
+		case  CKA_VALUE_LEN:
 		case  CKA_NEVER_EXTRACTABLE:
-		case  CKA_ALWAYS_SENSITIVE:
 		case  CKA_MODIFIABLE:
 		case  CKA_ECDSA_PARAMS:
+		case  CKA_ALWAYS_SENSITIVE:
 		case  CKA_EC_POINT:
 		case  CKA_HW_FEATURE_TYPE:
-		case  CKA_HAS_RESET:
 		case  CKA_RESET_ON_INIT:
 		case  CKA_KEY_GEN_MECHANISM:
+		case  CKA_HAS_RESET:
 		case  CKA_PRIME_BITS:
-		case  CKA_SUBPRIME_BITS:
 		case  CKA_OBJECT_ID:
+		case  CKA_SUBPRIME_BITS:
 		case  CKA_AC_ISSUER:
-		case  CKA_OWNER:
 		case  CKA_ATTR_TYPES:
+		case  CKA_OWNER:
 		case  CKA_TRUSTED:
-		case  CKA_MODULUS:
 		case  CKA_MODULUS_BITS:
+		case  CKA_MODULUS:
 		case  CKA_PUBLIC_EXPONENT:
 		case  CKA_PRIVATE_EXPONENT:
-		case  CKA_PRIME_1:
 		case  CKA_PRIME_2:
 		case  CKA_EXPONENT_1:
-		case  CKA_EXPONENT_2:
+		case  CKA_PRIME_1:
 		case  CKA_COEFFICIENT:
+		case  CKA_EXPONENT_2:
 			return TRUE;
 		default:
 			return FALSE;
@@ -112,40 +112,40 @@ static CK_RV p11_template_update_attr(struct template_list *tmpl_list,
 static CK_RV
 key_object_set_default_attr(struct template_list *tmpl_list)
 {
-	struct template_node *sdate;
-	struct template_node *edate;
+	struct template_node *start_date;
+	struct template_node *end_date;
 	struct template_node *derive;
 	struct template_node *local;
- 
-	CK_ATTRIBUTE *sdate_attr  = NULL;
-	CK_ATTRIBUTE *edate_attr  = NULL;
+
 	CK_ATTRIBUTE *derive_attr = NULL;
+	CK_ATTRIBUTE *start_date_attr  = NULL;
+	CK_ATTRIBUTE *end_date_attr  = NULL;
 	CK_ATTRIBUTE *local_attr  = NULL;
 
-	sdate_attr     = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE));
-	edate_attr     = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE));
-	derive_attr    = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	start_date_attr     = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE));
 	local_attr     = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	end_date_attr     = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE));
+	derive_attr    = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
 
-	sdate = (struct template_node *)malloc( sizeof(struct template_node));
-	edate = (struct template_node *)malloc( sizeof(struct template_node));
+	start_date = (struct template_node *)malloc( sizeof(struct template_node));
+	end_date = (struct template_node *)malloc( sizeof(struct template_node));
 	derive = (struct template_node *)malloc( sizeof(struct template_node));
 	local = (struct template_node *)malloc( sizeof(struct template_node));
 
-	if (!sdate_attr || !edate_attr || !derive_attr || !local_attr ||
-		!sdate || !edate || !derive || !local) {
-		if (sdate_attr)
-			free(sdate_attr);
-		if (edate_attr)
-			free(edate_attr);
+	if (!start_date_attr || !end_date_attr || !derive_attr || !local_attr ||
+		!start_date || !end_date || !derive || !local) {
+		if (start_date_attr)
+			free(start_date_attr);
+		if (end_date_attr)
+			free(end_date_attr);
 		if (derive_attr)
 			free(derive_attr);
 		if (local_attr)
 			free(local_attr);
-		if (sdate)
-			free(sdate);
-		if (edate)
-			free(edate);
+		if (start_date)
+			free(start_date);
+		if (end_date)
+			free(end_date);
 		if (derive)
 			free(derive);
 		if (local)
@@ -153,32 +153,32 @@ key_object_set_default_attr(struct template_list *tmpl_list)
 		return CKR_HOST_MEMORY;
 	}
 
-	sdate_attr->type        = CKA_START_DATE;
-	sdate_attr->ulValueLen  = 0;
-	sdate_attr->pValue      = NULL;
-
-	edate_attr->type        = CKA_END_DATE;
-	edate_attr->ulValueLen  = 0;
-	edate_attr->pValue      = NULL;
+	start_date_attr->type        = CKA_START_DATE;
+	start_date_attr->ulValueLen  = 0;
+	start_date_attr->pValue      = NULL;
 
 	derive_attr->type       = CKA_DERIVE;
 	derive_attr->ulValueLen = sizeof(CK_BBOOL);
 	derive_attr->pValue     = (CK_BYTE *)derive_attr + sizeof(CK_ATTRIBUTE);
 	*(CK_BBOOL *)derive_attr->pValue = FALSE;
 
+	end_date_attr->type        = CKA_END_DATE;
+	end_date_attr->ulValueLen  = 0;
+	end_date_attr->pValue      = NULL;
+
 	local_attr->type        = CKA_LOCAL;
 	local_attr->ulValueLen  = sizeof(CK_BBOOL);
 	local_attr->pValue      = (CK_BYTE *)local_attr + sizeof(CK_ATTRIBUTE);
 	*(CK_BBOOL *)local_attr->pValue = FALSE;
 
-	sdate->attributes = sdate_attr;
-	edate->attributes = edate_attr;
-	derive->attributes = derive_attr;
+	start_date->attributes = start_date_attr;
 	local->attributes = local_attr;
+	derive->attributes = derive_attr;
+	end_date->attributes = end_date_attr;
 
-	p11_template_update_attr(tmpl_list, sdate);
-	p11_template_update_attr(tmpl_list, edate);
+	p11_template_update_attr(tmpl_list, start_date);
 	p11_template_update_attr(tmpl_list, derive);
+	p11_template_update_attr(tmpl_list, end_date);
 	p11_template_update_attr(tmpl_list, local);
 
 	return CKR_OK;
@@ -196,14 +196,14 @@ pubk_add_default_attr(struct template_list *tmpl_list)
 	struct template_node *trusted;
 	struct template_node *wrap_template;
 
-	CK_ATTRIBUTE    *class_attr = NULL;
-	CK_ATTRIBUTE    *subject_attr = NULL;
-	CK_ATTRIBUTE    *encrypt_attr = NULL;
-	CK_ATTRIBUTE    *verify_attr = NULL;
-	CK_ATTRIBUTE    *verify_recover_attr = NULL;
-	CK_ATTRIBUTE    *wrap_attr = NULL;
-	CK_ATTRIBUTE    *trusted_attr = NULL;
-	CK_ATTRIBUTE    *wrap_template_attr = NULL;
+	CK_ATTRIBUTE    *pubk_class_attr = NULL;
+	CK_ATTRIBUTE    *pubk_subject_attr = NULL;
+	CK_ATTRIBUTE    *pubk_encrypt_attr = NULL;
+	CK_ATTRIBUTE    *pubk_verify_attr = NULL;
+	CK_ATTRIBUTE    *pubk_verify_recover_attr = NULL;
+	CK_ATTRIBUTE    *pubk_wrap_attr = NULL;
+	CK_ATTRIBUTE    *pubk_trusted_attr = NULL;
+	CK_ATTRIBUTE    *pubk_wrap_template_attr = NULL;
 
 	CK_RV            rc;
 
@@ -214,18 +214,18 @@ pubk_add_default_attr(struct template_list *tmpl_list)
 	}
 
 	/* add the default CKO_PUBLIC_KEY attributes */
-	class_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) +
+	pubk_class_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) +
 		sizeof(CK_OBJECT_CLASS));
-	subject_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
-	encrypt_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) +
+	pubk_subject_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
+	pubk_encrypt_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) +
 		sizeof(CK_BBOOL));
-	verify_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) +
+	pubk_verify_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) +
 		sizeof(CK_BBOOL));
-	verify_recover_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
-	wrap_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) +
+	pubk_verify_recover_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	pubk_wrap_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) +
 		sizeof(CK_BBOOL));
-	trusted_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
-	wrap_template_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
+	pubk_trusted_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	pubk_wrap_template_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
 
 	class = (struct template_node *)malloc(sizeof(struct template_node));
 	subject = (struct template_node *)malloc(sizeof(struct template_node));
@@ -236,24 +236,25 @@ pubk_add_default_attr(struct template_list *tmpl_list)
 	trusted = (struct template_node *)malloc(sizeof(struct template_node));
 	wrap_template = (struct template_node *)malloc(sizeof(struct template_node));
 
-	if (!class_attr || !subject_attr || !encrypt_attr ||
-		!verify_attr  || !verify_recover_attr || !wrap_attr ||
-		!subject || !class || !encrypt || !verify || !verify_recover ||
-		!wrap || !trusted || !wrap_template || !trusted_attr ||
-		!wrap_template_attr)
+	if (!pubk_class_attr || !pubk_subject_attr || !pubk_encrypt_attr ||
+		!pubk_verify_attr  || !pubk_verify_recover_attr ||
+		!pubk_wrap_attr || !subject || !class || !encrypt ||
+		!verify || !verify_recover || !wrap || !trusted ||
+		!wrap_template || !pubk_trusted_attr ||
+		!pubk_wrap_template_attr)
 	{
-		if (class_attr)
-			free(class_attr);
-		if (subject_attr)
-			free(subject_attr);
-		if (encrypt_attr)
-			free(encrypt_attr);
-		if (verify_attr)
-			free(verify_attr);
-		if (verify_recover_attr)
-			free(verify_recover_attr);
-		if (wrap_attr)
-			free(wrap_attr);
+		if (pubk_class_attr)
+			free(pubk_class_attr);
+		if (pubk_subject_attr)
+			free(pubk_subject_attr);
+		if (pubk_encrypt_attr)
+			free(pubk_encrypt_attr);
+		if (pubk_verify_attr)
+			free(pubk_verify_attr);
+		if (pubk_verify_recover_attr)
+			free(pubk_verify_recover_attr);
+		if (pubk_wrap_attr)
+			free(pubk_wrap_attr);
 		if (subject)
 			free(subject);
 		if (class)
@@ -270,60 +271,60 @@ pubk_add_default_attr(struct template_list *tmpl_list)
 			free(trusted);
 		if (wrap_template)
 			free(wrap_template);
-		if (trusted_attr)
-			free(trusted_attr);
-		if (wrap_template_attr)
-			free(wrap_template_attr);
+		if (pubk_trusted_attr)
+			free(pubk_trusted_attr);
+		if (pubk_wrap_template_attr)
+			free(pubk_wrap_template_attr);
 
 		return CKR_HOST_MEMORY;
 	}
 
-	class_attr->type = CKA_CLASS;
-	class_attr->ulValueLen = sizeof(CK_OBJECT_CLASS);
-	class_attr->pValue = (CK_BYTE *)class_attr + sizeof(CK_ATTRIBUTE);
-	*(CK_OBJECT_CLASS *)class_attr->pValue = CKO_PUBLIC_KEY;
+	pubk_class_attr->type = CKA_CLASS;
+	pubk_class_attr->ulValueLen = sizeof(CK_OBJECT_CLASS);
+	pubk_class_attr->pValue = (CK_BYTE *)pubk_class_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_OBJECT_CLASS *)pubk_class_attr->pValue = CKO_PUBLIC_KEY;
 
-	subject_attr->type         = CKA_SUBJECT;
-	subject_attr->ulValueLen   = 0;  // empty string
-	subject_attr->pValue       = NULL;
+	pubk_subject_attr->type         = CKA_SUBJECT;
+	pubk_subject_attr->ulValueLen   = 0;  // empty string
+	pubk_subject_attr->pValue       = NULL;
 
-	encrypt_attr->type          = CKA_ENCRYPT;
-	encrypt_attr->ulValueLen    = sizeof(CK_BBOOL);
-	encrypt_attr->pValue        = (CK_BYTE *)encrypt_attr + sizeof(CK_ATTRIBUTE);
-	*(CK_BBOOL *)encrypt_attr->pValue = TRUE;
+	pubk_encrypt_attr->type          = CKA_ENCRYPT;
+	pubk_encrypt_attr->ulValueLen    = sizeof(CK_BBOOL);
+	pubk_encrypt_attr->pValue        = (CK_BYTE *)pubk_encrypt_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)pubk_encrypt_attr->pValue = TRUE;
 
-	verify_attr->type          = CKA_VERIFY;
-	verify_attr->ulValueLen    = sizeof(CK_BBOOL);
-	verify_attr->pValue        = (CK_BYTE *)verify_attr + sizeof(CK_ATTRIBUTE);
-	*(CK_BBOOL *)verify_attr->pValue = FALSE;
+	pubk_verify_attr->type          = CKA_VERIFY;
+	pubk_verify_attr->ulValueLen    = sizeof(CK_BBOOL);
+	pubk_verify_attr->pValue        = (CK_BYTE *)pubk_verify_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)pubk_verify_attr->pValue = FALSE;
 
-	verify_recover_attr->type          = CKA_VERIFY_RECOVER;
-	verify_recover_attr->ulValueLen    = sizeof(CK_BBOOL);
-	verify_recover_attr->pValue        = (CK_BYTE *)verify_recover_attr + sizeof(CK_ATTRIBUTE);
-	*(CK_BBOOL *)verify_recover_attr->pValue = FALSE;
+	pubk_verify_recover_attr->type          = CKA_VERIFY_RECOVER;
+	pubk_verify_recover_attr->ulValueLen    = sizeof(CK_BBOOL);
+	pubk_verify_recover_attr->pValue        = (CK_BYTE *)pubk_verify_recover_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)pubk_verify_recover_attr->pValue = FALSE;
 
-	wrap_attr->type          = CKA_WRAP;
-	wrap_attr->ulValueLen    = sizeof(CK_BBOOL);
-	wrap_attr->pValue        = (CK_BYTE *)wrap_attr + sizeof(CK_ATTRIBUTE);
-	*(CK_BBOOL *)wrap_attr->pValue = FALSE;
+	pubk_wrap_attr->type          = CKA_WRAP;
+	pubk_wrap_attr->ulValueLen    = sizeof(CK_BBOOL);
+	pubk_wrap_attr->pValue        = (CK_BYTE *)pubk_wrap_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)pubk_wrap_attr->pValue = FALSE;
 
-	trusted_attr->type          = CKA_TRUSTED;
-	trusted_attr->ulValueLen    = sizeof(CK_BBOOL);
-	trusted_attr->pValue        = (CK_BYTE *)verify_recover_attr + sizeof(CK_ATTRIBUTE);
-	*(CK_BBOOL *)trusted_attr->pValue = FALSE;
+	pubk_trusted_attr->type          = CKA_TRUSTED;
+	pubk_trusted_attr->ulValueLen    = sizeof(CK_BBOOL);
+	pubk_trusted_attr->pValue        = (CK_BYTE *)pubk_trusted_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)pubk_trusted_attr->pValue = FALSE;
 
-	wrap_template_attr->type          = CKA_WRAP_TEMPLATE;
-	wrap_template_attr->ulValueLen    = 0;
-	wrap_template_attr->pValue        = NULL;
+	pubk_wrap_template_attr->type          = CKA_WRAP_TEMPLATE;
+	pubk_wrap_template_attr->ulValueLen    = 0;
+	pubk_wrap_template_attr->pValue        = NULL;
 
-	class->attributes = class_attr;
-	subject->attributes = subject_attr;
-	encrypt->attributes = encrypt_attr;
-	verify->attributes = verify_attr;
-	verify_recover->attributes = verify_recover_attr;
-	wrap->attributes = wrap_attr;
-	trusted->attributes = trusted_attr;
-	wrap_template->attributes = wrap_template_attr;
+	class->attributes = pubk_class_attr;
+	subject->attributes = pubk_subject_attr;
+	encrypt->attributes = pubk_encrypt_attr;
+	verify->attributes = pubk_verify_attr;
+	verify_recover->attributes = pubk_verify_recover_attr;
+	wrap->attributes = pubk_wrap_attr;
+	trusted->attributes = pubk_trusted_attr;
+	wrap_template->attributes = pubk_wrap_template_attr;
 
 	p11_template_update_attr(tmpl_list, class);
 	p11_template_update_attr(tmpl_list, subject);
@@ -426,19 +427,19 @@ privk_add_default_attr(struct template_list *tmpl_list)
 	struct template_node *unwrap_templ;
 	struct template_node *always_auth;
 
-	CK_ATTRIBUTE *class_attr = NULL;
-	CK_ATTRIBUTE *subject_attr = NULL;
-	CK_ATTRIBUTE *sensitive_attr = NULL;
-	CK_ATTRIBUTE *decrypt_attr = NULL;
-	CK_ATTRIBUTE *sign_attr = NULL;
-	CK_ATTRIBUTE *sign_recover_attr = NULL;
-	CK_ATTRIBUTE *unwrap_attr = NULL;
-	CK_ATTRIBUTE *extractable_attr = NULL;
-	CK_ATTRIBUTE *never_extr_attr = NULL;
-	CK_ATTRIBUTE *always_sens_attr = NULL;
-	CK_ATTRIBUTE *wrap_with_trusted_attr = NULL;
-	CK_ATTRIBUTE *unwrap_templ_attr = NULL;
-	CK_ATTRIBUTE *always_auth_attr = NULL;
+	CK_ATTRIBUTE *privk_class_attr = NULL;
+	CK_ATTRIBUTE *privk_subject_attr = NULL;
+	CK_ATTRIBUTE *privk_sensitive_attr = NULL;
+	CK_ATTRIBUTE *privk_decrypt_attr = NULL;
+	CK_ATTRIBUTE *privk_sign_attr = NULL;
+	CK_ATTRIBUTE *privk_sign_recover_attr = NULL;
+	CK_ATTRIBUTE *privk_unwrap_attr = NULL;
+	CK_ATTRIBUTE *privk_extractable_attr = NULL;
+	CK_ATTRIBUTE *privk_never_extr_attr = NULL;
+	CK_ATTRIBUTE *privk_always_sens_attr = NULL;
+	CK_ATTRIBUTE *privk_wrap_with_trusted_attr = NULL;
+	CK_ATTRIBUTE *privk_unwrap_templ_attr = NULL;
+	CK_ATTRIBUTE *privk_always_auth_attr = NULL;
 	CK_RV	rc;
 
 
@@ -462,60 +463,60 @@ privk_add_default_attr(struct template_list *tmpl_list)
 	unwrap_templ = (struct template_node *)malloc(sizeof(struct template_node));
 	always_auth = (struct template_node *)malloc(sizeof(struct template_node));
 
-	class_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_OBJECT_CLASS)) ;
-	subject_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
-	sensitive_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
-	decrypt_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
-	sign_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
-	sign_recover_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
-	unwrap_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
-	extractable_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
-	never_extr_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
-	always_sens_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
-	wrap_with_trusted_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
-	unwrap_templ_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
-	always_auth_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	privk_class_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_OBJECT_CLASS)) ;
+	privk_subject_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
+	privk_sensitive_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	privk_decrypt_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	privk_sign_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	privk_sign_recover_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	privk_unwrap_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	privk_extractable_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	privk_never_extr_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	privk_always_sens_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	privk_wrap_with_trusted_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	privk_unwrap_templ_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
+	privk_always_auth_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
 
-	if (!class_attr || !subject_attr || !sensitive_attr || !decrypt_attr ||
-			!sign_attr  || !sign_recover_attr ||
-			!unwrap_attr    || !extractable_attr ||
-			!never_extr_attr || !always_sens_attr ||
-			!class || !subject || !decrypt || !sensitive ||
-			!sign || !sign_recover || !unwrap ||
-			!extractable || !never_extr || !always_sens ||
-			!wrap_with_trusted || !unwrap_templ ||
-			!always_auth|| !wrap_with_trusted_attr ||
-			!unwrap_templ_attr || !always_auth_attr)
+	if (!privk_class_attr || !privk_subject_attr || !privk_sensitive_attr
+		|| !privk_decrypt_attr || !privk_sign_attr  ||
+		!privk_sign_recover_attr || !privk_unwrap_attr ||
+		!privk_extractable_attr || !privk_never_extr_attr ||
+		!privk_always_sens_attr || !class || !subject ||
+		!decrypt || !sensitive || !sign || !sign_recover ||
+		!unwrap || !extractable || !never_extr ||
+		!always_sens || !wrap_with_trusted || !unwrap_templ ||
+		!always_auth|| !privk_wrap_with_trusted_attr ||
+		!privk_unwrap_templ_attr || !privk_always_auth_attr)
 	{
-		if (class_attr)
-			free(class_attr);
-		if (subject_attr)
-			free(subject_attr);
-		if (sensitive_attr)
-			free(sensitive_attr);
-		if (decrypt_attr)
-			free(decrypt_attr);
-		if (sign_attr)
-			free(sign_attr);
-		if (sign_recover_attr)
-			free(sign_recover_attr);
-		if (unwrap_attr)
-			free(unwrap_attr);
-		if (extractable_attr)
-			free(extractable_attr);
-		if (always_sens_attr)
-			free(always_sens_attr);
-		if (never_extr_attr)
-			free(never_extr_attr);
+		if (privk_class_attr)
+			free(privk_class_attr);
+		if (privk_subject_attr)
+			free(privk_subject_attr);
+		if (privk_sensitive_attr)
+			free(privk_sensitive_attr);
+		if (privk_decrypt_attr)
+			free(privk_decrypt_attr);
+		if (privk_sign_attr)
+			free(privk_sign_attr);
+		if (privk_sign_recover_attr)
+			free(privk_sign_recover_attr);
+		if (privk_unwrap_attr)
+			free(privk_unwrap_attr);
+		if (privk_extractable_attr)
+			free(privk_extractable_attr);
+		if (privk_always_sens_attr)
+			free(privk_always_sens_attr);
+		if (privk_never_extr_attr)
+			free(privk_never_extr_attr);
 		if (class)
 			free(class);
 		if (subject)
 			free(subject);
-		if (sensitive_attr)
+		if (sensitive)
 			free(sensitive);
-		if (decrypt_attr)
+		if (decrypt)
 			free(decrypt);
-		if (sign_attr)
+		if (sign)
 			free(sign);
 		if (sign_recover)
 			free(sign_recover);
@@ -533,92 +534,92 @@ privk_add_default_attr(struct template_list *tmpl_list)
 			free(unwrap_templ);
 		if (always_auth)
 			free(always_auth);
-		if (wrap_with_trusted_attr)
-			free(wrap_with_trusted_attr);
-		if (unwrap_templ_attr)
-			free(unwrap_templ_attr);
-		if (always_auth_attr)
-			free(always_auth_attr);
+		if (privk_wrap_with_trusted_attr)
+			free(privk_wrap_with_trusted_attr);
+		if (privk_unwrap_templ_attr)
+			free(privk_unwrap_templ_attr);
+		if (privk_always_auth_attr)
+			free(privk_always_auth_attr);
 
 		return CKR_HOST_MEMORY;
 	}
 
-	class_attr->type = CKA_CLASS;
-	class_attr->ulValueLen = sizeof(CK_OBJECT_CLASS);
-	class_attr->pValue = (CK_BYTE *)class_attr + sizeof(CK_ATTRIBUTE);
-	*(CK_OBJECT_CLASS *)class_attr->pValue = CKO_PRIVATE_KEY;
+	privk_class_attr->type = CKA_CLASS;
+	privk_class_attr->ulValueLen = sizeof(CK_OBJECT_CLASS);
+	privk_class_attr->pValue = (CK_BYTE *)privk_class_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_OBJECT_CLASS *)privk_class_attr->pValue = CKO_PRIVATE_KEY;
 
-	subject_attr->type       = CKA_SUBJECT;
-	subject_attr->ulValueLen = 0;  // empty string
-	subject_attr->pValue     = NULL;
+	privk_subject_attr->type       = CKA_SUBJECT;
+	privk_subject_attr->ulValueLen = 0;  // empty string
+	privk_subject_attr->pValue     = NULL;
 
-	sensitive_attr->type       = CKA_SENSITIVE;
-	sensitive_attr->ulValueLen = sizeof(CK_BBOOL);
-	sensitive_attr->pValue     = (CK_BYTE *)sensitive_attr + sizeof(CK_ATTRIBUTE);
-	*(CK_BBOOL *)sensitive_attr->pValue = TRUE;
+	privk_sensitive_attr->type       = CKA_SENSITIVE;
+	privk_sensitive_attr->ulValueLen = sizeof(CK_BBOOL);
+	privk_sensitive_attr->pValue     = (CK_BYTE *)privk_sensitive_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)privk_sensitive_attr->pValue = TRUE;
 
-	decrypt_attr->type       = CKA_DECRYPT;
-	decrypt_attr->ulValueLen = sizeof(CK_BBOOL);
-	decrypt_attr->pValue     = (CK_BYTE *)decrypt_attr + sizeof(CK_ATTRIBUTE);
-	*(CK_BBOOL *)decrypt_attr->pValue = FALSE;
+	privk_decrypt_attr->type       = CKA_DECRYPT;
+	privk_decrypt_attr->ulValueLen = sizeof(CK_BBOOL);
+	privk_decrypt_attr->pValue     = (CK_BYTE *)privk_decrypt_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)privk_decrypt_attr->pValue = FALSE;
 
-	sign_attr->type       = CKA_SIGN;
-	sign_attr->ulValueLen = sizeof(CK_BBOOL);
-	sign_attr->pValue     = (CK_BYTE *)sign_attr + sizeof(CK_ATTRIBUTE);
-	*(CK_BBOOL *)sign_attr->pValue = TRUE;
+	privk_sign_attr->type       = CKA_SIGN;
+	privk_sign_attr->ulValueLen = sizeof(CK_BBOOL);
+	privk_sign_attr->pValue     = (CK_BYTE *)privk_sign_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)privk_sign_attr->pValue = TRUE;
 
-	sign_recover_attr->type       = CKA_SIGN_RECOVER;
-	sign_recover_attr->ulValueLen = sizeof(CK_BBOOL);
-	sign_recover_attr->pValue     = (CK_BYTE *)sign_recover_attr + sizeof(CK_ATTRIBUTE);
-	*(CK_BBOOL *)sign_recover_attr->pValue = FALSE;
+	privk_sign_recover_attr->type       = CKA_SIGN_RECOVER;
+	privk_sign_recover_attr->ulValueLen = sizeof(CK_BBOOL);
+	privk_sign_recover_attr->pValue     = (CK_BYTE *)privk_sign_recover_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)privk_sign_recover_attr->pValue = FALSE;
 
-	unwrap_attr->type       = CKA_UNWRAP;
-	unwrap_attr->ulValueLen = sizeof(CK_BBOOL);
-	unwrap_attr->pValue     = (CK_BYTE *)unwrap_attr + sizeof(CK_ATTRIBUTE);
-	*(CK_BBOOL *)unwrap_attr->pValue = FALSE;
+	privk_unwrap_attr->type       = CKA_UNWRAP;
+	privk_unwrap_attr->ulValueLen = sizeof(CK_BBOOL);
+	privk_unwrap_attr->pValue     = (CK_BYTE *)privk_unwrap_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)privk_unwrap_attr->pValue = FALSE;
 
-	extractable_attr->type       = CKA_EXTRACTABLE;
-	extractable_attr->ulValueLen = sizeof(CK_BBOOL);
-	extractable_attr->pValue     = (CK_BYTE *)extractable_attr + sizeof(CK_ATTRIBUTE);
-	*(CK_BBOOL *)extractable_attr->pValue = FALSE;
+	privk_extractable_attr->type       = CKA_EXTRACTABLE;
+	privk_extractable_attr->ulValueLen = sizeof(CK_BBOOL);
+	privk_extractable_attr->pValue     = (CK_BYTE *)privk_extractable_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)privk_extractable_attr->pValue = FALSE;
 
-	never_extr_attr->type       = CKA_NEVER_EXTRACTABLE;
-	never_extr_attr->ulValueLen = sizeof(CK_BBOOL);
-	never_extr_attr->pValue     = (CK_BYTE *)never_extr_attr + sizeof(CK_ATTRIBUTE);
-	*(CK_BBOOL *)never_extr_attr->pValue = TRUE;
+	privk_never_extr_attr->type       = CKA_NEVER_EXTRACTABLE;
+	privk_never_extr_attr->ulValueLen = sizeof(CK_BBOOL);
+	privk_never_extr_attr->pValue     = (CK_BYTE *)privk_never_extr_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)privk_never_extr_attr->pValue = TRUE;
 
-	always_sens_attr->type       = CKA_ALWAYS_SENSITIVE;
-	always_sens_attr->ulValueLen = sizeof(CK_BBOOL);
-	always_sens_attr->pValue     = (CK_BYTE *)always_sens_attr + sizeof(CK_ATTRIBUTE);
-	*(CK_BBOOL *)always_sens_attr->pValue = TRUE;
+	privk_always_sens_attr->type       = CKA_ALWAYS_SENSITIVE;
+	privk_always_sens_attr->ulValueLen = sizeof(CK_BBOOL);
+	privk_always_sens_attr->pValue     = (CK_BYTE *)privk_always_sens_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)privk_always_sens_attr->pValue = TRUE;
 
-	wrap_with_trusted_attr->type       = CKA_WRAP_WITH_TRUSTED;
-	wrap_with_trusted_attr->ulValueLen = sizeof(CK_BBOOL);
-	wrap_with_trusted_attr->pValue     = (CK_BYTE *)extractable_attr + sizeof(CK_ATTRIBUTE);
-	*(CK_BBOOL *)extractable_attr->pValue = FALSE;
+	privk_wrap_with_trusted_attr->type       = CKA_WRAP_WITH_TRUSTED;
+	privk_wrap_with_trusted_attr->ulValueLen = sizeof(CK_BBOOL);
+	privk_wrap_with_trusted_attr->pValue     = (CK_BYTE *)privk_wrap_with_trusted_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)privk_wrap_with_trusted_attr->pValue = FALSE;
 
-	unwrap_templ_attr->type       = CKA_UNWRAP_TEMPLATE;
-	unwrap_templ_attr->ulValueLen = 0;
-	unwrap_templ_attr->pValue     = NULL;
+	privk_unwrap_templ_attr->type       = CKA_UNWRAP_TEMPLATE;
+	privk_unwrap_templ_attr->ulValueLen = 0;
+	privk_unwrap_templ_attr->pValue     = NULL;
 
-	always_auth_attr->type       = CKA_ALWAYS_AUTHENTICATE;
-	always_auth_attr->ulValueLen = sizeof(CK_BBOOL);
-	always_auth_attr->pValue     = (CK_BYTE *)always_sens_attr + sizeof(CK_ATTRIBUTE);
-	*(CK_BBOOL *)always_sens_attr->pValue = FALSE;
+	privk_always_auth_attr->type       = CKA_ALWAYS_AUTHENTICATE;
+	privk_always_auth_attr->ulValueLen = sizeof(CK_BBOOL);
+	privk_always_auth_attr->pValue     = (CK_BYTE *)privk_always_auth_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)privk_always_auth_attr->pValue = FALSE;
 
-	class->attributes = class_attr;
-	subject->attributes = subject_attr;
-	sensitive->attributes = sensitive_attr;
-	decrypt->attributes = decrypt_attr;
-	sign->attributes = sign_attr;
-	sign_recover->attributes = sign_recover_attr;
-	unwrap->attributes = unwrap_attr;
-	extractable->attributes = extractable_attr;
-	never_extr->attributes = never_extr_attr;
-	always_sens->attributes = always_sens_attr;
-	wrap_with_trusted->attributes = wrap_with_trusted_attr;
-	unwrap_templ->attributes = unwrap_templ_attr;
-	always_auth->attributes = always_auth_attr;
+	class->attributes = privk_class_attr;
+	subject->attributes = privk_subject_attr;
+	sensitive->attributes = privk_sensitive_attr;
+	decrypt->attributes = privk_decrypt_attr;
+	sign->attributes = privk_sign_attr;
+	sign_recover->attributes = privk_sign_recover_attr;
+	unwrap->attributes = privk_unwrap_attr;
+	extractable->attributes = privk_extractable_attr;
+	never_extr->attributes = privk_never_extr_attr;
+	always_sens->attributes = privk_always_sens_attr;
+	wrap_with_trusted->attributes = privk_wrap_with_trusted_attr;
+	unwrap_templ->attributes = privk_unwrap_templ_attr;
+	always_auth->attributes = privk_always_auth_attr;
 
 	p11_template_update_attr(tmpl_list, class);
 	p11_template_update_attr(tmpl_list, subject);

@@ -568,28 +568,12 @@ CK_RV do_CloseAllSessions( void )
 	return rc;
 }
 
-
-/* API Routines exercised that take /var/lock/LCK..opencryptoki spinlock.
- * C_OpenSession
- * C_CloseSession
- *
- * API routines exercised that result in stdll taking
- * /var/lock/opencryptoki_stdll spinlock.
- * C_FindObjectsInit
- * C_FindObjects
- * C_CreateObject
- *
- * 1) Create 3 certificates with different CKA_ID attributes
- * 2) Search for a particular CKA_ID.  Verify this works.
- * 3) Search for a non-existant CKA_ID.  Verify this returns nothing.
- * 4) Specify an empty template.  Verify that all 3 objects are returned.
- */
 CK_RV do_FindObjects(void)
 {
-	CK_SLOT_ID        slot_id;
 	CK_FLAGS          flags;
-	CK_SESSION_HANDLE h_session;
+	CK_SLOT_ID        slot_id;
 	CK_RV             rc = 0;
+	CK_SESSION_HANDLE h_session;
 
 	CK_BYTE           false = FALSE;
 	CK_ULONG i, j;
