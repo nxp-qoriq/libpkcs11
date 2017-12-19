@@ -683,6 +683,137 @@ CK_RV do_FindObjects(void)
 	return rc;
 }
 
+CK_RV do_Sign(void)
+{
+	CK_FLAGS          flags;
+	CK_SLOT_ID        slot_id;
+	CK_RV             rc = 0;
+	CK_SESSION_HANDLE h_session;
+
+	CK_BYTE           false = FALSE;
+	CK_ULONG i, j;
+
+	CK_OBJECT_HANDLE  obj;
+	CK_ULONG          find_count;
+	CK_ULONG          num_existing_objects;
+
+	CK_ATTRIBUTE ck_attr[2];
+	CK_OBJECT_CLASS obj_type;
+	CK_KEY_TYPE key_type;
+	CK_ULONG count = 0;
+
+	CK_MECHANISM mech = {0};
+	CK_BYTE data[] = "Hello PKCS api";
+	CK_BYTE *sig = NULL;
+	CK_ULONG sig_bytes = 0;
+
+	obj_type = CKO_PRIVATE_KEY;
+	key_type = CKK_RSA;
+
+	ck_attr[0].type = CKA_CLASS;
+	ck_attr[0].pValue = &obj_type;
+	ck_attr[0].ulValueLen = sizeof(CK_OBJECT_CLASS);
+
+	ck_attr[1].type = CKA_KEY_TYPE;
+	ck_attr[1].pValue = &key_type;
+	ck_attr[1].ulValueLen = sizeof(CK_KEY_TYPE);
+
+	printf("starting do_Sign\n");
+
+	slot_id = TEE_SLOT_ID;
+
+	/* create a USER R/W session */
+	flags = CKF_SERIAL_SESSION;
+	rc = funcs->C_OpenSession(slot_id, flags, NULL, NULL, &h_session);
+	if (rc != CKR_OK)
+		printf("C_OpenSession handle failed rc=%s\n", p11_get_error_string(rc));
+	else
+		printf("R/O Session with handle = 0x%lx created\n", h_session);
+
+	rc = funcs->C_FindObjectsInit(h_session, ck_attr, 2);
+	if (rc != CKR_OK)
+		return rc;
+
+	rc = funcs->C_FindObjects(h_session, &obj, 1, &num_existing_objects);
+	if (rc != CKR_OK)
+		return rc;
+
+	if (num_existing_objects)
+		printf("object = %lx\n", obj);
+	else
+		printf("find_list empty\n");
+
+	rc = funcs->C_FindObjectsFinal(h_session);
+	if (rc != CKR_OK)
+		return rc;
+
+	mech.mechanism = CKM_RSA_PKCS;
+
+	rc = funcs->C_SignInit(h_session, &mech, obj);
+	if (rc != CKR_OK) {
+		printf("C_SignInit() rc = %s\n", p11_get_error_string(rc));
+		return rc;
+	}
+
+	rc = funcs->C_Sign(h_session, data, sizeof(data), sig, &sig_bytes);
+	if (rc != CKR_OK) {
+		printf("C_Sign() rc = %s\n", p11_get_error_string(rc));
+		return rc;
+	}
+
+	printf("Signature size: %lu\n", sig_bytes);
+	sig = (CK_BYTE *)malloc(sig_bytes);
+
+	rc = funcs->C_Sign(h_session, data, sizeof(data), sig, &sig_bytes);
+	if (rc != CKR_OK) {
+		printf("C_Sign() rc = %s\n", p11_get_error_string(rc));
+		return rc;
+	}
+
+	printf("Signature:\n");
+	for (j = 0; j < sig_bytes; j++) {
+		printf("%02x", *(sig + j));
+		if ((j+1) % 12 == 0)
+			printf("\n");
+	}
+	printf("\n");
+
+	memset(ck_attr, 0, sizeof(CK_ATTRIBUTE) * 2);
+	ck_attr[0].type = CKA_MODULUS;
+	ck_attr[0].pValue = NULL;
+	ck_attr[0].ulValueLen = 0;
+
+	ck_attr[1].type = CKA_PUBLIC_EXPONENT;
+	ck_attr[1].pValue = NULL;
+	ck_attr[1].ulValueLen = 0;
+
+	rc = funcs->C_GetAttributeValue(h_session, obj, ck_attr, 2);
+	if (rc != CKR_OK) {
+		printf("C_GetAttributeValue() rc = %s\n", p11_get_error_string(rc));
+		for (i = 0; i < 2; i++)
+			printf("ck_attr[%lu].ulValueLen = %ld\n",
+				i, (CK_LONG)ck_attr[i].ulValueLen);
+	} else {
+		for (i = 0; i < 2; i++) {
+			printf("ck_attr[%lu].ulValueLen = %lu\n",
+				i, ck_attr[i].ulValueLen);
+		}
+		ck_attr[0].pValue = (void *)malloc(ck_attr[0].ulValueLen);
+		ck_attr[1].pValue = (void *)malloc(ck_attr[1].ulValueLen);
+		rc = funcs->C_GetAttributeValue(h_session, obj, ck_attr, 2);
+		if (rc != CKR_OK)
+			return rc;
+	}
+
+	/* done...close the session and verify the object is deleted */
+	rc = funcs->C_CloseSession(h_session);
+	if (rc != CKR_OK)
+		return rc;
+
+	printf("\ndo_Sign success\n");
+	return rc;
+}
+
 CK_RV do_GetSessionInfo( void )
 {
 	CK_SLOT_ID        slot_id;
@@ -768,7 +899,6 @@ CK_RV sess_mgmt_functions(void)
 	return rc;
 }
 
-
 int main(int argc, char **argv)
 {
 	int rc;
@@ -826,6 +956,10 @@ int main(int argc, char **argv)
 	rv = do_FindObjects();
 	if (rv != CKR_OK)
 		printf("do_FindObjects failed rv=%s\n", p11_get_error_string(rv));
+
+	rv = do_Sign();
+	if (rv != CKR_OK)
+		printf("do_Sign failed rv=%s\n", p11_get_error_string(rv));
 
 	rv = funcs->C_Finalize(NULL_PTR);
 	if (rv != CKR_OK)

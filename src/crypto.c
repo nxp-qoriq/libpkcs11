@@ -32,12 +32,17 @@ CK_RV sign_init(CK_SESSION_HANDLE hSession, sign_verify_context *ctx,
 	attr[1].type = CKA_ALLOWED_MECHANISMS;
 	attr[2].type = CKA_KEY_TYPE;
 	attr[3].type = CKA_CLASS;
-	rc = C_GetAttributeValue(hSession, key, attr, 4);
+	/* Check if key supports sign attribute */
+	rc = C_GetAttributeValue(hSession, key, attr, 1);
+	if (rc != CKR_OK) {
+		rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+		goto out;
+	}
+	rc = C_GetAttributeValue(hSession, key, &attr[1], 3);
 	if (rc != CKR_OK)
 		goto out;
 	obj_mechanisms =
-		(CK_MECHANISM_TYPE_PTR)malloc(sizeof(CK_MECHANISM_TYPE)
-					      * attr[1].ulValueLen);
+		(CK_MECHANISM_TYPE_PTR)malloc(attr[1].ulValueLen);
 	if (!obj_mechanisms) {
 		rc = CKR_HOST_MEMORY;
 		goto out;
@@ -57,7 +62,7 @@ CK_RV sign_init(CK_SESSION_HANDLE hSession, sign_verify_context *ctx,
 	}
 
 	/* Check if object can support sign mechanism type */
-	for (n = 0; n < attr[1].ulValueLen; n++) {
+	for (n = 0; n < (attr[1].ulValueLen/sizeof(CK_MECHANISM_TYPE)); n++) {
 		if (mech->mechanism ==
 			*((CK_MECHANISM_TYPE_PTR)attr[1].pValue + n)) {
 			found = TRUE;
@@ -199,7 +204,7 @@ static CK_RV rsa_sign_pkcs(CK_SESSION_HANDLE hSession, session *sess,
 	mechType.mechanism = SKM_RSA_PKCS_NOPAD;
 	sk_key = ((struct object_node *)ctx->key)->object.sk_obj_handle;
 
-	ret = sk_funcs->SK_Encrypt(&mechType, sk_key, data, req_sig_len,
+	ret = sk_funcs->SK_Decrypt(&mechType, sk_key, data, req_sig_len,
 				   pSignature, (uint16_t *)pulSignatureLen);
 	if (ret != SKR_OK) {
 		printf("%s, %d SK_Encrypt failed %x\n",
