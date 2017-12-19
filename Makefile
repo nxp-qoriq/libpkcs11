@@ -55,9 +55,16 @@ $(PKCS11_OBJ_DIR)/%.o: ${PKCS11_SRC_DIR}/%.c
 	@echo "  CC      $<"
 	$(VPREFIX)$(CC) $(PKCS11_CFLAGS) -c $< -o $@
 
+ifdef OPENSSL_PATH
+OPENSSL := $(OPENSSL_PATH)
+else
+OPENSSL := /usr/
+endif
+
 app:
 	@echo "Building pkcs app"
-	$(VPREFIX)$(CC) -Iinclude/ -Ipublic/ -o app/gen_test app/gen_test.c -lpkcs11 -ldl -Lout/libpkcs11/
+	$(VPREFIX)$(CC) -I$(OPENSSL)/include/ -L$(OPENSSL)/lib/ -Iinclude/ -Ipublic/ \
+		 -o app/gen_test app/gen_test.c -lpkcs11 -ldl -lssl -lcrypto -Lout/libpkcs11/
 
 install:
 	mkdir -p ${EXPORT_DIR}/lib ${EXPORT_DIR}/include ${EXPORT_DIR}/app

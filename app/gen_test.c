@@ -8,6 +8,8 @@
 #include "cryptoki.h"
 #include <tee_slot.h>
 
+#include <openssl/rsa.h>
+
 CK_FUNCTION_LIST  *funcs;
 
 #define err2str(X)     case X: return #X
@@ -704,8 +706,12 @@ CK_RV do_Sign(void)
 
 	CK_MECHANISM mech = {0};
 	CK_BYTE data[] = "Hello PKCS api";
+	CK_BYTE data_out[512] = {0};
+	CK_ULONG data_out_len = 0;
 	CK_BYTE *sig = NULL;
 	CK_ULONG sig_bytes = 0;
+	RSA *pub_key;
+	BIGNUM *bn_mod, *bn_exp;
 
 	obj_type = CKO_PRIVATE_KEY;
 	key_type = CKK_RSA;
@@ -719,6 +725,7 @@ CK_RV do_Sign(void)
 	ck_attr[1].ulValueLen = sizeof(CK_KEY_TYPE);
 
 	printf("starting do_Sign\n");
+	printf("\nActual data: %s\n", (char *)data);
 
 	slot_id = TEE_SLOT_ID;
 
@@ -804,6 +811,24 @@ CK_RV do_Sign(void)
 		if (rc != CKR_OK)
 			return rc;
 	}
+
+	pub_key = RSA_new();
+	RSA_blinding_off(pub_key);
+	bn_mod = BN_new();
+	bn_exp = BN_new();
+
+	/* Convert from strings to BIGNUMs and stick them in the RSA struct */
+	BN_bin2bn((unsigned char *)ck_attr[0].pValue, ck_attr[0].ulValueLen,
+		  bn_mod);
+	BN_bin2bn((unsigned char *)ck_attr[1].pValue, ck_attr[1].ulValueLen,
+		  bn_exp);
+
+	pub_key->n = bn_mod;
+	pub_key->e = bn_exp;
+
+	data_out_len = RSA_public_decrypt(sig_bytes, sig, data_out, pub_key,
+					  RSA_PKCS1_PADDING);
+	printf("Recovered data: %s\n", (char *)data_out);
 
 	/* done...close the session and verify the object is deleted */
 	rc = funcs->C_CloseSession(h_session);
