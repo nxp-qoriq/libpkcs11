@@ -699,8 +699,9 @@ rsa_privk_add_default_attr(struct template_list *tmpl_list)
 	keygen_mech_attr->pValue = NULL;
 
 	allowed_mech_attr->type = CKA_ALLOWED_MECHANISMS;
-	allowed_mech_attr->ulValueLen = rsa_priv_key_mech_count;
-	allowed_mech_attr->pValue = (CK_MECHANISM_TYPE_PTR)allowed_mech_attr
+	allowed_mech_attr->ulValueLen = rsa_priv_key_mech_count *
+					sizeof(CK_MECHANISM_TYPE);
+	allowed_mech_attr->pValue = (CK_BYTE *)allowed_mech_attr
 		+ sizeof(CK_ATTRIBUTE);
 	mech = (CK_MECHANISM_TYPE_PTR)allowed_mech_attr->pValue;
 
