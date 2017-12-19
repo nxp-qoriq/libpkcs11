@@ -735,30 +735,30 @@ static CK_RV
 p11_template_add_default_common_attr(struct template_list *tmpl_list)
 {
 	struct template_node *token_node;
-	struct template_node *priv_node;
 	struct template_node *mod_node;
+	struct template_node *priv_node;
 
-	CK_ATTRIBUTE *token_attr;
-	CK_ATTRIBUTE *priv_attr;
-	CK_ATTRIBUTE *mod_attr;
+	CK_ATTRIBUTE *com_token_attr;
+	CK_ATTRIBUTE *com_mod_attr;
+	CK_ATTRIBUTE *com_priv_attr;
 
 	token_node = (struct template_node *)malloc(sizeof(struct template_node));
-	priv_node = (struct template_node *)malloc(sizeof(struct template_node));
 	mod_node = (struct template_node *)malloc(sizeof(struct template_node));
+	priv_node = (struct template_node *)malloc(sizeof(struct template_node));
 
 	/* add the default common attributes */
-	token_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
+	com_token_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
 			+ sizeof(CK_BBOOL));
-	priv_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
+	com_mod_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
 			+ sizeof(CK_BBOOL));
-	mod_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
+	com_priv_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
 			+ sizeof(CK_BBOOL));
 
-	if (!token_attr || !priv_attr || !mod_attr ||!token_node ||
+	if (!com_token_attr || !com_priv_attr || !com_mod_attr ||!token_node ||
 		!priv_node || !mod_node) {
-		if (token_attr) free(token_attr);
-		if (priv_attr) free(priv_attr);
-		if (mod_attr) free(mod_attr);
+		if (com_token_attr) free(com_token_attr);
+		if (com_priv_attr) free(com_priv_attr);
+		if (com_mod_attr) free(com_mod_attr);
 		if (token_node) free(token_node);
 		if (priv_node) free(priv_node);
 		if (mod_node) free(mod_node);
@@ -766,28 +766,28 @@ p11_template_add_default_common_attr(struct template_list *tmpl_list)
 		return CKR_HOST_MEMORY;
 	}
 
-	token_attr->type = CKA_TOKEN;
-	token_attr->ulValueLen = sizeof(CK_BBOOL);
-	token_attr->pValue = (CK_BYTE *)token_attr + sizeof(CK_ATTRIBUTE);
-	*(CK_BBOOL *)token_attr->pValue = TRUE;
+	com_token_attr->type = CKA_TOKEN;
+	com_token_attr->ulValueLen = sizeof(CK_BBOOL);
+	com_token_attr->pValue = (CK_BYTE *)com_token_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)com_token_attr->pValue = TRUE;
 
-	priv_attr->type = CKA_PRIVATE;
-	priv_attr->ulValueLen = sizeof(CK_BBOOL);
-	priv_attr->pValue = (CK_BYTE *)priv_attr + sizeof(CK_ATTRIBUTE);
-	*(CK_BBOOL *)priv_attr->pValue = FALSE;
+	com_mod_attr->type = CKA_MODIFIABLE;
+	com_mod_attr->ulValueLen = sizeof(CK_BBOOL);
+	com_mod_attr->pValue = (CK_BYTE *)com_mod_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)com_mod_attr->pValue = FALSE;
 
-	mod_attr->type = CKA_MODIFIABLE;
-	mod_attr->ulValueLen = sizeof(CK_BBOOL);
-	mod_attr->pValue = (CK_BYTE *)mod_attr + sizeof(CK_ATTRIBUTE);
-	*(CK_BBOOL *)mod_attr->pValue = FALSE;
+	com_priv_attr->type = CKA_PRIVATE;
+	com_priv_attr->ulValueLen = sizeof(CK_BBOOL);
+	com_priv_attr->pValue = (CK_BYTE *)com_priv_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)com_priv_attr->pValue = FALSE;
 
-	token_node->attributes = token_attr;
-	priv_node->attributes = priv_attr;
-	mod_node->attributes = mod_attr;
+	token_node->attributes = com_token_attr;
+	mod_node->attributes = com_mod_attr;
+	priv_node->attributes = com_priv_attr;
 
 	p11_template_update_attr(tmpl_list, token_node);
-	p11_template_update_attr(tmpl_list, priv_node);
 	p11_template_update_attr(tmpl_list, mod_node);
+	p11_template_update_attr(tmpl_list, priv_node);
 
 	return CKR_OK;
 }
