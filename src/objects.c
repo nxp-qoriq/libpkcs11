@@ -85,11 +85,13 @@ static CK_RV p11_template_update_attr(struct template_list *tmpl_list,
 		struct template_node *tmpl_node)
 {
 	CK_ATTRIBUTE *attr = NULL;
-	CK_ATTRIBUTE *new_attr = tmpl_node->attributes;
+	CK_ATTRIBUTE *new_attr;
 	struct template_node *temp = NULL, *s = NULL;
 
 	if (!tmpl_list || !tmpl_node)
 		return CKR_ARGUMENTS_BAD;
+
+	new_attr = tmpl_node->attributes;
 
 	/* if the attribute already exists in the list, remove it.
 	 * this algorithm will limit an attribute to appearing at most
@@ -1067,7 +1069,7 @@ static CK_RV map_sk_to_pkcs_attr(SK_ATTRIBUTE *sk_attrs,
 					if (!ck_attrs)
 						return CKR_HOST_MEMORY;
 
-					ck_obj_class = (CK_OBJECT_CLASS *)(ck_attrs + sizeof(CK_ATTRIBUTE));
+					ck_obj_class = (CK_OBJECT_CLASS *)((CK_BYTE *)ck_attrs + sizeof(CK_ATTRIBUTE));
 					*(ck_obj_class) = CKO_PRIVATE_KEY;
 
 					ck_attrs->type = CKA_CLASS;
@@ -1081,7 +1083,7 @@ static CK_RV map_sk_to_pkcs_attr(SK_ATTRIBUTE *sk_attrs,
 					if (!ck_attrs)
 						return CKR_HOST_MEMORY;
 
-					ck_obj_class =  (CK_OBJECT_CLASS *)(ck_attrs + sizeof(CK_ATTRIBUTE));
+					ck_obj_class =  (CK_OBJECT_CLASS *)((CK_BYTE *)ck_attrs + sizeof(CK_ATTRIBUTE));
 					*(ck_obj_class) = CKO_PUBLIC_KEY;
 
 					ck_attrs->type = CKA_CLASS;
@@ -1104,7 +1106,7 @@ static CK_RV map_sk_to_pkcs_attr(SK_ATTRIBUTE *sk_attrs,
 					if (!ck_attrs)
 						return CKR_HOST_MEMORY;
 
-					ck_key_type = (CK_KEY_TYPE *)(ck_attrs + sizeof(CK_ATTRIBUTE));
+					ck_key_type = (CK_KEY_TYPE *)((CK_BYTE *)ck_attrs + sizeof(CK_ATTRIBUTE));
 					*(ck_key_type) = CKK_RSA;
 
 					ck_attrs->type = CKA_KEY_TYPE;
@@ -1123,7 +1125,7 @@ static CK_RV map_sk_to_pkcs_attr(SK_ATTRIBUTE *sk_attrs,
 			if (!ck_attrs)
 				return CKR_HOST_MEMORY;
 
-			ck_label = (CK_BYTE *)(ck_attrs + sizeof(CK_ATTRIBUTE));
+			ck_label = (CK_BYTE *)ck_attrs + sizeof(CK_ATTRIBUTE);
 			memcpy(ck_label, sk_attrs->value, sk_attrs->valueLen);
 
 			ck_attrs->type = CKA_LABEL;
@@ -1137,7 +1139,7 @@ static CK_RV map_sk_to_pkcs_attr(SK_ATTRIBUTE *sk_attrs,
 			if (!ck_attrs)
 				return CKR_HOST_MEMORY;
 
-			ck_id = (CK_BYTE *)(ck_attrs + sizeof(CK_ATTRIBUTE));
+			ck_id = (CK_BYTE *)ck_attrs + sizeof(CK_ATTRIBUTE);
 			memcpy(ck_id, sk_attrs->value, sk_attrs->valueLen);
 
 			ck_attrs->type = CKA_ID;
@@ -1151,7 +1153,7 @@ static CK_RV map_sk_to_pkcs_attr(SK_ATTRIBUTE *sk_attrs,
 			if (!ck_attrs)
 				return CKR_HOST_MEMORY;
 
-			mod_bits = (CK_ULONG *)(ck_attrs + sizeof(CK_ATTRIBUTE));
+			mod_bits = (CK_ULONG *)((CK_BYTE *)ck_attrs + sizeof(CK_ATTRIBUTE));
 			*mod_bits = *(uint32_t *)(sk_attrs->value);
 
 			ck_attrs->type = CKA_MODULUS_BITS;
@@ -1165,7 +1167,7 @@ static CK_RV map_sk_to_pkcs_attr(SK_ATTRIBUTE *sk_attrs,
 			if (!ck_attrs)
 				return CKR_HOST_MEMORY;
 
-			temp = (CK_BYTE *)(ck_attrs + sizeof(CK_ATTRIBUTE));
+			temp = (CK_BYTE *)ck_attrs + sizeof(CK_ATTRIBUTE);
 			memcpy(temp, sk_attrs->value, sk_attrs->valueLen);
 
 			ck_attrs->type = CKA_MODULUS;
@@ -1180,7 +1182,7 @@ static CK_RV map_sk_to_pkcs_attr(SK_ATTRIBUTE *sk_attrs,
 			if (!ck_attrs)
 				return CKR_HOST_MEMORY;
 
-			temp = (CK_BYTE *)(ck_attrs + sizeof(CK_ATTRIBUTE));
+			temp = (CK_BYTE *)ck_attrs + sizeof(CK_ATTRIBUTE);
 			memcpy(temp, sk_attrs->value, sk_attrs->valueLen);
 
 			ck_attrs->type = CKA_PUBLIC_EXPONENT;
@@ -1259,30 +1261,30 @@ CK_RV destroy_object_list(CK_SLOT_ID slotID)
 {
 	struct object_list *obj_list;
 	struct template_list *tmpl_list;
-	struct object_node *obj_temp;
-	struct template_node *tmpl_temp;
+	struct object_node *o;
+	struct template_node *t;
 
 	obj_list = get_object_list(slotID);
 	if (!obj_list)
 		return CKR_ARGUMENTS_BAD;
 
 	if (!STAILQ_EMPTY(obj_list)) {
-		STAILQ_FOREACH(obj_temp, obj_list, entry) {
-			OBJECT *obj = &obj_temp->object;
+		while ((o = STAILQ_FIRST(obj_list)) != NULL) {
+			OBJECT *obj = &o->object;
 			tmpl_list = &obj->template_list;
-			STAILQ_FOREACH(tmpl_temp, tmpl_list, entry) {
-				STAILQ_REMOVE(tmpl_list, tmpl_temp, template_node, entry);
-				if (tmpl_temp->attributes)
-					free(tmpl_temp->attributes);
-				free(tmpl_temp);
+			while ((t = STAILQ_FIRST(tmpl_list)) != NULL ) {
+				if (t->attributes)
+					free(t->attributes);
+				STAILQ_REMOVE(tmpl_list, t, template_node, entry);
+				free(t);
 			}
 #if 0
 			if (STAILQ_EMPTY(tmpl_list))
 				printf("Template list destroyed successfuly\n");
 #endif
 
-			STAILQ_REMOVE(obj_list, obj_temp, object_node, entry);
-			free(obj_temp);
+			STAILQ_REMOVE(obj_list, o, object_node, entry);
+			free(o);
 		}
 	}
 #if 0
@@ -1408,7 +1410,7 @@ static CK_RV object_add_template(OBJECT *obj,
 			return CKR_HOST_MEMORY;
 
 		sk_attr->type = temp_sk_attr[i].type;
-		sk_attr->value = sk_attr + sizeof(SK_ATTRIBUTE);
+		sk_attr->value = (uint8_t *)sk_attr + sizeof(SK_ATTRIBUTE);
 		sk_attr->valueLen = temp_sk_attr[i].valueLen;
 
 		ret = sk_funcs->SK_GetObjectAttribute(obj->sk_obj_handle,

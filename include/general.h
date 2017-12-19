@@ -36,6 +36,7 @@ struct slot_info {
 	struct object_list	obj_list;
 	struct session_list	sess_list;
 	SK_FUNCTION_LIST  *sk_funcs;
+	void	*shared_lib_handle;
 };
 
 CK_BBOOL is_lib_initialized(void);
@@ -45,5 +46,7 @@ void pkcs_lib_init(void);
 void pkcs_lib_finish(void);
 
 CK_RV initialize_slot(CK_SLOT_ID slotID);
+
+CK_RV destroy_slot(CK_SLOT_ID slotID);
 
 #endif

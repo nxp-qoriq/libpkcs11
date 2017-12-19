@@ -76,8 +76,11 @@ CK_RV create_session(CK_SLOT_ID slotID,  CK_FLAGS flags,
 	}
 
 	sess_list = get_session_list(slotID);
-	if (!sess_list)
+	if (!sess_list) {
+		print_error("get_session_list failed\n");
+		free(s);
 		return CKR_ARGUMENTS_BAD;
+	}
 
 	memset(s, 0, sizeof(struct session_node));
 
@@ -111,18 +114,22 @@ CK_RV delete_session(CK_SESSION_HANDLE hSession)
 
 CK_RV destroy_session_list(CK_SLOT_ID slotID)
 {
-	struct session_node *temp;
+	struct session_node *s;
 	struct session_list *sess_list;
 
 	sess_list = get_session_list(slotID);
 	if (!sess_list)
 		return CKR_ARGUMENTS_BAD;
 
-	STAILQ_FOREACH(temp, sess_list, entry) {
-		STAILQ_REMOVE(sess_list, temp, session_node, entry);
-		free(temp);
+	while ((s = STAILQ_FIRST(sess_list)) != NULL) {
+		STAILQ_REMOVE(sess_list, s, session_node, entry);
+		free(s);
 	}
 
+#if 0
+	if (STAILQ_EMPTY(sess_list))
+		printf("Session list destroyed successfuly\n");
+#endif
 	return CKR_OK;
 }
 

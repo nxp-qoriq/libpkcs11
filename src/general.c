@@ -53,41 +53,90 @@ CK_BBOOL is_lib_initialized(void)
 	return initialized != 0;
 }
 
-static int get_function_list(CK_SLOT_ID slotID, char *library)
+static void *open_shared_lib(char *library)
+{
+	void *handle;
+
+	handle = dlopen(library, RTLD_NOW);
+	if (handle == NULL) {
+		print_error("dlopen failed %s\n", dlerror());
+		return NULL;
+	}
+
+	return handle;
+}
+
+static void close_shared_lib(void *handle)
+{
+	if (handle)
+		dlclose(handle);
+}
+
+static int get_function_list(CK_SLOT_ID slotID, void *library_handle)
 {
 	SK_RET_CODE	rc;
 	SK_RET_CODE	(*pfoo)(SK_FUNCTION_LIST_PTR_PTR);
-	void    *d;
-	const char    *f = library;
+	void    *d = NULL;
 	struct slot_info *s_info;
+	int ret = FALSE;
 
-	d = dlopen(f, RTLD_NOW);
-	if (d == NULL) {
-		print_error("dlopen failed %s\n", dlerror());
-		return FALSE;
-	}
-
+	d = library_handle;
 	pfoo = (SK_RET_CODE (*)(SK_FUNCTION_LIST_PTR_PTR))dlsym(d, "SK_GetFunctionList");
 	if (pfoo == NULL) {
-		return FALSE;
+		print_error("SK_GetFunctionList not found\n");
+		goto out;
 	}
 
 	s_info = get_global_slot_info(slotID);
-	if (!s_info)
-		return FALSE;
+	if (!s_info) {
+		print_error("get_global_slot_info failed\n");
+		goto out;
+	}
 
 	rc = pfoo(&s_info->sk_funcs);
 	if (rc != SKR_OK) {
 		print_error("SK_GetFunctionList rc=%u", rc);
-		return FALSE;
+		goto out;
 	}
 
-	return TRUE;
+	ret = TRUE;
+
+out:
+	return ret;
+
+}
+
+CK_RV destroy_slot(CK_SLOT_ID slotID)
+{
+	void *shared_lib_handle;
+	struct slot_info *s_info;
+
+	if (slotID != TEE_SLOT_ID)
+		return CKR_GENERAL_ERROR;
+
+	s_info = get_global_slot_info(slotID);
+	if (s_info == NULL) {
+		print_error("get_global_slot_info failed\n");
+		return CKR_GENERAL_ERROR;
+	}
+
+	shared_lib_handle = s_info->shared_lib_handle;
+	close_shared_lib(shared_lib_handle);
+
+	if (destroy_object_list(slotID) != CKR_OK)
+		return CKR_GENERAL_ERROR;
+
+	if (destroy_session_list(slotID) != CKR_OK)
+		return CKR_GENERAL_ERROR;
+
+	return CKR_OK;
 
 }
 
 CK_RV initialize_slot(CK_SLOT_ID slotID)
 {
+	struct slot_info *s_info;
+	void *shared_lib_handle;
 	char library[20];
 	CK_RV rc;
 
@@ -100,7 +149,21 @@ CK_RV initialize_slot(CK_SLOT_ID slotID)
 			return CKR_ARGUMENTS_BAD;
 	}
 
-	rc = get_function_list(slotID, library);
+	s_info = get_global_slot_info(slotID);
+	if (s_info == NULL) {
+		print_error("get_global_slot_info failed\n");
+		return CKR_GENERAL_ERROR;
+	}
+
+	shared_lib_handle = open_shared_lib(library);
+	if (shared_lib_handle == NULL) {
+		print_error("open_shared_lib failed\n");
+		return CKR_GENERAL_ERROR;
+	}
+
+	s_info->shared_lib_handle = shared_lib_handle;
+
+	rc = get_function_list(slotID, shared_lib_handle);
 	if (!rc) {
 		print_error("get_function_list(), rc=%lu\n", rc);
 		return CKR_GENERAL_ERROR;

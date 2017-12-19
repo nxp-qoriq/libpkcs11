@@ -406,38 +406,29 @@ cleanup:
 
 }
 
-int do_GetFunctionList( void )
+int do_GetFunctionList(void *lib_handle)
 {
 	CK_RV            rc;
 	CK_RV  (*pfoo)();
-	void    *d;
-	char    *e;
-	char    *f = "libpkcs11.so";
+	void    *d = NULL;
+	int ret = FALSE;
 
-	e = getenv("PKCSLIB");
-	if ( e == NULL)
-		e = f;
-
-	d = dlopen(e, RTLD_NOW);
-	if ( d == NULL ) {
-		printf("dlopen failed %s\n", dlerror());
-		return FALSE;
-	}
-
+	d = lib_handle;
 	pfoo = (CK_RV (*)())dlsym(d, "C_GetFunctionList");
 	if (pfoo == NULL ) {
-		return FALSE;
+		printf("C_GetFunctionList not found\n");
+		goto out;
 	}
 
 	rc = pfoo(&funcs);
-
 	if (rc != CKR_OK) {
 		printf("C_GetFunctionList rc=%lu", rc);
-		return FALSE;
+		goto out;
 	}
 
-	return TRUE;
-
+	ret = TRUE;
+out:
+	return ret;
 }
 
 CK_RV do_OpenSession( void )
@@ -663,6 +654,12 @@ CK_RV do_FindObjects(void)
 		ck_attr[0].pValue = (void *)malloc(ck_attr[0].ulValueLen);
 		ck_attr[1].pValue = (void *)malloc(ck_attr[1].ulValueLen);
 		rc = funcs->C_GetAttributeValue(h_session, obj_list[0], ck_attr, 2);
+		if (rc != CKR_OK) {
+			free(ck_attr[0].pValue);
+			free(ck_attr[1].pValue);
+			goto out;
+		}
+
 		for (j = 0; j < ck_attr[0].ulValueLen; j++) {
 			printf("%02x", *((uint8_t *)ck_attr[0].pValue + j));
 			if ((j+1) % 12 == 0)
@@ -676,6 +673,7 @@ CK_RV do_FindObjects(void)
 		}
 	}
 
+out:
 	/* done...close the session and verify the object is deleted */
 	rc = funcs->C_CloseSession(h_session);
 	if (rc != CKR_OK)
@@ -929,8 +927,16 @@ int main(int argc, char **argv)
 	int rc;
 	CK_C_INITIALIZE_ARGS cinit_args;
 	CK_RV rv = 0;
+	void    *d = NULL;
+	char    *f = "libpkcs11.so";
 
-	rc = do_GetFunctionList();
+	d = dlopen(f, RTLD_NOW);
+	if ( d == NULL ) {
+		printf("dlopen failed %s\n", dlerror());
+		return -1;
+	}
+
+	rc = do_GetFunctionList(d);
 	if (!rc) {
 		printf("do_getFunctionList(), rc=%d\n", rc);
 		return rc;
@@ -989,6 +995,8 @@ int main(int argc, char **argv)
 	rv = funcs->C_Finalize(NULL_PTR);
 	if (rv != CKR_OK)
 		printf("C_Finalize failed rv=%s\n", p11_get_error_string(rv));
+
+	dlclose(d);
 
 	if (rv == CKR_OK)
 		printf("PKCS Library initialised finalised successfully\n");

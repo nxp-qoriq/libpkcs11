@@ -45,18 +45,20 @@ CK_RV C_Initialize(CK_VOID_PTR pInitArgs)
 
 CK_RV C_Finalize(CK_VOID_PTR pReserved)
 {
+	CK_RV rc;
+	uint32_t i = 0;
+
 	if (pReserved)
 		return CKR_ARGUMENTS_BAD;
 
 	if (!is_lib_initialized())
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 
-	/* This need to be updated when we will add more slots */
-	if (destroy_object_list(TEE_SLOT_ID) != CKR_OK)
-		return CKR_GENERAL_ERROR;
-
-	if (destroy_session_list(TEE_SLOT_ID) != CKR_OK)
-		return CKR_GENERAL_ERROR;
+	for (i = 0; i < SLOT_COUNT; i++) {
+		rc = destroy_slot(i);
+		if (rc)
+			return CKR_GENERAL_ERROR;
+	}
 
 	pkcs_lib_finish();
  
