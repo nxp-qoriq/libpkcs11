@@ -1119,7 +1119,7 @@ static CK_RV map_sk_to_pkcs_attr(SK_ATTRIBUTE *sk_attrs,
 					return CKR_ATTRIBUTE_TYPE_INVALID;
 			}
 			break;
-		case SK_ATTR_LABEL:
+		case SK_ATTR_OBJECT_LABEL:
 			ck_attrs = (CK_ATTRIBUTE_PTR)malloc(sizeof(CK_ATTRIBUTE) +
 						sk_attrs->valueLen);
 			if (!ck_attrs)
@@ -1361,7 +1361,7 @@ CK_RV get_attr_value(struct object_node *obj,
 #define RSA_PRIV_SK_ATTR_COUNT	4
 
 SK_ATTRIBUTE_TYPE rsa_pub_attr_type[RSA_PUB_SK_ATTR_COUNT] = {
-	SK_ATTR_LABEL,
+	SK_ATTR_OBJECT_LABEL,
 	SK_ATTR_OBJECT_INDEX,
 	SK_ATTR_MODULUS,
 	SK_ATTR_PUBLIC_EXPONENT,
@@ -1369,7 +1369,7 @@ SK_ATTRIBUTE_TYPE rsa_pub_attr_type[RSA_PUB_SK_ATTR_COUNT] = {
 };
 
 SK_ATTRIBUTE_TYPE rsa_priv_attr_type[RSA_PRIV_SK_ATTR_COUNT] = {
-	SK_ATTR_LABEL,
+	SK_ATTR_OBJECT_LABEL,
 	SK_ATTR_OBJECT_INDEX,
 	SK_ATTR_MODULUS,
 	SK_ATTR_PUBLIC_EXPONENT
