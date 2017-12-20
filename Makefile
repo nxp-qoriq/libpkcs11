@@ -36,7 +36,8 @@ PKCS11_SRC_DIR	:= src
 PKCS11_OBJ_DIR	:= $(OUT_DIR)
 PKCS11_OBJS 	:= $(patsubst %.c,$(PKCS11_OBJ_DIR)/%.o, $(PKCS11_SRCS))
 PKCS11_INCLUDES	:= ${CURDIR}/include \
-		   ${CURDIR}/public
+		   ${CURDIR}/public \
+		   $(SECUREKEY_PATH)/include
 
 PKCS11_CFLAGS	:= $(addprefix -I, $(PKCS11_INCLUDES)) $(CFLAGS) -D_GNU_SOURCE
 
