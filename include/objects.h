@@ -1,3 +1,8 @@
+/*
+  * Copyright 2017 NXP
+  * SPDX-License-Identifier:     BSD-3-Clause
+*/
+
 #ifndef ___OBJECTS_H_INC___
 #define ___OBJECTS_H_INC___
 
