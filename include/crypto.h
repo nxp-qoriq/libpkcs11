@@ -9,6 +9,7 @@
 #include <sessions.h>
 
 #define MAX_RSA_KEYLEN	512
+#define MAX_HASH_LEN	64
 
 /* RSA block formatting types */
 #define RSA_PKCS_BT_1	1

@@ -14,6 +14,8 @@
 #include <tee_slot.h>
 
 #include <openssl/rsa.h>
+#include <openssl/pem.h>
+#include <openssl/md5.h>
 
 CK_FUNCTION_LIST  *funcs;
 
@@ -688,7 +690,7 @@ out:
 	return rc;
 }
 
-CK_RV do_Sign(void)
+CK_RV do_Sign(CK_MECHANISM_TYPE mech_type)
 {
 	CK_FLAGS          flags;
 	CK_SLOT_ID        slot_id;
@@ -710,11 +712,16 @@ CK_RV do_Sign(void)
 	CK_MECHANISM mech = {0};
 	CK_BYTE data[] = "Hello PKCS api";
 	CK_BYTE data_out[512] = {0};
+	CK_BYTE hash[64] = {0};
 	CK_ULONG data_out_len = 0;
 	CK_BYTE *sig = NULL;
 	CK_ULONG sig_bytes = 0;
 	RSA *pub_key;
+	SHA_CTX c1;
+	SHA256_CTX c2;
+	SHA512_CTX c3;
 	BIGNUM *bn_mod, *bn_exp;
+	uint8_t ret = 0;
 
 	obj_type = CKO_PRIVATE_KEY;
 	key_type = CKK_RSA;
@@ -757,7 +764,7 @@ CK_RV do_Sign(void)
 	if (rc != CKR_OK)
 		return rc;
 
-	mech.mechanism = CKM_RSA_PKCS;
+	mech.mechanism = mech_type;
 
 	rc = funcs->C_SignInit(h_session, &mech, obj);
 	if (rc != CKR_OK) {
@@ -829,9 +836,68 @@ CK_RV do_Sign(void)
 	pub_key->n = bn_mod;
 	pub_key->e = bn_exp;
 
-	data_out_len = RSA_public_decrypt(sig_bytes, sig, data_out, pub_key,
-					  RSA_PKCS1_PADDING);
-	printf("Recovered data: %s\n", (char *)data_out);
+	switch (mech_type) {
+	case CKM_RSA_PKCS:
+		data_out_len = RSA_public_decrypt(sig_bytes, sig, data_out,
+						  pub_key, RSA_PKCS1_PADDING);
+		printf("\nCKM_RSA_PKCS Recovered data: %s\n", (char *)data_out);
+		break;
+	case CKM_MD5_RSA_PKCS:
+		MD5(data, sizeof(data), hash);
+		ret = RSA_verify(NID_md5, hash, 16, sig, sig_bytes,
+					  pub_key);
+		if (ret == 1)
+			printf("\nCKM_MD5_RSA_PKCS verification success\n");
+		else
+			printf("\nCKM_MD5_RSA_PKCS verification failure\n");
+		break;
+	case CKM_SHA1_RSA_PKCS:
+		SHA1_Init(&c1);
+		SHA1_Update(&c1, data, sizeof(data));
+		SHA1_Final(hash, &c1);
+		ret = RSA_verify(NID_sha1, hash, 20, sig, sig_bytes,
+					  pub_key);
+		if (ret == 1)
+			printf("\nCKM_SHA1_RSA_PKCS verification success\n");
+		else
+			printf("\nCKM_SHA1_RSA_PKCS verification failure\n");
+		break;
+	case CKM_SHA256_RSA_PKCS:
+		SHA256_Init(&c2);
+		SHA256_Update(&c2, data, sizeof(data));
+		SHA256_Final(hash, &c2);
+		ret = RSA_verify(NID_sha256, hash, 32, sig, sig_bytes,
+					  pub_key);
+		if (ret == 1)
+			printf("\nCKM_SHA256_RSA_PKCS verification success\n");
+		else
+			printf("\nCKM_SHA256_RSA_PKCS verification failure\n");
+		break;
+	case CKM_SHA384_RSA_PKCS:
+		SHA384_Init(&c3);
+		SHA384_Update(&c3, data, sizeof(data));
+		SHA384_Final(hash, &c3);
+		ret = RSA_verify(NID_sha384, hash, 48, sig, sig_bytes,
+					  pub_key);
+		if (ret == 1)
+			printf("\nCKM_SHA384_RSA_PKCS verification success\n");
+		else
+			printf("\nCKM_SHA384_RSA_PKCS verification failure\n");
+		break;
+	case CKM_SHA512_RSA_PKCS:
+		SHA512_Init(&c3);
+		SHA512_Update(&c3, data, sizeof(data));
+		SHA512_Final(hash, &c3);
+		ret = RSA_verify(NID_sha512, hash, 64, sig, sig_bytes,
+					  pub_key);
+		if (ret == 1)
+			printf("\nCKM_SHA512_RSA_PKCS verification success\n");
+		else
+			printf("\nCKM_SHA512_RSA_PKCS verification failure\n");
+		break;
+	default:
+		rc = CKR_MECHANISM_INVALID;
+	}
 
 	/* done...close the session and verify the object is deleted */
 	rc = funcs->C_CloseSession(h_session);
@@ -993,7 +1059,27 @@ int main(int argc, char **argv)
 	if (rv != CKR_OK)
 		printf("do_FindObjects failed rv=%s\n", p11_get_error_string(rv));
 
-	rv = do_Sign();
+	rv = do_Sign(CKM_RSA_PKCS);
+	if (rv != CKR_OK)
+		printf("do_Sign failed rv=%s\n", p11_get_error_string(rv));
+
+	rv = do_Sign(CKM_MD5_RSA_PKCS);
+	if (rv != CKR_OK)
+		printf("do_Sign failed rv=%s\n", p11_get_error_string(rv));
+
+	rv = do_Sign(CKM_SHA1_RSA_PKCS);
+	if (rv != CKR_OK)
+		printf("do_Sign failed rv=%s\n", p11_get_error_string(rv));
+
+	rv = do_Sign(CKM_SHA256_RSA_PKCS);
+	if (rv != CKR_OK)
+		printf("do_Sign failed rv=%s\n", p11_get_error_string(rv));
+
+	rv = do_Sign(CKM_SHA384_RSA_PKCS);
+	if (rv != CKR_OK)
+		printf("do_Sign failed rv=%s\n", p11_get_error_string(rv));
+
+	rv = do_Sign(CKM_SHA512_RSA_PKCS);
 	if (rv != CKR_OK)
 		printf("do_Sign failed rv=%s\n", p11_get_error_string(rv));
 

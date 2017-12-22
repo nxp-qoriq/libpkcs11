@@ -9,6 +9,7 @@
 
 #include <cryptoki.h>
 #include <crypto.h>
+#include <general.h>
 
 #include <securekey_api.h>
 #include <securekey_api_types.h>
@@ -212,8 +213,100 @@ static CK_RV rsa_sign_pkcs(CK_SESSION_HANDLE hSession, session *sess,
 	ret = sk_funcs->SK_Decrypt(&mechType, sk_key, data, req_sig_len,
 				   pSignature, (uint16_t *)pulSignatureLen);
 	if (ret != SKR_OK) {
-		printf("%s, %d SK_Encrypt failed %x\n",
-			__func__, __LINE__, ret);
+		print_error("SK_Decrypt failed with ret code 0x%x\n", ret);
+		rc = CKR_GENERAL_ERROR;
+		goto out;
+	}
+
+out:
+	return rc;
+}
+
+/* Implementation of hash based sign api */
+static CK_RV rsa_hash_sign_pkcs(CK_SESSION_HANDLE hSession, session *sess,
+				CK_BYTE_PTR pData, CK_ULONG ulDataLen,
+				CK_BYTE_PTR pSignature,
+				CK_ULONG_PTR pulSignatureLen)
+{
+	CK_RV rc = CKR_OK;
+	sign_verify_context *ctx = &sess->sign_ctx;
+	CK_ATTRIBUTE attr = {0};
+	CK_ULONG req_sig_len = 0;
+	CK_BYTE hash[MAX_HASH_LEN];
+	CK_ULONG hash_len = MAX_HASH_LEN;
+	SK_FUNCTION_LIST_PTR sk_funcs = NULL;
+	SK_RET_CODE ret = SKR_OK;
+	SK_MECHANISM_INFO signType = {0}, digestType = {0};
+	SK_OBJECT_HANDLE sk_key;
+
+	/* Get required signature buffer size from size of modulus */
+	attr.type = CKA_MODULUS;
+	rc = C_GetAttributeValue(hSession, ctx->key, &attr, 1);
+	if (rc != CKR_OK)
+		goto out;
+	req_sig_len = attr.ulValueLen;
+
+	/*
+	 * If signature buffer is NULL then return size of
+	 * buffer to be allocated.
+	 */
+	if (!pSignature) {
+		*pulSignatureLen = req_sig_len;
+		rc = CKR_OK;
+		goto out;
+	}
+
+	/* Signature length should not be less than required size */
+	if (*pulSignatureLen < req_sig_len) {
+		rc = CKR_BUFFER_TOO_SMALL;
+		goto out;
+	}
+
+	/* Maps RSA hash based sign --> SK_Digest and SK_Sign */
+	sk_funcs = get_slot_function_list(sess->session_info.slotID);
+	if (!sk_funcs)
+		return CKR_ARGUMENTS_BAD;
+
+	switch (ctx->mech.mechanism) {
+	case CKM_MD5_RSA_PKCS:
+		signType.mechanism = SKM_RSASSA_PKCS1_V1_5_MD5;
+		digestType.mechanism = SKM_MD5;
+		break;
+	case CKM_SHA1_RSA_PKCS:
+		signType.mechanism = SKM_RSASSA_PKCS1_V1_5_SHA1;
+		digestType.mechanism = SKM_SHA1;
+		break;
+	case CKM_SHA256_RSA_PKCS:
+		signType.mechanism = SKM_RSASSA_PKCS1_V1_5_SHA256;
+		digestType.mechanism = SKM_SHA256;
+		break;
+	case CKM_SHA384_RSA_PKCS:
+		signType.mechanism = SKM_RSASSA_PKCS1_V1_5_SHA384;
+		digestType.mechanism = SKM_SHA384;
+		break;
+	case CKM_SHA512_RSA_PKCS:
+		signType.mechanism = SKM_RSASSA_PKCS1_V1_5_SHA512;
+		digestType.mechanism = SKM_SHA512;
+		break;
+	default:
+		rc = CKR_MECHANISM_INVALID;
+		goto out;
+	}
+
+	sk_key = ((struct object_node *)ctx->key)->object.sk_obj_handle;
+
+	ret = sk_funcs->SK_Digest(&digestType, pData, ulDataLen, hash,
+				  (uint16_t *)&hash_len);
+	if (ret != SKR_OK) {
+		print_error("SK_Digest failed with ret code 0x%x\n", ret);
+		rc = CKR_GENERAL_ERROR;
+		goto out;
+	}
+
+	ret = sk_funcs->SK_Sign(&signType, sk_key, hash, hash_len,
+				pSignature, (uint16_t *)pulSignatureLen);
+	if (ret != SKR_OK) {
+		print_error("SK_Sign failed with ret code 0x%x\n", ret);
 		rc = CKR_GENERAL_ERROR;
 		goto out;
 	}
@@ -242,11 +335,8 @@ CK_RV sign(CK_SESSION_HANDLE hSession, session *sess, CK_BYTE_PTR pData,
 	case CKM_SHA256_RSA_PKCS:
 	case CKM_SHA384_RSA_PKCS:
 	case CKM_SHA512_RSA_PKCS:
-		/* TODO: Implementation to be done */
-#if 0
 		return rsa_hash_sign_pkcs(hSession, sess, pData, ulDataLen,
 					  pSignature, pulSignatureLen);
-#endif
 	default:
 		return CKR_MECHANISM_INVALID;
 	}
