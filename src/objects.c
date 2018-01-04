@@ -1559,7 +1559,7 @@ CK_RV get_all_token_objects(struct object_list *obj_list,
 
 						rc = create_rsa_pub_key_object(objs[j], &rsa_pub_key, slotID);
 						if (rc != CKR_OK) {
-							print_error("create_rsa_pub_key_object object node malloc failed\n");
+							print_error("create_rsa_pub_key_object failed\n");
 							return rc;
 						}
 
@@ -1576,7 +1576,7 @@ CK_RV get_all_token_objects(struct object_list *obj_list,
 
 						rc = create_rsa_priv_key_object(objs[j], &rsa_priv_key, slotID);
 						if (rc != CKR_OK) {
-							print_error("create_rsa_priv_key_object object node malloc failed\n");
+							print_error("create_rsa_priv_key_object failed\n");
 							return rc;
 						}
 
@@ -1603,7 +1603,7 @@ CK_RV get_all_token_objects(struct object_list *obj_list,
 
 						rc = create_rsa_pub_key_object(objs[j], &pub_key, slotID);
 						if (rc != CKR_OK) {
-							print_error("create_rsa_pub_key_object object node malloc failed\n");
+							print_error("create_rsa_pub_key_object failed\n");
 							return rc;
 						}
 
