@@ -780,6 +780,10 @@ CK_RV do_Sign(CK_MECHANISM_TYPE mech_type)
 
 	printf("Signature size: %lu\n", sig_bytes);
 	sig = (CK_BYTE *)malloc(sig_bytes);
+	if (sig == NULL) {
+		printf("signature malloc failed\n");
+		return CKR_HOST_MEMORY;
+	}
 
 	rc = funcs->C_Sign(h_session, data, sizeof(data), sig, &sig_bytes);
 	if (rc != CKR_OK) {
