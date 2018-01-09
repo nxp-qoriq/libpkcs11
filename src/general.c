@@ -147,7 +147,7 @@ CK_RV initialize_slot(CK_SLOT_ID slotID)
 
 	switch (slotID) {
 		case TEE_SLOT_ID:
-			memcpy(library, "libsecurekey.so", sizeof("libsecurekey.so"));
+			memcpy(library, "libsecure_obj.so", sizeof("libsecure_obj.so"));
 			break;
 		default:
 			print_error("Invalid Slot ID\n");
