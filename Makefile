@@ -64,19 +64,25 @@ endif
 
 app:
 	@echo "Building pkcs app"
-	$(VPREFIX)$(CC) -I$(OPENSSL)/include/ -L$(OPENSSL)/lib/ -Iinclude/ -Ipublic/ \
+#	$(VPREFIX)$(CC) -I$(OPENSSL)/include/ -L$(OPENSSL)/ -Iinclude/ -Ipublic/ \
 		 -o app/gen_test app/gen_test.c -lpkcs11 -ldl -lssl -lcrypto -Lout/libpkcs11/
+	$(VPREFIX)$(CC) -I$(OPENSSL)/include/ -L$(OPENSSL)/ -Iinclude/ -Ipublic/ \
+		 -o app/utils.o app/utils.c \
+		 -o app/pkcs11_app app/pkcs11_app.c \
+		 -lpkcs11 -ldl -lssl -lcrypto -Lout/libpkcs11/
 
 install:
-	mkdir -p ${EXPORT_DIR}/lib ${EXPORT_DIR}/include ${EXPORT_DIR}/app
+	mkdir -p ${EXPORT_DIR}/lib ${EXPORT_DIR}/include ${EXPORT_DIR}/app images
 	cp ${OUT_DIR}/libpkcs11.so ${EXPORT_DIR}/lib
 	cp ${CURDIR}/public/*.h ${EXPORT_DIR}/include
-	mv app/gen_test ${EXPORT_DIR}/app
+#	mv app/gen_test ${EXPORT_DIR}/app
+	mv app/pkcs11_app ${EXPORT_DIR}/app
+	cp ${OUT_DIR}/libpkcs11.so ${EXPORT_DIR}/app/pkcs11_app images
 
 ################################################################################
 # Cleaning up configuration
 ################################################################################
 clean:
-	$(RM) $(O)
+	$(RM) $(O) images
 
 distclean: clean
