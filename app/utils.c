@@ -114,33 +114,6 @@ char *p11_get_error_string(CK_RV rc)
 	}
 }
 
-void dump_sess_info(CK_SESSION_INFO *info)
-{
-	printf("   CK_SESSION_INFO:\n");
-	printf("      slotID:         %ld\n", info->slotID);
-	printf("      state:          ");
-	switch (info->state) {
-	case CKS_RO_PUBLIC_SESSION:
-		printf("CKS_RO_PUBLIC_SESSION\n");
-		break;
-	case CKS_RW_PUBLIC_SESSION:
-		printf("CKS_RW_PUBLIC_SESSION\n");
-		break;
-	case CKS_RO_USER_FUNCTIONS:
-		printf("CKS_RO_USER_FUNCTIONS\n");
-		break;
-	case CKS_RW_USER_FUNCTIONS:
-		printf("CKS_RW_USER_FUNCTIONS\n");
-		break;
-	case CKS_RW_SO_FUNCTIONS:
-		printf("CKS_RW_SO_FUNCTIONS\n");
-		break;
-	}
-
-	printf("      flags:          %p\n", (void *)info->flags);
-	printf("      ulDeviceError:  %ld\n", info->ulDeviceError);
-}
-
 CK_MECHANISM_TYPE getMechId(char *mechIdStr)
 {
 	if (mechIdStr == NULL)
