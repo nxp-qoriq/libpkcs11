@@ -465,28 +465,28 @@ int do_FindObjects(struct getOptValue_t *getOptValue)
 		goto cleanup;
 	}
 
-	foundObj_ck_attr[count].type = CKA_LABEL;
-	foundObj_ck_attr[count].pValue = NULL;
-	foundObj_ck_attr[count].ulValueLen = 0;
-	count++;
-
-	foundObj_ck_attr[count].type = CKA_CLASS;
-	foundObj_ck_attr[count].pValue = NULL;
-	foundObj_ck_attr[count].ulValueLen = 0;
-	count++;
-
-	foundObj_ck_attr[count].type = CKA_ID;
-	foundObj_ck_attr[count].pValue = NULL;
-	foundObj_ck_attr[count].ulValueLen = 0;
-	count++;
-
-	foundObj_ck_attr[count].type = CKA_KEY_TYPE;
-	foundObj_ck_attr[count].pValue = NULL;
-	foundObj_ck_attr[count].ulValueLen = 0;
-	count++;
-
 	for (i = 0; i < num_existing_objects; i++) {
 		printf("object[%lu] = %lx\n", i, obj_list[i]);
+
+		foundObj_ck_attr[count].type = CKA_LABEL;
+		foundObj_ck_attr[count].pValue = NULL;
+		foundObj_ck_attr[count].ulValueLen = 0;
+		count++;
+
+		foundObj_ck_attr[count].type = CKA_CLASS;
+		foundObj_ck_attr[count].pValue = NULL;
+		foundObj_ck_attr[count].ulValueLen = 0;
+		count++;
+
+		foundObj_ck_attr[count].type = CKA_ID;
+		foundObj_ck_attr[count].pValue = NULL;
+		foundObj_ck_attr[count].ulValueLen = 0;
+		count++;
+
+		foundObj_ck_attr[count].type = CKA_KEY_TYPE;
+		foundObj_ck_attr[count].pValue = NULL;
+		foundObj_ck_attr[count].ulValueLen = 0;
+		count++;
 
 		rc = funcs->C_GetAttributeValue(h_session,
 				obj_list[i], foundObj_ck_attr, count);
@@ -527,6 +527,7 @@ int do_FindObjects(struct getOptValue_t *getOptValue)
 		j++;
 		printf("\tKey Type: %s\n", getKeyTypeString(*((CK_KEY_TYPE *)foundObj_ck_attr[j].pValue)));
 		j++;
+		count = 0;
 	}
 cleanup:
 	/* done...close the session and verify the object is deleted */
