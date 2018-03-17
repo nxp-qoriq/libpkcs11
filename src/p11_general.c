@@ -31,93 +31,71 @@ CK_RV C_Initialize(CK_VOID_PTR pInitArgs)
 {
 	uint32_t i = 0;
 	CK_RV rc = CKR_OK;
-	char functions_map = 0;
-	CK_C_INITIALIZE_ARGS *pArgs;
 
 	if (is_lib_initialized()) {
 		rc = CKR_CRYPTOKI_ALREADY_INITIALIZED;
 		goto end;
 	}
 
+	rc = p11_init_lock((CK_C_INITIALIZE_ARGS_PTR) pInitArgs);
+	if (rc != CKR_OK)
+		goto end;
 
-	if (pInitArgs != NULL) {
-		pArgs = (CK_C_INITIALIZE_ARGS *) pInitArgs;
-
-		if (pArgs->pReserved != NULL) {
-			print_error("InitArgs reserved field not NULL\n");
-			rc = CKR_ARGUMENTS_BAD;
-			goto end;
-		}
-
-		functions_map = (pArgs->CreateMutex ? 0x01 << 0 : 0);
-		functions_map |= (pArgs->LockMutex ? 0x01 << 2 : 0);
-		functions_map |= (pArgs->DestroyMutex ? 0x01 << 1 : 0);
-		functions_map |= (pArgs->UnlockMutex ? 0x01 << 3 : 0);
-
-		/* Verify that all or none of the functions are set */
-		if (functions_map != 0) {
-			if (functions_map != 0x0f) {
-				print_error("Not all function pointers are provided\n");
-				rc = CKR_ARGUMENTS_BAD;
-				goto end;
-			}
-		}
-
-		/* Case 1.  Flag not set and function pointers NOT supplied */
-		if (!(pArgs->flags & CKF_OS_LOCKING_OK) && !(functions_map)) {
-			/* Will be returning CKR_OK if initialization works correctly */;
-		} else {
-			/* For now library don't support the multithreaded access
-			from application. */
-			print_error("PKCS Library doesnot support multithreaded access from applications\n");
-			rc = CKR_CANT_LOCK;
-			goto end;
-		}
-	} else {
-		rc = CKR_OK;
-	}
+	p11_global_lock();
 
 	pkcs_lib_init();
 
 	for (i = 0; i < SLOT_COUNT; i++) {
 		rc = initialize_slot(i);
-		if (rc)
+		if (rc) {
+			p11_free_lock();
 			rc = CKR_GENERAL_ERROR;
+		}
 	}
 
+	p11_global_unlock();
 end:
 	return rc;
 }
 
 CK_RV C_Finalize(CK_VOID_PTR pReserved)
 {
-	CK_RV rc;
+	CK_RV rc = CKR_OK;
 	uint32_t i = 0;
 
 	if (pReserved)
 		return CKR_ARGUMENTS_BAD;
 
-	if (!is_lib_initialized())
-		return CKR_CRYPTOKI_NOT_INITIALIZED;
+	p11_global_lock();
 
-	for (i = 0; i < SLOT_COUNT; i++) {
-		rc = destroy_slot(i);
-		if (rc)
-			return CKR_GENERAL_ERROR;
+	if (!is_lib_initialized()) {
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
 	}
 
+	for (i = 0; i < SLOT_COUNT; i++)
+		rc = destroy_slot(i);
+
 	pkcs_lib_finish();
- 
-	return CKR_OK;
+end:
+	p11_free_lock();
+
+	return rc;
 }
 
 CK_RV C_GetInfo(CK_INFO_PTR pInfo)
 {
+	CK_RV rc = CKR_OK;
+
 	if (pInfo == NULL)
 		return CKR_ARGUMENTS_BAD;
 
-	if (!is_lib_initialized())
-		return CKR_CRYPTOKI_NOT_INITIALIZED;
+	p11_global_lock();
+
+	if (!is_lib_initialized()) {
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
+	}
 
 	if (cryptoki_info.manufacturerID[0] == 0) {
 		cryptoki_info.cryptokiVersion.major = CRYPTOKI_VERSION_MAJOR;
@@ -138,7 +116,9 @@ CK_RV C_GetInfo(CK_INFO_PTR pInfo)
 
 	memcpy(pInfo, &cryptoki_info, sizeof(CK_INFO));
 
-	return CKR_OK;
+end:
+	p11_global_unlock();
+	return rc;
 }
 
 CK_RV C_GetFunctionList(CK_FUNCTION_LIST_PTR_PTR ppFunctionList)

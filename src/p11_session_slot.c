@@ -19,19 +19,25 @@
  */
 CK_RV C_GetSlotList(CK_BBOOL tokenPresent, CK_SLOT_ID_PTR pSlotList, CK_ULONG_PTR pulCount)
 {
-	int ret = CKR_OK;
+	CK_RV rc = CKR_OK;
 	struct slot_info *slot_info;
 
-	if (!is_lib_initialized())
-		return CKR_CRYPTOKI_NOT_INITIALIZED;
+	p11_global_lock();
+
+	if (!is_lib_initialized()) {
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
+	}
 
 	tokenPresent = tokenPresent;
 
-	if (pulCount == NULL)
-		return CKR_ARGUMENTS_BAD;
+	if (pulCount == NULL) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
 
 	if (pSlotList == NULL)
-		goto out;
+		goto end;
 
 	/* only support 1 slot which is TEE_SLOT */
 	if (*pulCount >= SLOT_COUNT) {
@@ -39,21 +45,29 @@ CK_RV C_GetSlotList(CK_BBOOL tokenPresent, CK_SLOT_ID_PTR pSlotList, CK_ULONG_PT
 		slot_info = get_global_slot_info(TEE_SLOT_ID);
 		slot_info->slot_id = TEE_SLOT_ID;
 	} else
-		ret =  CKR_BUFFER_TOO_SMALL;
+		rc =  CKR_BUFFER_TOO_SMALL;
 
-out:
+end:
 	*pulCount = 1;
-
-	return ret;
+	p11_global_unlock();
+	return rc;
 }
 
 CK_RV C_GetSlotInfo(CK_SLOT_ID slotID, CK_SLOT_INFO_PTR pInfo)
 {
-	if (!is_lib_initialized())
-		return CKR_CRYPTOKI_NOT_INITIALIZED;
+	CK_RV rc = CKR_OK;
 
-	if (pInfo == NULL)
-		return CKR_ARGUMENTS_BAD;
+	p11_global_lock();
+
+	if (!is_lib_initialized()) {
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
+	}
+
+	if (pInfo == NULL) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
 
 	/* Currently only one slot is added i.e. TEE_SLOT
 	  * In order to add another slot, need to add 2 files
@@ -64,29 +78,41 @@ CK_RV C_GetSlotInfo(CK_SLOT_ID slotID, CK_SLOT_INFO_PTR pInfo)
 			Get_TEE_SlotInfo(pInfo);
 			break;
 		default:
-			return CKR_SLOT_ID_INVALID;
+			rc = CKR_SLOT_ID_INVALID;
 	}
 
-	return CKR_OK;
+end:
+	p11_global_unlock();
+	return rc;
 }
 
 CK_RV C_GetTokenInfo(CK_SLOT_ID slotID, CK_TOKEN_INFO_PTR pInfo)
 {
-	if (!is_lib_initialized())
-		return CKR_CRYPTOKI_NOT_INITIALIZED;
+	CK_RV rc = CKR_OK;
 
-	if (pInfo == NULL)
-		return CKR_ARGUMENTS_BAD;
+	p11_global_lock();
+
+	if (!is_lib_initialized()) {
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
+	}
+
+	if (pInfo == NULL) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
 
 	switch (slotID) {
 		case TEE_SLOT_ID:
 			Get_TEE_TokenInfo(pInfo);
 			break;
 		default:
-			return CKR_SLOT_ID_INVALID;
+			rc = CKR_SLOT_ID_INVALID;
 	}
 
-	return CKR_OK;
+end:
+	p11_global_unlock();
+	return rc;
 }
 
 CK_RV C_WaitForSlotEvent(CK_FLAGS flags, CK_SLOT_ID_PTR pSlot,
@@ -106,45 +132,61 @@ CK_RV C_GetMechanismList(CK_SLOT_ID slotID,
 			 CK_MECHANISM_TYPE_PTR pMechanismList,
 			 CK_ULONG_PTR pulCount)
 {
-	CK_RV ret = 0;
+	CK_RV rc = CKR_OK;
 
-	if (!is_lib_initialized())
-		return CKR_CRYPTOKI_NOT_INITIALIZED;
+	p11_global_lock();
 
-	if (pulCount == NULL)
-		return CKR_ARGUMENTS_BAD;
+	if (!is_lib_initialized()) {
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
+	}
+
+	if (pulCount == NULL) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
 
 	switch (slotID) {
 		case TEE_SLOT_ID:
-			ret = Get_TEE_MechanismList(pMechanismList, pulCount);
+			rc = Get_TEE_MechanismList(pMechanismList, pulCount);
 			break;
 		default:
-			return CKR_SLOT_ID_INVALID;
+			rc = CKR_SLOT_ID_INVALID;
 	}
 
-	return ret;
+end:
+	p11_global_unlock();
+	return rc;
 }
 
 CK_RV C_GetMechanismInfo(CK_SLOT_ID slotID, CK_MECHANISM_TYPE type,
 		CK_MECHANISM_INFO_PTR pInfo)
 {
-	CK_RV ret;
+	CK_RV rc = CKR_OK;
 
-	if (!is_lib_initialized())
-		return CKR_CRYPTOKI_NOT_INITIALIZED;
+	p11_global_lock();
 
-	if (pInfo == NULL)
-		return CKR_ARGUMENTS_BAD;
+	if (!is_lib_initialized()) {
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
+	}
+
+	if (pInfo == NULL) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
 
 	switch (slotID) {
 		case TEE_SLOT_ID:
-			ret = Get_TEE_MechanismInfo(type, pInfo);
+			rc = Get_TEE_MechanismInfo(type, pInfo);
 			break;
 		default:
-			return CKR_SLOT_ID_INVALID;
+			rc = CKR_SLOT_ID_INVALID;
 	}
 
-	return ret;
+end:
+	p11_global_unlock();
+	return rc;
 }
 
 CK_RV C_InitToken(CK_SLOT_ID slotID,
@@ -191,81 +233,119 @@ CK_RV C_OpenSession(CK_SLOT_ID slotID,
 		    CK_NOTIFY Notify,
 		    CK_SESSION_HANDLE_PTR phSession)
 {
-	CK_RV ret;
+	CK_RV rc = CKR_OK;
 	pApplication = pApplication;
 	Notify = Notify;
 
-	if (!is_lib_initialized())
-		return CKR_CRYPTOKI_NOT_INITIALIZED;
+	p11_global_lock();
 
-	if (slotID != TEE_SLOT_ID)
-		return CKR_SLOT_ID_INVALID;
+	if (!is_lib_initialized()) {
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
+	}
 
-	if (phSession == NULL)
-		return CKR_ARGUMENTS_BAD;
+	if (phSession == NULL) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
 
-	if ((flags & CKF_RW_SESSION))
-		return CKR_ARGUMENTS_BAD;
+	if ((flags & CKF_RW_SESSION)) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
 
-	if (!(flags & CKF_SERIAL_SESSION))
-		return CKR_SESSION_PARALLEL_NOT_SUPPORTED;
+	if (!(flags & CKF_SERIAL_SESSION)) {
+		rc = CKR_SESSION_PARALLEL_NOT_SUPPORTED;
+		goto end;
+	}
 
-	ret = create_session(slotID, flags, phSession);
-	if (ret != CKR_OK)
+	if (slotID != TEE_SLOT_ID) {
+		rc = CKR_SLOT_ID_INVALID;
+		goto end;
+	}
+
+	rc = create_session(slotID, flags, phSession);
+	if (rc != CKR_OK)
 		print_error("create_session failed \n");
 
-	return ret;
+end:
+	p11_global_unlock();
+	return rc;
 }
 
 CK_RV C_CloseSession(CK_SESSION_HANDLE hSession)
 {
-	CK_RV ret;
+	CK_RV rc = CKR_OK;
 
-	if (!is_lib_initialized())
-		return CKR_CRYPTOKI_NOT_INITIALIZED;
+	p11_global_lock();
 
-	if (!is_session_valid(hSession))
-		return CKR_SESSION_HANDLE_INVALID;
+	if (!is_lib_initialized()) {
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
+	}
 
-	ret = delete_session(hSession);
-	if (ret != CKR_OK)
+	if (!is_session_valid(hSession)) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
+
+	rc = delete_session(hSession);
+	if (rc != CKR_OK)
 		print_error("delete session failed\n");
 
-	return ret;
+end:
+	p11_global_unlock();
+	return rc;
 }
 
 CK_RV C_CloseAllSessions(CK_SLOT_ID slotID)
 {
-	CK_RV ret;
+	CK_RV rc = CKR_OK;
 
-	if (!is_lib_initialized())
-		return CKR_CRYPTOKI_NOT_INITIALIZED;
+	p11_global_lock();
 
-	ret = destroy_session_list(slotID);
-	if (ret != CKR_OK)
+	if (!is_lib_initialized()) {
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
+	}
+
+	rc = destroy_session_list(slotID);
+	if (rc != CKR_OK)
 		print_error("destroy_session_list failed\n");
 
-	return ret;
+end:
+	p11_global_unlock();
+	return rc;
 }
 
 CK_RV C_GetSessionInfo(CK_SESSION_HANDLE hSession, CK_SESSION_INFO_PTR pInfo)
 {
-	CK_RV ret;
+	CK_RV rc = CKR_OK;
 
-	if (!is_lib_initialized())
-		return CKR_CRYPTOKI_NOT_INITIALIZED;
+	p11_global_lock();
 
-	if (!is_session_valid(hSession))
-		return CKR_SESSION_HANDLE_INVALID;
+	if (!is_lib_initialized()) {
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
+	}
 
-	if (!pInfo)
-		return CKR_ARGUMENTS_BAD;
+	if (!is_session_valid(hSession)) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
 
-	ret = get_session_info(hSession, pInfo);
-	if (ret != CKR_OK)
+	if (!pInfo) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
+
+	rc = get_session_info(hSession, pInfo);
+	if (rc != CKR_OK)
 		print_error("get_session_info failed\n");
 
-	return ret;
+end:
+	p11_global_unlock();
+	return rc;
 }
 
 CK_RV C_GetOperationState(CK_SESSION_HANDLE hSession,

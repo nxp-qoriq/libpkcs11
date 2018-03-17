@@ -54,4 +54,13 @@ CK_RV initialize_slot(CK_SLOT_ID slotID);
 
 CK_RV destroy_slot(CK_SLOT_ID slotID);
 
+CK_RV p11_init_lock(CK_C_INITIALIZE_ARGS_PTR pInitArgs);
+
+void p11_free_lock(void);
+
+CK_RV p11_global_lock(void);
+
+void p11_global_unlock(void);
+
+
 #endif

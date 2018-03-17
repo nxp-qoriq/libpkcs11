@@ -15,7 +15,7 @@ CFLAGS          := -Wall -Wbad-function-cast -Wcast-align \
 		   -Wpointer-arith -Wshadow -Wstrict-prototypes \
 		   -Wswitch-default -Wunsafe-loop-optimizations \
 		   -Wwrite-strings -Werror
-CFLAGS          += -c -fPIC
+CFLAGS          += -c -fPIC -pthread
 
 DEBUG       ?= 0
 ifeq ($(DEBUG), 1)

@@ -65,34 +65,54 @@ CK_RV C_GetAttributeValue(CK_SESSION_HANDLE hSession,
 		CK_ATTRIBUTE_PTR pTemplate,
 		CK_ULONG ulCount)
 {
+	CK_RV rc = CKR_OK;
 	session *sess = NULL;
  	struct object_node *obj_node;
 	CK_BBOOL is_obj_handle_valid;
- 
-	if (!is_lib_initialized())
-		return CKR_CRYPTOKI_NOT_INITIALIZED;
 
-	if (pTemplate == NULL)
-		return CKR_ARGUMENTS_BAD;
+	p11_global_lock();
 
-	if (ulCount == 0)
-		return CKR_ARGUMENTS_BAD;
+	if (!is_lib_initialized()) {
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
+	}
 
-	if(!is_session_valid(hSession))
-		return CKR_SESSION_HANDLE_INVALID;
+	if (pTemplate == NULL) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
+
+	if (ulCount == 0) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
+
+	if(!is_session_valid(hSession)) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
 
 	sess = get_session(hSession);
-	if (!sess)
-		return CKR_SESSION_HANDLE_INVALID;
+	if (!sess) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
 
 	is_obj_handle_valid = is_object_handle_valid(hObject,
 		sess->session_info.slotID);
-	if (!is_obj_handle_valid)
-		return CKR_OBJECT_HANDLE_INVALID;
+	if (!is_obj_handle_valid) {
+		rc = CKR_OBJECT_HANDLE_INVALID;
+		goto end;
+	}
 
 	obj_node = (struct object_node *)hObject;
 
-	return get_attr_value(obj_node, pTemplate, ulCount);
+	rc = get_attr_value(obj_node, pTemplate, ulCount);
+
+end:
+	p11_global_unlock();
+
+	return rc;
 }
 
 CK_RV C_SetAttributeValue(CK_SESSION_HANDLE hSession,
@@ -112,25 +132,37 @@ CK_RV C_FindObjectsInit(CK_SESSION_HANDLE hSession,
 		CK_ULONG ulCount)
 {
 	session *sess = NULL;
-	CK_RV rc;
+	CK_RV rc = CKR_OK;
 	CK_ULONG objCount;
 	struct object_list *obj_list;
 
-	if (!is_lib_initialized())
-		return CKR_CRYPTOKI_NOT_INITIALIZED;
+	p11_global_lock();
 
-	if (pTemplate == NULL && ulCount > 0)
-		return CKR_ARGUMENTS_BAD;
+	if (!is_lib_initialized()) {
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
+	}
 
-	if(!is_session_valid(hSession))
-		return CKR_SESSION_HANDLE_INVALID;
+	if (pTemplate == NULL && ulCount > 0) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
+
+	if(!is_session_valid(hSession)) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
 
 	sess = get_session(hSession);
-	if (!sess)
-		return CKR_SESSION_HANDLE_INVALID;
+	if (!sess) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
 
-	if (sess->op_active == CK_TRUE)
-		return CKR_OPERATION_ACTIVE;
+	if (sess->op_active == CK_TRUE) {
+		rc = CKR_OPERATION_ACTIVE;
+		goto end;
+	}
 
 	/*
 	* Mainitaining the object list per slot/token
@@ -139,15 +171,18 @@ CK_RV C_FindObjectsInit(CK_SESSION_HANDLE hSession,
 	* Not going again to Securekey libraryfor any objects.
 	*/
 	obj_list = get_object_list(sess->session_info.slotID);
-	if (!obj_list)
-		return CKR_ARGUMENTS_BAD;
+	if (!obj_list) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
 
 	if (STAILQ_EMPTY(obj_list)) {
+		printf("obj_list empty \n");
 		rc = get_all_token_objects(obj_list,
 			sess->session_info.slotID);
 		if (rc != CKR_OK) {
 			print_error("get_all_token_objects failed\n");
-			return rc;
+			goto end;
 		}
 	}
 
@@ -160,7 +195,8 @@ CK_RV C_FindObjectsInit(CK_SESSION_HANDLE hSession,
 		sess->find_list = (CK_OBJECT_HANDLE *)malloc(MAX_FIND_LIST_OBJECTS * sizeof(CK_OBJECT_HANDLE));
 		if (!sess->find_list){
 			print_error("sess->find_list malloc failed\n");
-			return CKR_HOST_MEMORY;
+			rc = CKR_HOST_MEMORY;
+			goto end;
 		} else
 			memset(sess->find_list, 0x0, MAX_FIND_LIST_OBJECTS * sizeof(CK_OBJECT_HANDLE));
 	}
@@ -186,7 +222,9 @@ CK_RV C_FindObjectsInit(CK_SESSION_HANDLE hSession,
 	sess->find_idx = 0;
 	sess->op_active = CK_TRUE;
 
-	return CKR_OK;
+end:
+	p11_global_unlock();
+	return rc;
 }
 
 CK_RV C_FindObjects(CK_SESSION_HANDLE hSession,
@@ -194,24 +232,37 @@ CK_RV C_FindObjects(CK_SESSION_HANDLE hSession,
 		CK_ULONG ulMaxObjectCount,
 		CK_ULONG_PTR pulObjectCount)
 {
+	CK_RV rc = CKR_OK;
 	session *sess = NULL;
 	CK_ULONG count = 0;
 
-	if (!is_lib_initialized())
-		return CKR_CRYPTOKI_NOT_INITIALIZED;
+	p11_global_lock();
 
-	if(!is_session_valid(hSession))
-		return CKR_SESSION_HANDLE_INVALID;
+	if (!is_lib_initialized()) {
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
+	}
+
+	if(!is_session_valid(hSession)) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
 
 	sess = get_session(hSession);
-	if (!sess)
-		return CKR_SESSION_HANDLE_INVALID;
+	if (!sess) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
 
-	if (sess->op_active == CK_FALSE)
-		return CKR_OPERATION_NOT_INITIALIZED;
+	if (sess->op_active == CK_FALSE) {
+		rc = CKR_OPERATION_NOT_INITIALIZED;
+		goto end;
+	}
 
-	if (!phObject || !pulObjectCount)
-		return CKR_ARGUMENTS_BAD;
+	if (!phObject || !pulObjectCount) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
 
 	count = P11_MIN(ulMaxObjectCount,
 		(sess->find_count - sess->find_idx));
@@ -223,25 +274,38 @@ CK_RV C_FindObjects(CK_SESSION_HANDLE hSession,
 
 	sess->find_idx += count;
 
-	return CKR_OK;
+end:
+	p11_global_unlock();
+	return rc;
 }
 
 CK_RV C_FindObjectsFinal(CK_SESSION_HANDLE hSession)
 {
+	CK_RV rc = CKR_OK;
 	session *sess = NULL;
 
-	if (!is_lib_initialized())
-		return CKR_CRYPTOKI_NOT_INITIALIZED;
+	p11_global_lock();
 
-	if(!is_session_valid(hSession))
-		return CKR_SESSION_HANDLE_INVALID;
+	if (!is_lib_initialized()) {
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
+	}
+
+	if(!is_session_valid(hSession)) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
 
 	sess = get_session(hSession);
-	if (!sess)
-		return CKR_SESSION_HANDLE_INVALID;
+	if (!sess) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
 
-	if (sess->op_active == CK_FALSE)
-		return CKR_OPERATION_NOT_INITIALIZED;
+	if (sess->op_active == CK_FALSE) {
+		rc = CKR_OPERATION_NOT_INITIALIZED;
+		goto end;
+	}
 
 	sess->op_active = CK_FALSE;
 	sess->find_count = 0;
@@ -252,5 +316,7 @@ CK_RV C_FindObjectsFinal(CK_SESSION_HANDLE hSession)
 		free(sess->find_list);
 	}
 
-	return CKR_OK;
+end:
+	p11_global_unlock();
+	return rc;
 }

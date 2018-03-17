@@ -189,33 +189,45 @@ CK_RV C_SignInit(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism,
 		 CK_OBJECT_HANDLE hKey)
 {
 	session *sess = NULL;
-	CK_RV rc;
+	CK_RV rc = CKR_OK;
 	CK_BBOOL valid = FALSE;
 
-	if (!is_lib_initialized())
-		return CKR_CRYPTOKI_NOT_INITIALIZED;
+	p11_global_lock();
 
-	if (!pMechanism)
-		return CKR_MECHANISM_INVALID;
+	if (!is_lib_initialized()) {
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
+	}
 
-	if (!is_session_valid(hSession))
-		return CKR_SESSION_HANDLE_INVALID;
+	if (!pMechanism) {
+		rc = CKR_MECHANISM_INVALID;
+		goto end;
+	}
+
+	if (!is_session_valid(hSession)) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
 
 	sess = get_session(hSession);
-	if (!sess)
-		return CKR_SESSION_HANDLE_INVALID;
+	if (!sess) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
 
 	/* Check for valid object handle */
 	valid = is_object_handle_valid(hKey, sess->session_info.slotID);
-	if (valid != TRUE)
-		return CKR_OBJECT_HANDLE_INVALID;
+	if (valid != TRUE) {
+		rc = CKR_OBJECT_HANDLE_INVALID;
+		goto end;
+	}
 
 	/* Call sign init */
 	rc = sign_init(hSession, &sess->sign_ctx, pMechanism, FALSE, hKey);
-	if (rc != CKR_OK)
-		return rc;
 
-	return CKR_OK;
+end:
+	p11_global_unlock();
+	return rc;
 }
 
 CK_RV C_Sign(CK_SESSION_HANDLE hSession,
@@ -225,28 +237,38 @@ CK_RV C_Sign(CK_SESSION_HANDLE hSession,
 	     CK_ULONG_PTR pulSignatureLen)
 {
 	session *sess = NULL;
-	CK_RV rc;
+	CK_RV rc = CKR_OK;
 
-	if (!is_lib_initialized())
-		return CKR_CRYPTOKI_NOT_INITIALIZED;
+	p11_global_lock();
 
-	if (!pData || !pulSignatureLen)
-		return CKR_ARGUMENTS_BAD;
+	if (!is_lib_initialized()) {
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
+	}
 
-	if (!is_session_valid(hSession))
-		return CKR_SESSION_HANDLE_INVALID;
+	if (!pData || !pulSignatureLen) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
+
+	if (!is_session_valid(hSession)) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
 
 	sess = get_session(hSession);
-	if (!sess)
-		return CKR_SESSION_HANDLE_INVALID;
+	if (!sess) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
 
 	/* Call sign function */
 	rc = sign(hSession, sess, pData, ulDataLen, pSignature,
 		  pulSignatureLen);
-	if (rc != CKR_OK)
-		return rc;
 
-	return CKR_OK;
+end:
+	p11_global_unlock();
+	return rc;
 }
 
 CK_RV C_SignUpdate(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pPart,

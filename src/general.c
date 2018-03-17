@@ -9,6 +9,7 @@
 #include <dlfcn.h>
 #include <tee_slot.h>
 #include <general.h>
+#include <pthread.h>
 
 #include <securekey_api.h>
 #include <securekey_api_types.h>
@@ -17,6 +18,165 @@
 CK_ULONG	initialized;
 
 static struct slot_info g_slot_info[SLOT_COUNT];
+
+/*
+  * Mutex Functions.
+  */
+static CK_RV create_mutex(void **mutex)
+{
+	pthread_mutex_t *m;
+	pthread_mutexattr_t attr;
+
+	pthread_mutexattr_init(&attr);
+	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+
+	m = malloc(sizeof(*m));
+	if (m == NULL)
+		return CKR_GENERAL_ERROR;
+
+	memset(m, 0, sizeof(*m));
+
+	pthread_mutex_init(m, &attr);
+	*mutex = m;
+	return CKR_OK;
+}
+
+static CK_RV lock_mutex(void *p)
+{
+	if (p == NULL)
+		return CKR_OK;
+	if (pthread_mutex_trylock((pthread_mutex_t *) p) == 0)
+		return CKR_OK;
+	else
+		return CKR_GENERAL_ERROR;
+}
+
+static CK_RV unlock_mutex(void *p)
+{
+	if (pthread_mutex_unlock((pthread_mutex_t *) p) == 0)
+		return CKR_OK;
+	else
+		return CKR_GENERAL_ERROR;
+}
+
+static CK_RV destroy_mutex(void *p)
+{
+	pthread_mutex_destroy((pthread_mutex_t *) p);
+	free(p);
+	p = NULL;
+	return CKR_OK;
+}
+
+
+static CK_C_INITIALIZE_ARGS default_locks = {
+	create_mutex, destroy_mutex, lock_mutex, unlock_mutex, 0, NULL };
+
+static CK_C_INITIALIZE_ARGS_PTR	default_mutex_functions = &default_locks;
+static CK_C_INITIALIZE_ARGS_PTR	global_locking;
+static void *global_lock = NULL;
+
+CK_RV p11_global_lock(void)
+{
+	if (!global_lock)
+		return CKR_OK;
+
+	if (global_locking)  {
+		while (global_locking->LockMutex(global_lock) != CKR_OK)
+			;
+	}
+
+	return CKR_OK;
+}
+
+static void
+__p11_global_unlock(void *lock)
+{
+	if (!lock)
+		return;
+
+	if (global_locking) {
+		while (global_locking->UnlockMutex(lock) != CKR_OK)
+			;
+	}
+}
+
+void p11_global_unlock(void)
+{
+	__p11_global_unlock(global_lock);
+}
+
+CK_RV p11_init_lock(CK_C_INITIALIZE_ARGS_PTR pInitArgs)
+{
+	CK_RV rv = CKR_OK;
+	char functions_map = 0;
+	CK_C_INITIALIZE_ARGS *pArgs;
+
+	if (global_lock)
+		return CKR_OK;
+
+	global_locking = NULL;
+
+	if (pInitArgs != NULL) {
+		pArgs = (CK_C_INITIALIZE_ARGS *) pInitArgs;
+
+		if (pArgs->pReserved != NULL) {
+			print_error("InitArgs reserved field not NULL\n");
+			return CKR_ARGUMENTS_BAD;
+		}
+
+		functions_map = (pArgs->CreateMutex ? 0x01 << 0 : 0);
+		functions_map |= (pArgs->DestroyMutex ? 0x01 << 1 : 0);
+		functions_map |= (pArgs->LockMutex ? 0x01 << 2 : 0);
+		functions_map |= (pArgs->UnlockMutex ? 0x01 << 3 : 0);
+
+		/* Verify that all or none of the functions are set */
+		if (functions_map != 0) {
+			if (functions_map != 0x0f) {
+				print_error("Not all function pointers are provided\n");
+				return CKR_ARGUMENTS_BAD;
+			}
+		}
+
+		/* Case 1.  Flag not set and function pointers NOT supplied */
+		if (!(pArgs->flags & CKF_OS_LOCKING_OK) && !(functions_map)) {
+			/* Will be returning CKR_OK if initialization works correctly */;
+			global_locking = NULL;
+		} else if ((pArgs->flags & CKF_OS_LOCKING_OK) && !(functions_map)) {
+			/* Will be returning CKR_OK if initialization works correctly */;
+			global_locking = default_mutex_functions;
+		} else if (!(pArgs->flags & CKF_OS_LOCKING_OK) && (functions_map)) {
+			/* Will be returning CKR_OK if initialization works correctly */;
+			global_locking = pArgs;
+		} else if ((pArgs->flags & CKF_OS_LOCKING_OK) && (functions_map)) {
+			/* Will be returning CKR_OK if initialization works correctly */;
+			global_locking = default_mutex_functions;
+		}
+	}
+
+	if (global_locking != NULL) {
+		/* create mutex */
+		rv = global_locking->CreateMutex(&global_lock);
+	}
+
+	return rv;
+}
+
+void p11_free_lock(void)
+{
+	void	*tempLock;
+
+	if (!(tempLock = global_lock))
+		return;
+
+	global_lock = NULL;
+
+	__p11_global_unlock(tempLock);
+
+	if (global_locking)
+		global_locking->DestroyMutex(tempLock);
+
+	//global_locking = NULL;
+}
 
 struct slot_info *get_global_slot_info(CK_SLOT_ID slotID)
 {

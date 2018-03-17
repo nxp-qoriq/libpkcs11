@@ -111,8 +111,10 @@ CK_RV delete_session(CK_SESSION_HANDLE hSession)
 	if (!sess_list)
 		return CKR_ARGUMENTS_BAD;
 
-	STAILQ_REMOVE(sess_list, s, session_node, entry);
-	free(s);
+	if (s) {
+		STAILQ_REMOVE(sess_list, s, session_node, entry);
+		free(s);
+	}
 
 	return CKR_OK;
 }
