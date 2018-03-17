@@ -64,8 +64,8 @@ endif
 
 app:
 	@echo "Building pkcs app"
-#	$(VPREFIX)$(CC) -I$(OPENSSL)/include/ -L$(OPENSSL)/ -Iinclude/ -Ipublic/ \
-		 -o app/gen_test app/gen_test.c -lpkcs11 -ldl -lssl -lcrypto -Lout/libpkcs11/
+	$(VPREFIX)$(CC) -pthread -g -I$(OPENSSL)/include/ -L$(OPENSSL)/ -Iinclude/ -Ipublic/ \
+		 -o app/thread_test app/thread_test.c -lpkcs11 -ldl -lssl -lcrypto -Lout/libpkcs11/
 	$(VPREFIX)$(CC) -I$(OPENSSL)/include/ -L$(OPENSSL)/ -Iinclude/ -Ipublic/ \
 		 -o app/utils.o app/utils.c \
 		 -o app/pkcs11_app app/pkcs11_app.c \
