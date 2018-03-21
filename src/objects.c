@@ -1318,7 +1318,8 @@ CK_BBOOL is_object_handle_valid(CK_OBJECT_HANDLE hObject,
 	return FALSE;
 }
 
-CK_RV get_attr_value(struct object_node *obj,
+CK_RV get_attr_value(CK_SESSION_HANDLE hSession,
+		CK_OBJECT_HANDLE hObject,
 		CK_ATTRIBUTE_PTR pTemplate,
 		CK_ULONG ulCount)
 {
@@ -1327,8 +1328,41 @@ CK_RV get_attr_value(struct object_node *obj,
 	CK_ULONG i = 0;
 	CK_BBOOL flag;
 	struct template_list *obj_tmpl;
+	struct object_node *obj_node;
+	CK_BBOOL is_obj_handle_valid;
+	session *sess = NULL;
 
-	obj_tmpl = &obj->object.template_list;
+	if (pTemplate == NULL) {
+		ret = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
+
+	if (ulCount == 0) {
+		ret = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
+
+	if(!is_session_valid(hSession)) {
+		ret = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
+
+	sess = get_session(hSession);
+	if (!sess) {
+		ret = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
+
+	is_obj_handle_valid = is_object_handle_valid(hObject,
+		sess->session_info.slotID);
+	if (!is_obj_handle_valid) {
+		ret = CKR_OBJECT_HANDLE_INVALID;
+		goto end;
+	}
+
+	obj_node = (struct object_node *)hObject;
+
+	obj_tmpl = &obj_node->object.template_list;
 
 	for (i = 0; i < ulCount; i++) {
 		flag = check_attr_exportability(obj_tmpl, pTemplate[i].type);
@@ -1358,6 +1392,7 @@ CK_RV get_attr_value(struct object_node *obj,
 		}
 	}
 
+end:
 	return ret;
 }
 

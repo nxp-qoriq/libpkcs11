@@ -28,7 +28,7 @@ static CK_RV create_mutex(void **mutex)
 	pthread_mutexattr_t attr;
 
 	pthread_mutexattr_init(&attr);
-	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ERRORCHECK);
 
 	m = malloc(sizeof(*m));
 	if (m == NULL)
@@ -174,8 +174,6 @@ void p11_free_lock(void)
 
 	if (global_locking)
 		global_locking->DestroyMutex(tempLock);
-
-	//global_locking = NULL;
 }
 
 struct slot_info *get_global_slot_info(CK_SLOT_ID slotID)

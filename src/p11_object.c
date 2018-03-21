@@ -66,9 +66,6 @@ CK_RV C_GetAttributeValue(CK_SESSION_HANDLE hSession,
 		CK_ULONG ulCount)
 {
 	CK_RV rc = CKR_OK;
-	session *sess = NULL;
- 	struct object_node *obj_node;
-	CK_BBOOL is_obj_handle_valid;
 
 	p11_global_lock();
 
@@ -77,37 +74,7 @@ CK_RV C_GetAttributeValue(CK_SESSION_HANDLE hSession,
 		goto end;
 	}
 
-	if (pTemplate == NULL) {
-		rc = CKR_ARGUMENTS_BAD;
-		goto end;
-	}
-
-	if (ulCount == 0) {
-		rc = CKR_ARGUMENTS_BAD;
-		goto end;
-	}
-
-	if(!is_session_valid(hSession)) {
-		rc = CKR_SESSION_HANDLE_INVALID;
-		goto end;
-	}
-
-	sess = get_session(hSession);
-	if (!sess) {
-		rc = CKR_SESSION_HANDLE_INVALID;
-		goto end;
-	}
-
-	is_obj_handle_valid = is_object_handle_valid(hObject,
-		sess->session_info.slotID);
-	if (!is_obj_handle_valid) {
-		rc = CKR_OBJECT_HANDLE_INVALID;
-		goto end;
-	}
-
-	obj_node = (struct object_node *)hObject;
-
-	rc = get_attr_value(obj_node, pTemplate, ulCount);
+	rc = get_attr_value(hSession, hObject, pTemplate, ulCount);
 
 end:
 	p11_global_unlock();
@@ -177,7 +144,6 @@ CK_RV C_FindObjectsInit(CK_SESSION_HANDLE hSession,
 	}
 
 	if (STAILQ_EMPTY(obj_list)) {
-		printf("obj_list empty \n");
 		rc = get_all_token_objects(obj_list,
 			sess->session_info.slotID);
 		if (rc != CKR_OK) {

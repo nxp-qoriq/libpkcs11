@@ -452,7 +452,7 @@ static void *thread_function(void *arg)
 int main(int argc, char **argv)
 {
 	int i = 0;
-	CK_RV rv = CKR_GENERAL_ERROR;
+	CK_RV rv = CKR_OK;
 	void *thread_ret_val;
 	void    *d = NULL;
 	char    *f = "libpkcs11.so";
@@ -468,20 +468,21 @@ int main(int argc, char **argv)
 	printf("Creating %d threads\n", num_threads);
 
 	int cpu[num_threads];
-	for (i =0; i < num_threads; i++) {
+	for (i =0; i < num_threads; i++)
 		cpu[i] = i % 4;
-	}
 
 	d = dlopen(f, RTLD_NOW);
-	if (d == NULL ) {
+	if (d == NULL) {
 		printf("dlopen failed %s\n", dlerror());
-		return rv;
+		rv = CKR_GENERAL_ERROR;
+		goto end;
 	}
 
 	rv = do_GetFunctionList(d);
 	if (rv) {
 		printf("do_getFunctionList() returned %lu\n", rv);
-		return rv;
+		rv = CKR_GENERAL_ERROR;
+		goto end;
 	}
 
 	memset(&cinit_args, 0, sizeof(CK_C_INITIALIZE_ARGS));
@@ -492,21 +493,27 @@ int main(int argc, char **argv)
 
 		rv = funcs->C_GetFunctionStatus(hsess);
 		if (rv != CKR_FUNCTION_NOT_PARALLEL)
-			return rv;
+			goto end;
 
 		rv = funcs->C_CancelFunction(hsess);
 		if (rv != CKR_FUNCTION_NOT_PARALLEL)
-			return rv;
+			goto end;
 	}
+
+	/* Again setting the rv to default value, because it will get changed
+	from above function calls*/
+	rv = CKR_OK;
 
 	thread_ids = (pthread_t *)malloc(sizeof(pthread_t) * num_threads);
 	if (thread_ids == NULL) {
 		rv = CKR_GENERAL_ERROR;
-		return rv;
+		goto end;
 	}
 
 	for (i = 0; i < num_threads; i++) {
-		if (pthread_create(&thread_ids[i], NULL, thread_function, (void *)&cpu[i])) {
+		if (pthread_create(&thread_ids[i], NULL, thread_function,
+			(void *)&cpu[i])) {
+			rv = CKR_GENERAL_ERROR;
 			printf("Error creating threads\n");
 			goto end;
 		}
@@ -514,14 +521,18 @@ int main(int argc, char **argv)
 
 	for (i=0; i <num_threads; i++) {
 		if (pthread_join(thread_ids[i], &thread_ret_val)) {
-			printf("Error in %d: %p\n", (int)thread_ids[i], &thread_ret_val);
+			rv = CKR_GENERAL_ERROR;
+			printf("Error in %d: %p\n", (int)thread_ids[i],
+				&thread_ret_val);
 		}
 	}
 
-	dlclose(d);
+end:
+	if (d)
+		dlclose(d);
+
 	printf("PKCS Library finalized successfully\n");
 
-end:
 	if (thread_ids)
 		free(thread_ids);
 

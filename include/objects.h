@@ -59,7 +59,8 @@ CK_RV find_matching_objects(CK_OBJECT_HANDLE_PTR object_handle,
 	struct object_list *obj_list, CK_ATTRIBUTE_PTR pTemplate,
 	CK_ULONG ulCount, CK_ULONG *pobjCount);
 
-CK_RV get_attr_value(struct object_node *obj,
+CK_RV get_attr_value(CK_SESSION_HANDLE hSession,
+		CK_OBJECT_HANDLE hObject,
 		CK_ATTRIBUTE_PTR pTemplate,
 		CK_ULONG ulCount);
 #endif

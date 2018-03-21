@@ -10,6 +10,7 @@
 #include <cryptoki.h>
 #include <crypto.h>
 #include <general.h>
+#include <objects.h>
 
 #include <securekey_api.h>
 #include <securekey_api_types.h>
@@ -39,12 +40,12 @@ CK_RV sign_init(CK_SESSION_HANDLE hSession, sign_verify_context *ctx,
 	attr[2].type = CKA_KEY_TYPE;
 	attr[3].type = CKA_CLASS;
 	/* Check if key supports sign attribute */
-	rc = C_GetAttributeValue(hSession, key, attr, 1);
+	rc = get_attr_value(hSession, key, attr, 1);
 	if (rc != CKR_OK) {
 		rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
 		goto out;
 	}
-	rc = C_GetAttributeValue(hSession, key, &attr[1], 3);
+	rc = get_attr_value(hSession, key, &attr[1], 3);
 	if (rc != CKR_OK)
 		goto out;
 	obj_mechanisms =
@@ -57,7 +58,7 @@ CK_RV sign_init(CK_SESSION_HANDLE hSession, sign_verify_context *ctx,
 	attr[1].pValue = obj_mechanisms;
 	attr[2].pValue = &keytype;
 	attr[3].pValue = &class;
-	rc = C_GetAttributeValue(hSession, key, attr, 4);
+	rc = get_attr_value(hSession, key, attr, 4);
 	if (rc != CKR_OK)
 		goto out;
 
@@ -155,7 +156,7 @@ static CK_RV rsa_sign_pkcs(CK_SESSION_HANDLE hSession, session *sess,
 
 	/* Get required signature buffer size from size of modulus */
 	attr.type = CKA_MODULUS;
-	rc = C_GetAttributeValue(hSession, ctx->key, &attr, 1);
+	rc = get_attr_value(hSession, ctx->key, &attr, 1);
 	if (rc != CKR_OK)
 		goto out;
 	req_sig_len = attr.ulValueLen;
@@ -241,7 +242,7 @@ static CK_RV rsa_hash_sign_pkcs(CK_SESSION_HANDLE hSession, session *sess,
 
 	/* Get required signature buffer size from size of modulus */
 	attr.type = CKA_MODULUS;
-	rc = C_GetAttributeValue(hSession, ctx->key, &attr, 1);
+	rc = get_attr_value(hSession, ctx->key, &attr, 1);
 	if (rc != CKR_OK)
 		goto out;
 	req_sig_len = attr.ulValueLen;

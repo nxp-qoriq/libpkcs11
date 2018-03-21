@@ -107,11 +107,11 @@ CK_RV delete_session(CK_SESSION_HANDLE hSession)
 	struct session_list *sess_list;
 
 	s = (struct session_node *)hSession;
-	sess_list = get_session_list(s->sess.session_info.slotID);
-	if (!sess_list)
-		return CKR_ARGUMENTS_BAD;
-
 	if (s) {
+		sess_list = get_session_list(s->sess.session_info.slotID);
+		if (!sess_list)
+			return CKR_ARGUMENTS_BAD;
+
 		STAILQ_REMOVE(sess_list, s, session_node, entry);
 		free(s);
 	}
