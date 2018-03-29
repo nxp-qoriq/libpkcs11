@@ -322,25 +322,56 @@ CK_RV sign(CK_SESSION_HANDLE hSession, session *sess, CK_BYTE_PTR pData,
 	   CK_ULONG_PTR pulSignatureLen)
 {
 	sign_verify_context *ctx = &sess->sign_ctx;
+	CK_RV rc = CKR_OK;
 
-	if (ctx->active == FALSE)
-		return CKR_OPERATION_NOT_INITIALIZED;
+	if (ctx->active == FALSE) {
+		rc = CKR_OPERATION_NOT_INITIALIZED;
+		goto out;
+	}
 
 	switch (ctx->mech.mechanism) {
 	case CKM_RSA_PKCS:
-		return rsa_sign_pkcs(hSession, sess, pData, ulDataLen,
+		rc = rsa_sign_pkcs(hSession, sess, pData, ulDataLen,
 				     pSignature, pulSignatureLen);
+		if (((rc == CKR_OK) && (pSignature == NULL)) ||
+			(rc == CKR_BUFFER_TOO_SMALL))
+			goto out;
+		break;
 
 	case CKM_MD5_RSA_PKCS:
 	case CKM_SHA1_RSA_PKCS:
 	case CKM_SHA256_RSA_PKCS:
 	case CKM_SHA384_RSA_PKCS:
 	case CKM_SHA512_RSA_PKCS:
-		return rsa_hash_sign_pkcs(hSession, sess, pData, ulDataLen,
+		rc = rsa_hash_sign_pkcs(hSession, sess, pData, ulDataLen,
 					  pSignature, pulSignatureLen);
+		if (((rc == CKR_OK) && (pSignature == NULL)) ||
+			(rc == CKR_BUFFER_TOO_SMALL))
+			goto out;
+		break;
 	default:
-		return CKR_MECHANISM_INVALID;
+		rc = CKR_MECHANISM_INVALID;
+		goto out;
 	}
 
-	return CKR_OK;
+	ctx->key = 0;
+	ctx->mech.ulParameterLen = 0;
+	ctx->mech.mechanism = 0;
+	ctx->multi = FALSE;
+	ctx->active = FALSE;
+	ctx->recover = FALSE;
+	ctx->context_len = 0;
+
+	if (ctx->mech.pParameter) {
+		free( ctx->mech.pParameter );
+		ctx->mech.pParameter = NULL;
+	}
+
+	if (ctx->context) {
+		free( ctx->context );
+		ctx->context = NULL;
+	}
+
+out:
+	return rc;
 }
