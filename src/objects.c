@@ -1218,20 +1218,16 @@ CK_RV find_matching_objects(CK_OBJECT_HANDLE_PTR object_handle,
 			if (ret == TRUE) {
 				object_handle[i] = (CK_OBJECT_HANDLE)temp;
 				i++;
-				if (i == MAX_FIND_LIST_OBJECTS) {
-					print_error("Currently supports max of 50 objects\n");
+				if (i > MAX_FIND_LIST_OBJECTS)
 					break;
-				}
 			}
 		}
 	} else {
 		STAILQ_FOREACH(temp, obj_list, entry) {
 			object_handle[i] = (CK_OBJECT_HANDLE)temp;
 			i++;
-			if (i == MAX_FIND_LIST_OBJECTS) {
-				print_error("Currently supports max of 50 objects\n");
+			if (i > MAX_FIND_LIST_OBJECTS)
 				break;
-			}
 		}
 	}
 

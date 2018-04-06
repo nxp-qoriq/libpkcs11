@@ -465,28 +465,28 @@ int do_FindObjects(struct getOptValue_t *getOptValue)
 		goto cleanup;
 	}
 
-	foundObj_ck_attr[count].type = CKA_LABEL;
-	foundObj_ck_attr[count].pValue = NULL;
-	foundObj_ck_attr[count].ulValueLen = 0;
-	count++;
-
-	foundObj_ck_attr[count].type = CKA_CLASS;
-	foundObj_ck_attr[count].pValue = NULL;
-	foundObj_ck_attr[count].ulValueLen = 0;
-	count++;
-
-	foundObj_ck_attr[count].type = CKA_ID;
-	foundObj_ck_attr[count].pValue = NULL;
-	foundObj_ck_attr[count].ulValueLen = 0;
-	count++;
-
-	foundObj_ck_attr[count].type = CKA_KEY_TYPE;
-	foundObj_ck_attr[count].pValue = NULL;
-	foundObj_ck_attr[count].ulValueLen = 0;
-	count++;
-
 	for (i = 0; i < num_existing_objects; i++) {
 		printf("object[%lu] = %lx\n", i, obj_list[i]);
+
+		foundObj_ck_attr[count].type = CKA_LABEL;
+		foundObj_ck_attr[count].pValue = NULL;
+		foundObj_ck_attr[count].ulValueLen = 0;
+		count++;
+
+		foundObj_ck_attr[count].type = CKA_CLASS;
+		foundObj_ck_attr[count].pValue = NULL;
+		foundObj_ck_attr[count].ulValueLen = 0;
+		count++;
+
+		foundObj_ck_attr[count].type = CKA_ID;
+		foundObj_ck_attr[count].pValue = NULL;
+		foundObj_ck_attr[count].ulValueLen = 0;
+		count++;
+
+		foundObj_ck_attr[count].type = CKA_KEY_TYPE;
+		foundObj_ck_attr[count].pValue = NULL;
+		foundObj_ck_attr[count].ulValueLen = 0;
+		count++;
 
 		rc = funcs->C_GetAttributeValue(h_session,
 				obj_list[i], foundObj_ck_attr, count);
@@ -527,6 +527,7 @@ int do_FindObjects(struct getOptValue_t *getOptValue)
 		j++;
 		printf("\tKey Type: %s\n", getKeyTypeString(*((CK_KEY_TYPE *)foundObj_ck_attr[j].pValue)));
 		j++;
+		count = 0;
 	}
 cleanup:
 	/* done...close the session and verify the object is deleted */
@@ -1068,8 +1069,11 @@ int process_main_option(int operation,
 				printf("None of the search option (-b -o -k) is provided. Listing all Object.\n");
 			if (getOptValue->num_of_obj == 0) {
 				printf("Missing Option [-n]. Listing Object max upto Count = 10.\n");
-				getOptValue->num_of_obj = MAX_FIND_OBJ_SIZE;
+				getOptValue->num_of_obj = DEFAULT_FIND_OBJ_SIZE;
 			}
+			if (getOptValue->num_of_obj > MAX_FIND_OBJ_SIZE)
+				printf("[-n] given is %d, Maximum of 100 Objects can be shown.\n",
+				getOptValue->num_of_obj);
 
 			ret = do_FindObjects(getOptValue);
 		} else {
@@ -1219,7 +1223,7 @@ int main(int argc, char **argv)
 		.libFileName = NULL,
 		.list = DISABLE,
 		.info = DISABLE,
-		.num_of_obj = 10,
+		.num_of_obj = 0,
 		.slot_id = UL_UNINTZD,
 		.key_type = UL_UNINTZD,
 		.obj_type = UL_UNINTZD,
