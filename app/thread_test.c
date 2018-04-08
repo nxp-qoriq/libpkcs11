@@ -456,7 +456,7 @@ int main(int argc, char **argv)
 	void *thread_ret_val;
 	void    *d = NULL;
 	char    *f = "libpkcs11.so";
-	pthread_t *thread_ids;
+	pthread_t *thread_ids = NULL;
 	CK_C_INITIALIZE_ARGS cinit_args;
 	int num_threads = 0;
 
@@ -468,6 +468,7 @@ int main(int argc, char **argv)
 	printf("Creating %d threads\n", num_threads);
 
 	int cpu[num_threads];
+
 	for (i =0; i < num_threads; i++)
 		cpu[i] = i % 4;
 

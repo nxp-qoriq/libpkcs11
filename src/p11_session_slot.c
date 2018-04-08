@@ -36,8 +36,10 @@ CK_RV C_GetSlotList(CK_BBOOL tokenPresent, CK_SLOT_ID_PTR pSlotList, CK_ULONG_PT
 		goto end;
 	}
 
-	if (pSlotList == NULL)
+	if (pSlotList == NULL) {
+		*pulCount = SLOT_COUNT;
 		goto end;
+	}
 
 	/* only support 1 slot which is TEE_SLOT */
 	if (*pulCount >= SLOT_COUNT) {
@@ -47,8 +49,8 @@ CK_RV C_GetSlotList(CK_BBOOL tokenPresent, CK_SLOT_ID_PTR pSlotList, CK_ULONG_PT
 	} else
 		rc =  CKR_BUFFER_TOO_SMALL;
 
+	*pulCount = SLOT_COUNT;
 end:
-	*pulCount = 1;
 	p11_global_unlock();
 	return rc;
 }
