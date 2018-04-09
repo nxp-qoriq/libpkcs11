@@ -63,7 +63,7 @@ OPENSSL := /usr/
 endif
 
 app:
-	@echo "Building pkcs app"
+	@echo "Building pkcs apps"
 	$(VPREFIX)$(CC) -pthread -g -I$(OPENSSL)/include/ -L$(OPENSSL)/ -Iinclude/ -Ipublic/ \
 		 -o app/thread_test app/thread_test.c -ldl -lssl -lcrypto -Lout/libpkcs11/
 	$(VPREFIX)$(CC) -I$(OPENSSL)/include/ -L$(OPENSSL)/ -Iinclude/ -Ipublic/ \
@@ -75,9 +75,9 @@ install:
 	mkdir -p ${EXPORT_DIR}/lib ${EXPORT_DIR}/include ${EXPORT_DIR}/app images
 	cp ${OUT_DIR}/libpkcs11.so ${EXPORT_DIR}/lib
 	cp ${CURDIR}/public/*.h ${EXPORT_DIR}/include
-#	mv app/gen_test ${EXPORT_DIR}/app
 	mv app/pkcs11_app ${EXPORT_DIR}/app
-	cp ${OUT_DIR}/libpkcs11.so ${EXPORT_DIR}/app/pkcs11_app images
+	mv app/thread_test ${EXPORT_DIR}/app
+	cp ${OUT_DIR}/libpkcs11.so ${EXPORT_DIR}/app/pkcs11_app ${EXPORT_DIR}/app/thread_test images
 
 ################################################################################
 # Cleaning up configuration

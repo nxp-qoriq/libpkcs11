@@ -917,7 +917,7 @@ void print_usage(void)
 	printf("\t -F - Find\n");
 	printf("\t -S - Sign\n");
 	printf("\t -V - Verify\n\n");
-	printf("\t Use bellow Sub options along with Main options:-\n");
+	printf("\t Use below Sub options along with Main options:-\n");
 	printf("\t\t -i - Info.\n");
 	printf("\t\t -l - List.\n");
 	printf("\t\t -k - Key Type (Eg. rsa, ec etc.)\n");
@@ -925,29 +925,29 @@ void print_usage(void)
 	printf("\t\t -b - Object Label.\n");
 	printf("\t\t -p - Slot Id.\n");
 	printf("\t\t -n - Number of Object to be Listed (Default n =10).\n");
-	printf("\t\t -m - Mechanism Id (Eg rsa, md5-rsa, sha1-rsa, sha256-rsa, sha384-rsa, sha512-rsa, sha224-rsa.)\n");
+	printf("\t\t -m - Mechanism Id (Eg rsa, md5-rsa, sha1-rsa, sha256-rsa, sha384-rsa, sha512-rsa.)\n");
 	printf("\t\t -d - Plain Data\n");
 	printf("\t\t -s - Signature Data\n\n");
 	printf("\t Usage:\n");
 	printf("\t\tLibrary Information:\n");
-	printf("\t\t\t./pkcs11_app -I\n\n");
+	printf("\t\t\tpkcs11_app -I\n\n");
 	printf("\t\tSlot/Token Commands:\n");
-	printf("\t\t\t./pkcs11_app -P -l\n");
-	printf("\t\t\t./pkcs11_app -P -i -p <slot-ID>; (./pkcs11_app -P -i -p 0)\n");
-	printf("\t\t\t./pkcs11_app -T -i -p <slot-ID>; (./pkcs11_app -T -i -p 0)\n\n");
+	printf("\t\t\tpkcs11_app -P -l\n");
+	printf("\t\t\tpkcs11_app -P -i -p <slot-ID>; (./pkcs11_app -P -i -p 0)\n");
+	printf("\t\t\tpkcs11_app -T -i -p <slot-ID>; (./pkcs11_app -T -i -p 0)\n\n");
 	printf("\t\tMechanism:\n");
-	printf("\t\t\t./pkcs11_app -M -l -p <slot-ID>; (./pkcs11_app -M -l -p 0)\n");
-	printf("\t\t\t./pkcs11_app -M -m <mech-ID> -i -p <slot-ID>; (./pkcs11_app -M -m rsa -i -p 0)\n");
-	printf("\t\t\t./pkcs11_app -M -i -p <slot-ID>; (./pkcs11_app -M -i -p 0)\n\n");
+	printf("\t\t\tpkcs11_app -M -l -p <slot-ID>; (./pkcs11_app -M -l -p 0)\n");
+	printf("\t\t\tpkcs11_app -M -m <mech-ID> -i -p <slot-ID>; (./pkcs11_app -M -m rsa -i -p 0)\n");
+	printf("\t\t\tpkcs11_app -M -i -p <slot-ID>; (./pkcs11_app -M -i -p 0)\n\n");
 	printf("\t\tObject Search:\n");
-	printf("\t\t\t./pkcs11_app -F -p <slot-ID> [-n <num-of-obj> -k <key-type> -b <obj-label> -o <obj-type>]\n");
+	printf("\t\t\tpkcs11_app -F -p <slot-ID> [-n <num-of-obj> -k <key-type> -b <obj-label> -o <obj-type>]\n");
 	printf("\t\t\tObjects can be listed based on combination of any above criteria.\n\n");
 	printf("\t\tSignature Generation\n");
-	printf("\t\t\t./pkcs11_app -S -k <key-type> -b <key-label> -d <Data-to-be-signed> -m <mech-ID> -p <slot-ID>\n");
-	printf("\t\t\t./pkcs11_app -S -k rsa -b Device_Key -d \"PKCS11 TEST DATA\" -m md5-rsa -p 0\n\n");
+	printf("\t\t\tpkcs11_app -S -k <key-type> -b <key-label> -d <Data-to-be-signed> -m <mech-ID> -p <slot-ID>\n");
+	printf("\t\t\tpkcs11_app -S -k rsa -b Device_Key -d \"PKCS11 TEST DATA\" -m md5-rsa -p 0\n\n");
 	printf("\t\tSignature Verification\n");
-	printf("\t\t\t./pkcs11_app -V -k <key-type> -b <key-label> -d <Data-previously-signed> -s <signature-file> -m <mech-ID> -p <slot-ID>\n");
-	printf("\t\t\t./pkcs11_app -V -k rsa -b Device_Key -d \"PKCS11 TEST DATA\" -s sig.data -m md5-rsa -p 0\n");
+	printf("\t\t\tpkcs11_app -V -k <key-type> -b <key-label> -d <Data-previously-signed> -s <signature-file> -m <mech-ID> -p <slot-ID>\n");
+	printf("\t\t\tpkcs11_app -V -k rsa -b Device_Key -d \"PKCS11 TEST DATA\" -s sig.data -m md5-rsa -p 0\n");
 }
 
 int process_sub_option(int option, uint8_t *optarg, struct getOptValue_t *getOptValue)
