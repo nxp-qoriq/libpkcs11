@@ -14,6 +14,8 @@
 #include "cryptoki.h"
 #include <tee_slot.h>
 #include <openssl/rsa.h>
+#include <openssl/ec.h>
+#include <openssl/objects.h>
 #include <openssl/md5.h>
 #include <openssl/pem.h>
 #include "utils.h"
@@ -700,11 +702,12 @@ int do_Verify(struct getOptValue_t *getOptValue)
 	CK_ULONG data_out_len = 0;
 	CK_BYTE *data = getOptValue->data;
 	RSA *pub_key;
-	BIGNUM *bn_mod, *bn_exp;
+	EC_KEY *ec_pub_key;
+	BIGNUM *bn_mod, *bn_exp, *bn_r, *bn_s;
 	CK_ULONG i, j;
 	CK_OBJECT_CLASS obj_type;
 	uint8_t *label = getOptValue->label;
-	CK_KEY_TYPE key_type = CKK_RSA;
+	CK_KEY_TYPE key_type = 0;
 
 	CK_BYTE hash[64] = {0};
 	SHA_CTX c1;
@@ -714,13 +717,12 @@ int do_Verify(struct getOptValue_t *getOptValue)
 	uint8_t ch;
 	CK_ULONG sig_bytes = 256;
 	CK_BYTE sig[256];
+	uint32_t attrCount = 0;
+	int ec_curve_nist_id;
+	ECDSA_SIG *ec_sig;
 
-	if (getOptValue->key_type == UL_UNINTZD) {
-		key_type = CKK_RSA;
-		printf("No Key Type (-k option missing) is provided.\n");
-		printf("Continuing with key type = CKK_RSA\n");
-	} else
-		key_type = getOptValue->key_type;
+	key_type = getOptValue->key_type;
+
 	/* Verify always done using Public Key */
 	obj_type = CKO_PUBLIC_KEY;
 
@@ -732,6 +734,7 @@ int do_Verify(struct getOptValue_t *getOptValue)
 	}
 
 	sig_bytes = fread(sig, 1, sig_bytes, sigFile);
+	printf("sig_bytes = %lu\n", sig_bytes);
 	fclose(sigFile);
 
 	ck_attr[0].type = CKA_LABEL;
@@ -785,15 +788,38 @@ int do_Verify(struct getOptValue_t *getOptValue)
 	}
 
 	memset(ck_attr, 0, sizeof(CK_ATTRIBUTE) * 2);
-	ck_attr[0].type = CKA_MODULUS;
-	ck_attr[0].pValue = NULL;
-	ck_attr[0].ulValueLen = 0;
+	switch (key_type) {
+		case CKK_RSA:
+			ck_attr[attrCount].type = CKA_MODULUS;
+			ck_attr[attrCount].pValue = NULL;
+			ck_attr[attrCount].ulValueLen = 0;
+			attrCount++;
 
-	ck_attr[1].type = CKA_PUBLIC_EXPONENT;
-	ck_attr[1].pValue = NULL;
-	ck_attr[1].ulValueLen = 0;
+			ck_attr[attrCount].type = CKA_PUBLIC_EXPONENT;
+			ck_attr[attrCount].pValue = NULL;
+			ck_attr[attrCount].ulValueLen = 0;
+			attrCount++;
 
-	rc = funcs->C_GetAttributeValue(h_session, obj, ck_attr, 2);
+			break;
+		case CKK_EC:
+			ck_attr[attrCount].type = CKA_EC_POINT;
+			ck_attr[attrCount].pValue = NULL;
+			ck_attr[attrCount].ulValueLen = 0;
+			attrCount++;
+
+			ck_attr[attrCount].type = CKA_EC_PARAMS;
+			ck_attr[attrCount].pValue = NULL;
+			ck_attr[attrCount].ulValueLen = 0;
+			attrCount++;
+
+			break;
+
+		default:
+			printf("Unsupported Key Type\n");
+			goto cleanup;
+	}
+
+	rc = funcs->C_GetAttributeValue(h_session, obj, ck_attr, attrCount);
 	if (rc != CKR_OK) {
 		printf("C_GetAttributeValue() rc = %s\n", p11_get_error_string(rc));
 		ret = APP_CKR_ERR;
@@ -805,97 +831,168 @@ int do_Verify(struct getOptValue_t *getOptValue)
 				i, ck_attr[i].ulValueLen);
 	}
 #endif
-	ck_attr[0].pValue = (void *)malloc(ck_attr[0].ulValueLen);
-	ck_attr[1].pValue = (void *)malloc(ck_attr[1].ulValueLen);
-	rc = funcs->C_GetAttributeValue(h_session, obj, ck_attr, 2);
+	attrCount = 0;
+	ck_attr[attrCount].pValue = (void *)malloc(ck_attr[attrCount].ulValueLen);
+	attrCount++;
+	ck_attr[attrCount].pValue = (void *)malloc(ck_attr[attrCount].ulValueLen);
+	attrCount++;
+
+	rc = funcs->C_GetAttributeValue(h_session, obj, ck_attr, attrCount);
 	if (rc != CKR_OK) {
 		printf("C_GetAttributeValue() rc = %s\n", p11_get_error_string(rc));
 		ret = APP_CKR_ERR;
 		goto cleanup;
 	}
 
-	pub_key = RSA_new();
-	RSA_blinding_off(pub_key);
-	bn_mod = BN_new();
-	bn_exp = BN_new();
+	switch (key_type) {
+		case CKK_RSA:
+			pub_key = RSA_new();
+			RSA_blinding_off(pub_key);
+			bn_mod = BN_new();
+			bn_exp = BN_new();
 
-	/* Convert from strings to BIGNUMs and stick them in the RSA struct */
-	BN_bin2bn((uint8_t *)ck_attr[0].pValue, ck_attr[0].ulValueLen,
-			bn_mod);
-	BN_bin2bn((uint8_t *)ck_attr[1].pValue, ck_attr[1].ulValueLen,
-			bn_exp);
-	sig_bytes = ck_attr[0].ulValueLen;
-	pub_key->n = bn_mod;
-	pub_key->e = bn_exp;
+			/* Convert from strings to BIGNUMs and stick them in the RSA struct */
+			BN_bin2bn((uint8_t *)ck_attr[0].pValue, ck_attr[0].ulValueLen,
+					bn_mod);
+			BN_bin2bn((uint8_t *)ck_attr[1].pValue, ck_attr[1].ulValueLen,
+					bn_exp);
 
-	mech.mechanism = getOptValue->mechanismID;
+			pub_key->n = bn_mod;
+			pub_key->e = bn_exp;
 
-	switch (mech.mechanism) {
+			mech.mechanism = getOptValue->mechanismID;
 
-	case CKM_RSA_PKCS:
-		data_out_len = RSA_public_decrypt(sig_bytes, sig, data_out,
-				pub_key, RSA_PKCS1_PADDING);
-		if (!(memcmp(data_out, data, strlen(data))))
-			printf("CKM_RSA_PKCS verification success.\n");
-		else
-			printf("CKM_RSA_PKCS verification failure.\n");
-		break;
-	case CKM_MD5_RSA_PKCS:
-		MD5(data, strlen(data), hash);
-		res = RSA_verify(NID_md5, hash, 16, sig, sig_bytes,
-				pub_key);
-		if (res == 1)
-			printf("CKM_MD5_RSA_PKCS verification success\n");
-		else
-			printf("CKM_MD5_RSA_PKCS verification failure\n");
-		break;
-	case CKM_SHA1_RSA_PKCS:
-		SHA1_Init(&c1);
-		SHA1_Update(&c1, data, strlen(data));
-		SHA1_Final(hash, &c1);
-		res = RSA_verify(NID_sha1, hash, 20, sig, sig_bytes,
-				pub_key);
-		if (res == 1)
-			printf("CKM_SHA1_RSA_PKCS verification success\n");
-		else
-			printf("CKM_SHA1_RSA_PKCS verification failure\n");
-		break;
-	case CKM_SHA256_RSA_PKCS:
-		SHA256_Init(&c2);
-		SHA256_Update(&c2, data, strlen(data));
-		SHA256_Final(hash, &c2);
-		res = RSA_verify(NID_sha256, hash, 32, sig, sig_bytes,
-				pub_key);
-		if (res == 1)
-			printf("CKM_SHA256_RSA_PKCS verification success\n");
-		else
-			printf("CKM_SHA256_RSA_PKCS verification failure\n");
-		break;
-	case CKM_SHA384_RSA_PKCS:
-		SHA384_Init(&c3);
-		SHA384_Update(&c3, data, strlen(data));
-		SHA384_Final(hash, &c3);
-		res = RSA_verify(NID_sha384, hash, 48, sig, sig_bytes,
-				pub_key);
-		if (res == 1)
-			printf("CKM_SHA384_RSA_PKCS verification success\n");
-		else
-			printf("CKM_SHA384_RSA_PKCS verification failure\n");
-		break;
-	case CKM_SHA512_RSA_PKCS:
-		SHA512_Init(&c3);
-		SHA512_Update(&c3, data, strlen(data));
-		SHA512_Final(hash, &c3);
-		res = RSA_verify(NID_sha512, hash, 64, sig, sig_bytes,
-				pub_key);
-		if (res == 1)
-			printf("CKM_SHA512_RSA_PKCS verification success\n");
-		else
-			printf("CKM_SHA512_RSA_PKCS verification failure\n");
-		break;
-	default:
-		rc = CKR_MECHANISM_INVALID;
+			switch (mech.mechanism) {
+				case CKM_RSA_PKCS:
+					data_out_len = RSA_public_decrypt(sig_bytes, sig, data_out,
+							pub_key, RSA_PKCS1_PADDING);
+					if (!(memcmp(data_out, data, strlen(data))))
+						printf("CKM_RSA_PKCS verification success.\n");
+					else
+						printf("CKM_RSA_PKCS verification failure.\n");
+					break;
+				case CKM_MD5_RSA_PKCS:
+					MD5(data, strlen(data), hash);
+					res = RSA_verify(NID_md5, hash, 16, sig, sig_bytes,
+							pub_key);
+					if (res == 1)
+						printf("CKM_MD5_RSA_PKCS verification success\n");
+					else
+						printf("CKM_MD5_RSA_PKCS verification failure\n");
+					break;
+				case CKM_SHA1_RSA_PKCS:
+					SHA1_Init(&c1);
+					SHA1_Update(&c1, data, strlen(data));
+					SHA1_Final(hash, &c1);
+					res = RSA_verify(NID_sha1, hash, 20, sig, sig_bytes,
+							pub_key);
+					if (res == 1)
+						printf("CKM_SHA1_RSA_PKCS verification success\n");
+					else
+						printf("CKM_SHA1_RSA_PKCS verification failure\n");
+					break;
+				case CKM_SHA256_RSA_PKCS:
+					SHA256_Init(&c2);
+					SHA256_Update(&c2, data, strlen(data));
+					SHA256_Final(hash, &c2);
+					res = RSA_verify(NID_sha256, hash, 32, sig, sig_bytes,
+							pub_key);
+					if (res == 1)
+						printf("CKM_SHA256_RSA_PKCS verification success\n");
+					else
+						printf("CKM_SHA256_RSA_PKCS verification failure\n");
+					break;
+				case CKM_SHA384_RSA_PKCS:
+					SHA384_Init(&c3);
+					SHA384_Update(&c3, data, strlen(data));
+					SHA384_Final(hash, &c3);
+					res = RSA_verify(NID_sha384, hash, 48, sig, sig_bytes,
+							pub_key);
+					if (res == 1)
+						printf("CKM_SHA384_RSA_PKCS verification success\n");
+					else
+						printf("CKM_SHA384_RSA_PKCS verification failure\n");
+					break;
+				case CKM_SHA512_RSA_PKCS:
+					SHA512_Init(&c3);
+					SHA512_Update(&c3, data, strlen(data));
+					SHA512_Final(hash, &c3);
+					res = RSA_verify(NID_sha512, hash, 64, sig, sig_bytes,
+							pub_key);
+					if (res == 1)
+						printf("CKM_SHA512_RSA_PKCS verification success\n");
+					else
+						printf("CKM_SHA512_RSA_PKCS verification failure\n");
+					break;
+				default:
+					rc = CKR_MECHANISM_INVALID;
+			}
+			break;
+
+		case CKK_EC:
+		{
+			EC_GROUP *group;
+			const unsigned char *ec_params_der;
+
+			/* Attribute contains the der encoding of EC Parameters */
+			ec_params_der = (unsigned char *)ck_attr[1].pValue;
+			/* Need to convert it into the OpenSSL internal
+			  * structure to verify
+			  */
+			d2i_ECPKParameters(&group, &ec_params_der,
+					ck_attr[1].ulValueLen);
+
+			ec_curve_nist_id = EC_GROUP_get_curve_name(group);
+			ec_pub_key = EC_KEY_new_by_curve_name(ec_curve_nist_id);
+
+			/* Attribute contains the EC Point in Octet Format */
+			const unsigned char *oct_pub = (char *)ck_attr[0].pValue;
+			/* Need to convert it into the OpenSSL internal
+			  * structure to verify
+			  */
+			o2i_ECPublicKey(&ec_pub_key, &oct_pub, ck_attr[0].ulValueLen);
+
+			ec_sig = ECDSA_SIG_new();
+			bn_r = ec_sig->r;
+			bn_s = ec_sig->s;
+
+			BN_bin2bn((uint8_t *)sig, sig_bytes/2, bn_r);
+			BN_bin2bn((uint8_t *)sig + (sig_bytes/2), sig_bytes/2, bn_s);
+
+			mech.mechanism = getOptValue->mechanismID;
+			switch (mech.mechanism) {
+				case CKM_ECDSA_SHA1:
+					SHA1_Init(&c1);
+					SHA1_Update(&c1, data, strlen(data));
+					SHA1_Final(hash, &c1);
+
+					ret = ECDSA_do_verify(hash, 20, ec_sig, ec_pub_key);
+					if (ret == 1) {
+						printf("CKM_ECDSA_SHA1 verification success\n");
+						ret = APP_OK;
+					} else
+						printf("ret = %d, CKM_ECDSA_SHA1 verification failed\n", ret);
+					break;
+
+				case CKM_ECDSA:
+					ret = ECDSA_do_verify(data, strlen(data), ec_sig, ec_pub_key);
+					if (ret == 1) {
+						printf("CKM_ECDSA verification success\n");
+						ret = APP_OK;
+					} else
+						printf("ret = %d, CKM_ECDSA verification failed\n", ret);
+
+					break;
+				default:
+					rc = CKR_MECHANISM_INVALID;
+			}
+			break;
+		}
+		default:
+			printf("Unsupported Key Type\n");
+			goto cleanup;
 	}
+	
 cleanup:
 	/* done...close the session and verify the object is deleted */
 	rc = funcs->C_CloseSession(h_session);
@@ -920,12 +1017,12 @@ void print_usage(void)
 	printf("\t Use below Sub options along with Main options:-\n");
 	printf("\t\t -i - Info.\n");
 	printf("\t\t -l - List.\n");
-	printf("\t\t -k - Key Type (Eg. rsa, ec etc.)\n");
-	printf("\t\t -o - Object Type (Eg. data, cert, pub, prv, sec, hw, dom, mech, otp)\n");
+	printf("\t\t -k - Key Type (Supported: rsa, ec)\n");
+	printf("\t\t -o - Object Type (Supported: pub, prv)\n");
 	printf("\t\t -b - Object Label.\n");
 	printf("\t\t -p - Slot Id.\n");
 	printf("\t\t -n - Number of Object to be Listed (Default n =10).\n");
-	printf("\t\t -m - Mechanism Id (Eg rsa, md5-rsa, sha1-rsa, sha256-rsa, sha384-rsa, sha512-rsa.)\n");
+	printf("\t\t -m - Mechanism Id (Supported: rsa, md5-rsa, sha1-rsa, sha256-rsa, sha384-rsa, sha512-rsa, ec, sha1-ec)\n");
 	printf("\t\t -d - Plain Data\n");
 	printf("\t\t -s - Signature Data\n\n");
 	printf("\t Usage:\n");
@@ -933,21 +1030,23 @@ void print_usage(void)
 	printf("\t\t\tpkcs11_app -I\n\n");
 	printf("\t\tSlot/Token Commands:\n");
 	printf("\t\t\tpkcs11_app -P -l\n");
-	printf("\t\t\tpkcs11_app -P -i -p <slot-ID>; (./pkcs11_app -P -i -p 0)\n");
-	printf("\t\t\tpkcs11_app -T -i -p <slot-ID>; (./pkcs11_app -T -i -p 0)\n\n");
+	printf("\t\t\tpkcs11_app -P -i -p <slot-ID>; (pkcs11_app -P -i -p 0)\n");
+	printf("\t\t\tpkcs11_app -T -i -p <slot-ID>; (pkcs11_app -T -i -p 0)\n\n");
 	printf("\t\tMechanism:\n");
-	printf("\t\t\tpkcs11_app -M -l -p <slot-ID>; (./pkcs11_app -M -l -p 0)\n");
-	printf("\t\t\tpkcs11_app -M -m <mech-ID> -i -p <slot-ID>; (./pkcs11_app -M -m rsa -i -p 0)\n");
-	printf("\t\t\tpkcs11_app -M -i -p <slot-ID>; (./pkcs11_app -M -i -p 0)\n\n");
+	printf("\t\t\tpkcs11_app -M -l -p <slot-ID>; (pkcs11_app -M -l -p 0)\n");
+	printf("\t\t\tpkcs11_app -M -m <mech-ID> -i -p <slot-ID>; (pkcs11_app -M -m rsa -i -p 0)\n");
+	printf("\t\t\tpkcs11_app -M -i -p <slot-ID>; (pkcs11_app -M -i -p 0)\n\n");
 	printf("\t\tObject Search:\n");
 	printf("\t\t\tpkcs11_app -F -p <slot-ID> [-n <num-of-obj> -k <key-type> -b <obj-label> -o <obj-type>]\n");
 	printf("\t\t\tObjects can be listed based on combination of any above criteria.\n\n");
 	printf("\t\tSignature Generation\n");
 	printf("\t\t\tpkcs11_app -S -k <key-type> -b <key-label> -d <Data-to-be-signed> -m <mech-ID> -p <slot-ID>\n");
-	printf("\t\t\tpkcs11_app -S -k rsa -b Device_Key -d \"PKCS11 TEST DATA\" -m md5-rsa -p 0\n\n");
+	printf("\t\t\tpkcs11_app -S -k rsa -b Device_Key -d \"PKCS11 TEST DATA\" -m md5-rsa -p 0\n");
+	printf("\t\t\tpkcs11_app -S -k ec -b Device_Key -d \"PKCS11 TEST DATA\" -m sha1-ec -p 0\n\n");
 	printf("\t\tSignature Verification\n");
 	printf("\t\t\tpkcs11_app -V -k <key-type> -b <key-label> -d <Data-previously-signed> -s <signature-file> -m <mech-ID> -p <slot-ID>\n");
 	printf("\t\t\tpkcs11_app -V -k rsa -b Device_Key -d \"PKCS11 TEST DATA\" -s sig.data -m md5-rsa -p 0\n");
+	printf("\t\t\tpkcs11_app -V -k ec -b Device_Key -d \"PKCS11 TEST DATA\" -s sig.data -m sha1-ec -p 0\n");
 }
 
 int process_sub_option(int option, uint8_t *optarg, struct getOptValue_t *getOptValue)

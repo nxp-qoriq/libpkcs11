@@ -66,7 +66,7 @@ app:
 	@echo "Building pkcs apps"
 	$(VPREFIX)$(CC) -pthread -g -I$(OPENSSL)/include/ -L$(OPENSSL)/ -Iinclude/ -Ipublic/ \
 		 -o app/thread_test app/thread_test.c -ldl -lssl -lcrypto -Lout/libpkcs11/
-	$(VPREFIX)$(CC) -I$(OPENSSL)/include/ -L$(OPENSSL)/ -Iinclude/ -Ipublic/ \
+	$(VPREFIX)$(CC) -I$(OPENSSL)/include/ -L$(OPENSSL)/ -g -Iinclude/ -Ipublic/ \
 		 -o app/utils.o app/utils.c \
 		 -o app/pkcs11_app app/pkcs11_app.c \
 		 -lpkcs11 -ldl -lssl -lcrypto -Lout/libpkcs11/

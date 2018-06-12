@@ -15,6 +15,18 @@
 #include <securekey_api.h>
 #include <securekey_api_types.h>
 
+char P256[] = "prime256v1";
+char P384[] = "secp384r1";
+
+/* EC Curve in DER encoding */
+char prime256[] = { 0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07 };
+char secp384[] = { 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x22 };
+
+struct ec_curves supported_ec_curves[SUPPORTED_EC_CURVES] = {
+	{P256, 256, prime256, sizeof(prime256)},
+	{P384, 384, secp384, sizeof(secp384)},
+};
+
 /* Init for sign mechanism */
 CK_RV sign_init(CK_SESSION_HANDLE hSession, sign_verify_context *ctx,
 		CK_MECHANISM *mech, CK_BBOOL recover_mode,
@@ -89,29 +101,41 @@ CK_RV sign_init(CK_SESSION_HANDLE hSession, sign_verify_context *ctx,
 	case CKM_SHA256_RSA_PKCS:
 	case CKM_SHA384_RSA_PKCS:
 	case CKM_SHA512_RSA_PKCS:
-		if (mech->ulParameterLen != 0) {
-			rc = CKR_MECHANISM_PARAM_INVALID;
-			goto out;
-		}
 		/* Key type must be RSA */
 		if (keytype != CKK_RSA) {
 			rc = CKR_KEY_TYPE_INCONSISTENT;
 			goto out;
 		}
-		/* Key class must be Private */
-		if (class != CKO_PRIVATE_KEY) {
-			rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+		break;
+
+	case CKM_ECDSA:
+	case CKM_ECDSA_SHA1:
+		/* Key type must be ECC */
+		if (keytype != CKK_EC) {
+			rc = CKR_KEY_TYPE_INCONSISTENT;
 			goto out;
 		}
-		/* Currently we don't support multi-part RSA ops */
-		ctx->context_len = 0;
-		ctx->context     = NULL;
 		break;
 
 	default:
 		rc = CKR_MECHANISM_INVALID;
 		goto out;
 	}
+
+	if (mech->ulParameterLen != 0) {
+		rc = CKR_MECHANISM_PARAM_INVALID;
+		goto out;
+	}
+
+	/* Key class must be Private */
+	if (class != CKO_PRIVATE_KEY) {
+		rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+		goto out;
+	}
+
+	/* Currently we don't support multi-part ops */
+	ctx->context_len = 0;
+	ctx->context     = NULL;
 
 	if (mech->ulParameterLen > 0) {
 		ptr = (CK_BYTE *)malloc(mech->ulParameterLen);
@@ -316,6 +340,122 @@ out:
 	return rc;
 }
 
+static CK_RV get_ec_obj_size(CK_ATTRIBUTE *attr, uint32_t *obj_size)
+{
+	uint8_t i = 0, found = 0;
+
+	for (i = 0; i < SUPPORTED_EC_CURVES; i++) {
+		if (!memcmp((char *)attr->pValue,
+			supported_ec_curves[i].data, attr->ulValueLen)) {
+			*obj_size = supported_ec_curves[i].curve_len;
+			found = 1;
+		}
+	}
+
+	if (found)
+		return CKR_OK;
+	else
+		return CKR_ARGUMENTS_BAD;
+}
+
+/* Implementation of ECC DSA */
+static CK_RV ecc_hash_sign_pkcs(CK_SESSION_HANDLE hSession, session *sess,
+	CK_BYTE_PTR pData, CK_ULONG ulDataLen,
+	CK_BYTE_PTR pSignature,
+	CK_ULONG_PTR pulSignatureLen)
+{
+	CK_RV rc = CKR_OK;
+	sign_verify_context *ctx = &sess->sign_ctx;
+	CK_ATTRIBUTE attr = {0};
+	CK_ULONG req_sig_len = 0;
+	CK_BYTE hash[MAX_HASH_LEN];
+	CK_ULONG hash_len = MAX_HASH_LEN;
+	SK_FUNCTION_LIST_PTR sk_funcs = NULL;
+	SK_RET_CODE ret = SKR_OK;
+	SK_MECHANISM_INFO signType = {0}, digestType = {0};
+	SK_OBJECT_HANDLE sk_key;
+	char *ec_params;
+	uint32_t ec_key_len = 0;
+
+	/* Get required signature buffer size from EC PARAMS */
+	attr.type = CKA_EC_PARAMS;
+	rc = get_attr_value(hSession, ctx->key, &attr, 1);
+	if (rc != CKR_OK)
+		goto out;
+
+	ec_params = malloc(attr.ulValueLen);
+	if (!ec_params)
+		goto out;
+	attr.pValue = ec_params;
+
+	rc = get_attr_value(hSession, ctx->key, &attr, 1);
+	if (rc != CKR_OK)
+		goto out;
+
+	rc = get_ec_obj_size(&attr, &ec_key_len);
+	if (rc != CKR_OK)
+		goto out;
+
+	req_sig_len = 2 * ec_key_len;
+	/*
+	 * If signature buffer is NULL then return size of
+	 * buffer to be allocated.
+	 */
+	if (!pSignature) {
+		*pulSignatureLen = req_sig_len;
+		rc = CKR_OK;
+		goto out;
+	}
+
+	/* Signature length should not be less than required size */
+	if (*pulSignatureLen < req_sig_len) {
+		rc = CKR_BUFFER_TOO_SMALL;
+		goto out;
+	}
+
+	/* Maps RSA hash based sign --> SK_Digest and SK_Sign */
+	sk_funcs = get_slot_function_list(sess->session_info.slotID);
+	if (!sk_funcs)
+		return CKR_ARGUMENTS_BAD;
+
+	switch (ctx->mech.mechanism) {
+	case CKM_ECDSA:
+		signType.mechanism = SKM_ECDSA;
+		digestType.mechanism = 0;
+		break;
+	case CKM_ECDSA_SHA1:
+		signType.mechanism = SKM_ECDSA_SHA1;
+		digestType.mechanism = SKM_SHA1;
+		break;
+	default:
+		rc = CKR_MECHANISM_INVALID;
+		goto out;
+	}
+
+	sk_key = ((struct object_node *)ctx->key)->object.sk_obj_handle;
+
+	if (digestType.mechanism) {
+		ret = sk_funcs->SK_Digest(&digestType, pData, ulDataLen, hash,
+					  (uint16_t *)&hash_len);
+		if (ret != SKR_OK) {
+			print_error("SK_Digest failed with ret code 0x%x\n", ret);
+			rc = CKR_GENERAL_ERROR;
+			goto out;
+		}
+	}
+
+	ret = sk_funcs->SK_Sign(&signType, sk_key, pData, ulDataLen,
+				pSignature, (uint16_t *)pulSignatureLen);
+	if (ret != SKR_OK) {
+		print_error("SK_Sign failed with ret code 0x%x\n", ret);
+		rc = CKR_GENERAL_ERROR;
+		goto out;
+	}
+
+out:
+	return rc;
+}
+
 /* Implementation of sign api */
 CK_RV sign(CK_SESSION_HANDLE hSession, session *sess, CK_BYTE_PTR pData,
 	   CK_ULONG ulDataLen, CK_BYTE_PTR pSignature,
@@ -345,6 +485,14 @@ CK_RV sign(CK_SESSION_HANDLE hSession, session *sess, CK_BYTE_PTR pData,
 	case CKM_SHA512_RSA_PKCS:
 		rc = rsa_hash_sign_pkcs(hSession, sess, pData, ulDataLen,
 					  pSignature, pulSignatureLen);
+		if (((rc == CKR_OK) && (pSignature == NULL)) ||
+			(rc == CKR_BUFFER_TOO_SMALL))
+			goto out;
+		break;
+	case CKM_ECDSA:
+	case CKM_ECDSA_SHA1:
+		rc = ecc_hash_sign_pkcs(hSession, sess, pData, ulDataLen,
+			pSignature, pulSignatureLen);
 		if (((rc == CKR_OK) && (pSignature == NULL)) ||
 			(rc == CKR_BUFFER_TOO_SMALL))
 			goto out;

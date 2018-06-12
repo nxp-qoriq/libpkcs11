@@ -132,6 +132,10 @@ CK_MECHANISM_TYPE getMechId(char *mechIdStr)
 		return CKM_SHA512_RSA_PKCS;
 	else if (strcmp(mechIdStr, "sha224-rsa") == 0)
 		return CKM_SHA224_RSA_PKCS;
+	else if (strcmp(mechIdStr, "sha1-ec") == 0)
+		return CKM_ECDSA_SHA1;
+	else if (strcmp(mechIdStr, "ec") == 0)
+		return CKM_ECDSA;
 
 	printf("Unsupported Mechnism: %s\n", mechIdStr);
 	return UL_INVALID;
@@ -154,6 +158,11 @@ char *getMechanismString(CK_MECHANISM_TYPE mechanismID)
 		return "CKM_SHA512_RSA_PKCS";
 	case CKM_SHA224_RSA_PKCS:
 		return "CKM_SHA224_RSA_PKCS";
+	case CKM_ECDSA_SHA1:
+		return "CKM_ECDSA_SHA1";
+	case CKM_ECDSA:
+		return "CKM_ECDSA";
+
 	default:
 		return NULL;
 	}
@@ -221,6 +230,8 @@ CK_KEY_TYPE getKeyType(char *keyTypeStr)
 		return UL_INVALID;
 	else if (strcmp(keyTypeStr, "rsa") == 0)
 		return CKK_RSA;
+	else if (strcmp(keyTypeStr, "ec") == 0)
+		return CKK_EC;
 
 	printf("Unsupported Key Type: %s\n", keyTypeStr);
 	return UL_INVALID;

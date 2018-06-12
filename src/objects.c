@@ -13,6 +13,7 @@
 #include <objects.h>
 #include <sessions.h>
 #include <general.h>
+#include <crypto.h>
 
 #include <securekey_api.h>
 #include <securekey_api_types.h>
@@ -418,6 +419,77 @@ rsa_pubk_add_default_attr(struct template_list *tmpl_list)
 }
 
 static CK_RV
+ecc_pubk_add_default_attr(struct template_list *tmpl_list)
+{
+	CK_RV rc;
+
+	struct template_node *keygen_mech;
+	struct template_node *allowed_mech;
+	struct template_node *key_type;
+
+	CK_ATTRIBUTE   *keygen_mech_attr = NULL;
+	CK_ATTRIBUTE   *allowed_mech_attr = NULL;
+	CK_ATTRIBUTE   *key_type_attr = NULL;
+
+	rc = pubk_add_default_attr(tmpl_list);
+	if (rc != CKR_OK) {
+		print_error("pubk_add_default_attr failed\n");
+		return rc;
+	}
+
+	key_type = (struct template_node *)malloc(sizeof(struct template_node));
+	keygen_mech = (struct template_node *)malloc(sizeof(struct template_node));
+	allowed_mech = (struct template_node *)malloc(sizeof(struct template_node));
+
+	keygen_mech_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
+	allowed_mech_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
+	key_type_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
+		+ sizeof(CK_KEY_TYPE));
+
+	if (!key_type || !keygen_mech || !allowed_mech ||
+		!keygen_mech_attr || !allowed_mech_attr ||
+		!key_type_attr) {
+		if (key_type)
+			free(key_type);
+		if (keygen_mech)
+			free(keygen_mech);
+		if (allowed_mech)
+			free(allowed_mech);
+		if (key_type_attr)
+			free(key_type_attr);
+		if (keygen_mech_attr)
+			free(keygen_mech_attr);
+		if (allowed_mech_attr)
+			free(allowed_mech_attr);
+
+		return CKR_HOST_MEMORY;
+	}
+
+	key_type_attr->type = CKA_KEY_TYPE;
+	key_type_attr->ulValueLen = sizeof(CK_KEY_TYPE);
+	key_type_attr->pValue = (CK_BYTE *)key_type_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_KEY_TYPE *)key_type_attr->pValue = CKK_EC;
+
+	keygen_mech_attr->type = CKA_KEY_GEN_MECHANISM;
+	keygen_mech_attr->ulValueLen = 0;
+	keygen_mech_attr->pValue = NULL;
+
+	allowed_mech_attr->type = CKA_ALLOWED_MECHANISMS;
+	allowed_mech_attr->ulValueLen = 0;
+	allowed_mech_attr->pValue = NULL;
+
+	key_type->attributes = key_type_attr;
+	keygen_mech->attributes = keygen_mech_attr;
+	allowed_mech->attributes = allowed_mech_attr;
+
+	p11_template_update_attr(tmpl_list, key_type);
+	p11_template_update_attr(tmpl_list, keygen_mech);
+	p11_template_update_attr(tmpl_list, allowed_mech);
+
+	return CKR_OK;
+}
+
+static CK_RV
 privk_add_default_attr(struct template_list *tmpl_list)
 {
 	struct template_node *class;
@@ -731,6 +803,86 @@ rsa_privk_add_default_attr(struct template_list *tmpl_list)
 	return CKR_OK;
 }
 
+static CK_RV
+ecc_privk_add_default_attr(struct template_list *tmpl_list)
+{
+	CK_RV rc;
+	uint32_t ecc_priv_key_mech_count = 2;
+	CK_MECHANISM_TYPE_PTR mech;
+
+	struct template_node *keygen_mech;
+	struct template_node *allowed_mech;
+	struct template_node *key_type;
+
+	CK_ATTRIBUTE   *keygen_mech_attr = NULL;
+	CK_ATTRIBUTE   *allowed_mech_attr = NULL;
+	CK_ATTRIBUTE   *key_type_attr = NULL;
+
+	rc = privk_add_default_attr(tmpl_list);
+	if (rc != CKR_OK) {
+		print_error("privk_add_default_attr failed\n");
+		return rc;
+	}
+
+	key_type = (struct template_node *)malloc(sizeof(struct template_node));
+	keygen_mech = (struct template_node *)malloc(sizeof(struct template_node));
+	allowed_mech = (struct template_node *)malloc(sizeof(struct template_node));
+
+	key_type_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
+		+ sizeof(CK_KEY_TYPE));
+	keygen_mech_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
+	allowed_mech_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
+		+ (sizeof(CK_MECHANISM_TYPE) * ecc_priv_key_mech_count));
+
+	if (!key_type || !keygen_mech || !allowed_mech ||
+		!keygen_mech_attr || !allowed_mech_attr ||
+		!key_type_attr) {
+		if (key_type)
+			free(key_type);
+		if (keygen_mech)
+			free(keygen_mech);
+		if (allowed_mech)
+			free(allowed_mech);
+		if (keygen_mech_attr)
+			free(keygen_mech_attr);
+		if (allowed_mech_attr)
+			free(allowed_mech_attr);
+		if (key_type_attr)
+			free(key_type_attr);
+
+		return CKR_HOST_MEMORY;
+	}
+
+	key_type_attr->type = CKA_KEY_TYPE;
+	key_type_attr->ulValueLen = sizeof(CK_KEY_TYPE);
+	key_type_attr->pValue = (CK_BYTE *)key_type_attr + sizeof(CK_ATTRIBUTE);
+	*(CK_KEY_TYPE *)key_type_attr->pValue = CKK_EC;
+
+	keygen_mech_attr->type = CKA_KEY_GEN_MECHANISM;
+	keygen_mech_attr->ulValueLen = 0;
+	keygen_mech_attr->pValue = NULL;
+
+	allowed_mech_attr->type = CKA_ALLOWED_MECHANISMS;
+	allowed_mech_attr->ulValueLen = ecc_priv_key_mech_count *
+		sizeof(CK_MECHANISM_TYPE);
+	allowed_mech_attr->pValue = (CK_BYTE *)allowed_mech_attr
+		+ sizeof(CK_ATTRIBUTE);
+
+	mech = (CK_MECHANISM_TYPE_PTR)allowed_mech_attr->pValue;
+	mech[0] = CKM_ECDSA_SHA1;
+	mech[1] = CKM_ECDSA;
+
+	key_type->attributes = key_type_attr;
+	keygen_mech->attributes = keygen_mech_attr;
+	allowed_mech->attributes = allowed_mech_attr;
+
+	p11_template_update_attr(tmpl_list, key_type);
+	p11_template_update_attr(tmpl_list, keygen_mech);
+	p11_template_update_attr(tmpl_list, allowed_mech);
+
+	return CKR_OK;
+}
+
 /* p11_template_add_default_common_attr()
  *
  * Set the default attributes common to all objects:
@@ -822,6 +974,8 @@ static CK_RV p11_template_add_default_attr(OBJECT *obj)
 			switch (subclass) {
 				case CKK_RSA:
 					return rsa_pubk_add_default_attr(&obj->template_list);
+				case CKK_EC:
+					return ecc_pubk_add_default_attr(&obj->template_list);
 				default:
 					print_error("Invalid Attribute\n");
 					return CKR_ATTRIBUTE_VALUE_INVALID;
@@ -831,6 +985,8 @@ static CK_RV p11_template_add_default_attr(OBJECT *obj)
 			switch (subclass) {
 				case CKK_RSA:
 					return rsa_privk_add_default_attr(&obj->template_list);
+				case CKK_EC:
+					return ecc_privk_add_default_attr(&obj->template_list);
 				default:
 					print_error("Invalid Attribute\n");
 					return CKR_ATTRIBUTE_VALUE_INVALID;
@@ -990,6 +1146,17 @@ check_rsa_privk_exportability(CK_ATTRIBUTE_TYPE type)
 	}
 }
 
+static CK_BBOOL
+check_ecc_privk_exportability(CK_ATTRIBUTE_TYPE type)
+{
+	switch (type) {
+	case CKA_VALUE:
+		return FALSE;
+	default:
+		return TRUE;
+	}
+}
+
 static CK_BBOOL check_attr_exportability(struct template_list *tmpl_list,
 		CK_ATTRIBUTE_TYPE type)
 {
@@ -1038,6 +1205,8 @@ static CK_BBOOL check_attr_exportability(struct template_list *tmpl_list,
 		switch (subclass) {
 		case CKK_RSA:
 			return check_rsa_privk_exportability(type);
+		case CKK_EC:
+			return check_ecc_privk_exportability(type);
 
 		default:
 			return TRUE;
@@ -1119,6 +1288,20 @@ static CK_RV map_sk_to_pkcs_attr(SK_ATTRIBUTE *sk_attrs,
 					ck_attrs->ulValueLen = sizeof(CK_KEY_TYPE);
 					break;
 
+				case SKK_EC:
+					ck_attrs = (CK_ATTRIBUTE_PTR)malloc(sizeof(CK_ATTRIBUTE) +
+						sizeof(CK_KEY_TYPE));
+					if (!ck_attrs)
+						return CKR_HOST_MEMORY;
+
+					ck_key_type = (CK_KEY_TYPE *)((CK_BYTE *)ck_attrs + sizeof(CK_ATTRIBUTE));
+					*(ck_key_type) = CKK_EC;
+
+					ck_attrs->type = CKA_KEY_TYPE;
+					ck_attrs->pValue = ck_key_type;
+					ck_attrs->ulValueLen = sizeof(CK_KEY_TYPE);
+					break;
+
 				default:
 					print_error("Key type not supported\n");
 					return CKR_ATTRIBUTE_TYPE_INVALID;
@@ -1191,6 +1374,35 @@ static CK_RV map_sk_to_pkcs_attr(SK_ATTRIBUTE *sk_attrs,
 			memcpy(temp, sk_attrs->value, sk_attrs->valueLen);
 
 			ck_attrs->type = CKA_PUBLIC_EXPONENT;
+			ck_attrs->pValue = temp;
+			ck_attrs->ulValueLen = sk_attrs->valueLen;
+			break;
+
+		case SK_ATTR_PARAMS:
+		{
+			ck_attrs = (CK_ATTRIBUTE_PTR)malloc(sizeof(CK_ATTRIBUTE) +
+				sk_attrs->valueLen);
+			if (!ck_attrs)
+				return CKR_HOST_MEMORY;
+
+			temp = (CK_BYTE *)ck_attrs + sizeof(CK_ATTRIBUTE);
+			memcpy(temp, sk_attrs->value, sk_attrs->valueLen);
+
+			ck_attrs->type = CKA_EC_PARAMS;
+			ck_attrs->pValue = temp;
+			ck_attrs->ulValueLen = sk_attrs->valueLen;
+			break;
+		}
+		case SK_ATTR_POINT:
+			ck_attrs = (CK_ATTRIBUTE_PTR)malloc(sizeof(CK_ATTRIBUTE) +
+				sk_attrs->valueLen);
+			if (!ck_attrs)
+				return CKR_HOST_MEMORY;
+
+			temp = (CK_BYTE *)ck_attrs + sizeof(CK_ATTRIBUTE);
+			memcpy(temp, sk_attrs->value, sk_attrs->valueLen);
+
+			ck_attrs->type = CKA_EC_POINT;
 			ck_attrs->pValue = temp;
 			ck_attrs->ulValueLen = sk_attrs->valueLen;
 			break;
@@ -1411,6 +1623,22 @@ SK_ATTRIBUTE_TYPE rsa_priv_attr_type[RSA_PRIV_SK_ATTR_COUNT] = {
 	SK_ATTR_PUBLIC_EXPONENT
 };
 
+#define ECC_PUB_SK_ATTR_COUNT	4
+#define ECC_PRIV_SK_ATTR_COUNT	3
+
+SK_ATTRIBUTE_TYPE ecc_pub_attr_type[ECC_PUB_SK_ATTR_COUNT] = {
+	SK_ATTR_OBJECT_LABEL,
+	SK_ATTR_OBJECT_INDEX,
+	SK_ATTR_PARAMS,
+	SK_ATTR_POINT
+};
+
+SK_ATTRIBUTE_TYPE ecc_priv_attr_type[ECC_PRIV_SK_ATTR_COUNT] = {
+	SK_ATTR_OBJECT_LABEL,
+	SK_ATTR_OBJECT_INDEX,
+	SK_ATTR_PARAMS
+};
+
 static CK_RV object_add_template(OBJECT *obj,
 		SK_ATTRIBUTE_TYPE *sk_attr_type, uint32_t attrCount)
 {
@@ -1459,6 +1687,7 @@ static CK_RV object_add_template(OBJECT *obj,
 
 		rc = map_sk_to_pkcs_attr(sk_attr, &ck_attr);
 		if (rc != CKR_OK) {
+			print_error("map_sk_to_pkcs_attr failed\n")
 			free(sk_attr);
 			return CKR_GENERAL_ERROR;
 		}
@@ -1536,6 +1765,67 @@ static CK_RV create_rsa_priv_key_object(SK_OBJECT_HANDLE hObject,
 	return CKR_OK;
 }
 
+static CK_RV create_ecc_pub_key_object(SK_OBJECT_HANDLE hObject,
+		struct object_node **ecc_pub_key, CK_SLOT_ID slotID)
+{
+	struct object_node *pub_key;
+	CK_RV rc;
+
+	pub_key = (struct object_node *)malloc(sizeof(struct object_node));
+	if (!pub_key) {
+		print_error("pub_key object node malloc failed\n");
+		return CKR_HOST_MEMORY;
+	}
+
+	memset(pub_key, 0, sizeof(struct object_node));
+	STAILQ_INIT(&pub_key->object.template_list);
+
+	pub_key->object.sk_obj_handle = hObject;
+	pub_key->object.slotID = slotID;
+
+	rc = object_add_template(&pub_key->object, ecc_pub_attr_type,
+		ECC_PUB_SK_ATTR_COUNT);
+	if (rc != CKR_OK) {
+		print_error("object_add_template failed\n");
+		free(pub_key);
+		return rc;
+	}
+
+	*ecc_pub_key = pub_key;
+	return CKR_OK;
+}
+
+static CK_RV create_ecc_priv_key_object(SK_OBJECT_HANDLE hObject,
+				struct object_node **ecc_priv_key, CK_SLOT_ID slotID)
+{
+	struct object_node *priv_key;
+	CK_RV rc;
+
+	priv_key = (struct object_node *)malloc(sizeof(struct object_node));
+	if (!priv_key) {
+		print_error("priv_key object node malloc failed\n");
+		return CKR_HOST_MEMORY;
+	}
+
+	memset(priv_key, 0, sizeof(struct object_node));
+	STAILQ_INIT(&priv_key->object.template_list);
+
+	priv_key->object.sk_obj_handle = hObject;
+	priv_key->object.slotID = slotID;
+
+	rc = object_add_template(&priv_key->object, ecc_priv_attr_type,
+		ECC_PRIV_SK_ATTR_COUNT);
+	if (rc != CKR_OK) {
+		print_error("object_add_template failed\n");
+		free(priv_key);
+		return rc;
+	}
+
+	*ecc_priv_key = priv_key;
+	return CKR_OK;
+}
+
+
 CK_RV get_all_token_objects(struct object_list *obj_list,
 		CK_SLOT_ID slotID)
 {
@@ -1575,10 +1865,20 @@ CK_RV get_all_token_objects(struct object_list *obj_list,
 		temp_sk_attr[1].valueLen = sizeof(SK_KEY_TYPE);
 
 		ret = sk_funcs->SK_GetObjectAttribute(objs[j],
-			temp_sk_attr, OBJ_SK_ATTR_COUNT);
+			temp_sk_attr, 1);
 		if (ret != SKR_OK) {
 			print_error("SK_GetObjectAttribute failed\n");
 			return CKR_GENERAL_ERROR;
+		}
+
+		// if this is a key, get its key type
+		if (obj_type == SK_KEY_PAIR || obj_type == SK_PUBLIC_KEY) {
+			ret = sk_funcs->SK_GetObjectAttribute(objs[j],
+				&temp_sk_attr[1], 1);
+			if (ret != SKR_OK) {
+				print_error("SK_GetObjectAttribute failed\n");
+				return CKR_GENERAL_ERROR;
+			}
 		}
 
 		switch (obj_type) {
@@ -1622,6 +1922,45 @@ CK_RV get_all_token_objects(struct object_list *obj_list,
 						STAILQ_INSERT_HEAD(obj_list, rsa_priv_key, entry);
 					}
 					break;
+					case SKK_EC:
+					{
+						struct object_node *ecc_pub_key, *ecc_priv_key;
+
+						rc = create_ecc_pub_key_object(objs[j], &ecc_pub_key, slotID);
+						if (rc != CKR_OK) {
+							print_error("create_ecc_pub_key_object failed\n");
+							return rc;
+						}
+
+						ecc_pub_key->object.obj_class = CKO_PUBLIC_KEY;
+						ecc_pub_key->object.obj_subclass = CKK_EC;
+
+						rc = p11_template_add_default_attr(&ecc_pub_key->object);
+						if (rc != CKR_OK) {
+							print_error("p11_template_add_default_attr failed\n");
+							return rc;
+						}
+
+						STAILQ_INSERT_HEAD(obj_list, ecc_pub_key, entry);
+
+						rc = create_ecc_priv_key_object(objs[j], &ecc_priv_key, slotID);
+						if (rc != CKR_OK) {
+							print_error("create_ecc_priv_key_object failed\n");
+							return rc;
+						}
+
+						ecc_priv_key->object.obj_class = CKO_PRIVATE_KEY;
+						ecc_priv_key->object.obj_subclass = CKK_EC;
+
+						rc = p11_template_add_default_attr(&ecc_priv_key->object);
+						if (rc != CKR_OK) {
+							print_error("p11_template_add_default_attr failed\n");
+							return rc;
+						}
+
+						STAILQ_INSERT_HEAD(obj_list, ecc_priv_key, entry);
+					}
+					break;
 					default:
 						continue;
 				}
@@ -1640,6 +1979,28 @@ CK_RV get_all_token_objects(struct object_list *obj_list,
 
 						pub_key->object.obj_class = CKO_PUBLIC_KEY;
 						pub_key->object.obj_subclass = CKK_RSA;
+
+						rc = p11_template_add_default_attr(&pub_key->object);
+						if (rc != CKR_OK) {
+							print_error("p11_template_add_default_attr failed\n");
+							return rc;
+						}
+
+						STAILQ_INSERT_HEAD(obj_list, pub_key, entry);
+					}
+					break;
+					case SKK_EC:
+					{
+						struct object_node *pub_key;
+
+						rc = create_ecc_pub_key_object(objs[j], &pub_key, slotID);
+						if (rc != CKR_OK) {
+							print_error("create_ecc_pub_key_object failed\n");
+							return rc;
+						}
+
+						pub_key->object.obj_class = CKO_PUBLIC_KEY;
+						pub_key->object.obj_subclass = CKK_EC;
 
 						rc = p11_template_add_default_attr(&pub_key->object);
 						if (rc != CKR_OK) {
