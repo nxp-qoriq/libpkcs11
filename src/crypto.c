@@ -413,7 +413,7 @@ static CK_RV ecc_hash_sign_pkcs(CK_SESSION_HANDLE hSession, session *sess,
 		goto out;
 	}
 
-	/* Maps RSA hash based sign --> SK_Digest and SK_Sign */
+	/* Maps EC hash based sign --> SK_Digest and SK_Sign */
 	sk_funcs = get_slot_function_list(sess->session_info.slotID);
 	if (!sk_funcs)
 		return CKR_ARGUMENTS_BAD;
@@ -442,6 +442,14 @@ static CK_RV ecc_hash_sign_pkcs(CK_SESSION_HANDLE hSession, session *sess,
 			rc = CKR_GENERAL_ERROR;
 			goto out;
 		}
+
+		ret = sk_funcs->SK_Sign(&signType, sk_key, hash, hash_len,
+				pSignature, (uint16_t *)pulSignatureLen);
+		if (ret != SKR_OK) {
+			print_error("SK_Sign failed with ret code 0x%x\n", ret);
+			rc = CKR_GENERAL_ERROR;
+		}
+		goto out;
 	}
 
 	ret = sk_funcs->SK_Sign(&signType, sk_key, pData, ulDataLen,
@@ -456,6 +464,9 @@ out:
 	return rc;
 }
 
+/* NOTE: If mechanism also include calculating the digest please note
+  * API supports calculating digest for upto 512bytes.
+  */
 /* Implementation of sign api */
 CK_RV sign(CK_SESSION_HANDLE hSession, session *sess, CK_BYTE_PTR pData,
 	   CK_ULONG ulDataLen, CK_BYTE_PTR pSignature,
