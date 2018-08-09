@@ -703,7 +703,8 @@ int do_Verify(struct getOptValue_t *getOptValue)
 	CK_BYTE *data = getOptValue->data;
 	RSA *pub_key;
 	EC_KEY *ec_pub_key;
-	BIGNUM *bn_mod, *bn_exp, *bn_r, *bn_s;
+	BIGNUM *bn_mod = NULL, *bn_exp = NULL;
+	BIGNUM *bn_r = NULL, *bn_s = NULL;
 	CK_ULONG i, j;
 	CK_OBJECT_CLASS obj_type;
 	uint8_t *label = getOptValue->label;
@@ -831,6 +832,7 @@ int do_Verify(struct getOptValue_t *getOptValue)
 				i, ck_attr[i].ulValueLen);
 	}
 #endif
+
 	attrCount = 0;
 	ck_attr[attrCount].pValue = (void *)malloc(ck_attr[attrCount].ulValueLen);
 	attrCount++;
@@ -857,9 +859,12 @@ int do_Verify(struct getOptValue_t *getOptValue)
 			BN_bin2bn((uint8_t *)ck_attr[1].pValue, ck_attr[1].ulValueLen,
 					bn_exp);
 
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
 			pub_key->n = bn_mod;
 			pub_key->e = bn_exp;
-
+#else
+			RSA_set0_key(pub_key, bn_mod, bn_exp, NULL);
+#endif
 			mech.mechanism = getOptValue->mechanismID;
 
 			switch (mech.mechanism) {
@@ -932,14 +937,14 @@ int do_Verify(struct getOptValue_t *getOptValue)
 		case CKK_EC:
 		{
 			EC_GROUP *group;
-			const unsigned char *ec_params_der;
+			const unsigned char *ec_params_der = NULL;
 
 			/* Attribute contains the der encoding of EC Parameters */
 			ec_params_der = (unsigned char *)ck_attr[1].pValue;
 			/* Need to convert it into the OpenSSL internal
 			  * structure to verify
 			  */
-			d2i_ECPKParameters(&group, &ec_params_der,
+			group = d2i_ECPKParameters(NULL, &ec_params_der,
 					ck_attr[1].ulValueLen);
 
 			ec_curve_nist_id = EC_GROUP_get_curve_name(group);
@@ -950,15 +955,19 @@ int do_Verify(struct getOptValue_t *getOptValue)
 			/* Need to convert it into the OpenSSL internal
 			  * structure to verify
 			  */
-			o2i_ECPublicKey(&ec_pub_key, &oct_pub, ck_attr[0].ulValueLen);
+			ec_pub_key = o2i_ECPublicKey(&ec_pub_key, &oct_pub, ck_attr[0].ulValueLen);
 
 			ec_sig = ECDSA_SIG_new();
-			bn_r = ec_sig->r;
-			bn_s = ec_sig->s;
 
-			BN_bin2bn((uint8_t *)sig, sig_bytes/2, bn_r);
-			BN_bin2bn((uint8_t *)sig + (sig_bytes/2), sig_bytes/2, bn_s);
+			bn_r = BN_bin2bn((uint8_t *)sig, sig_bytes/2, bn_r);
+			bn_s = BN_bin2bn((uint8_t *)sig + (sig_bytes/2), sig_bytes/2, bn_s);
 
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+			ec_sig->r = bn_r;
+			ec_sig->s = bn_s;
+#else
+			ECDSA_SIG_set0(ec_sig, bn_r, bn_s);
+#endif
 			mech.mechanism = getOptValue->mechanismID;
 			switch (mech.mechanism) {
 				case CKM_ECDSA_SHA1:
@@ -992,7 +1001,7 @@ int do_Verify(struct getOptValue_t *getOptValue)
 			printf("Unsupported Key Type\n");
 			goto cleanup;
 	}
-	
+
 cleanup:
 	/* done...close the session and verify the object is deleted */
 	rc = funcs->C_CloseSession(h_session);

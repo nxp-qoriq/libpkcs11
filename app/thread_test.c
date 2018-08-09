@@ -282,8 +282,12 @@ CK_RV do_Sign(CK_MECHANISM_TYPE mech_type)
 	BN_bin2bn((unsigned char *)ck_attr[1].pValue, ck_attr[1].ulValueLen,
 		  bn_exp);
 
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
 	pub_key->n = bn_mod;
 	pub_key->e = bn_exp;
+#else
+	RSA_set0_key(pub_key, bn_mod, bn_exp, NULL);
+#endif
 
 	switch (mech_type) {
 	case CKM_RSA_PKCS:
