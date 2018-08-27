@@ -534,3 +534,34 @@ CK_RV sign(CK_SESSION_HANDLE hSession, session *sess, CK_BYTE_PTR pData,
 out:
 	return rc;
 }
+
+CK_RV get_digest(CK_UTF8CHAR_PTR pPin, CK_ULONG ulPinLen,
+		  CK_UTF8CHAR_PTR newPinHash)
+{
+	CK_RV rc = CKR_OK;
+	SK_FUNCTION_LIST_PTR sk_funcs = NULL;
+	SK_RET_CODE ret = SKR_OK;
+	SK_MECHANISM_INFO digestType = {0};
+	uint8_t pinHash[SHA256_LEN];
+	int16_t pinHashLen = SHA256_LEN;
+
+	digestType.mechanism = SKM_SHA256;
+
+	sk_funcs = get_slot_function_list(0);
+	if (!sk_funcs) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto out;
+	}
+
+	ret = sk_funcs->SK_Digest(&digestType, pPin, ulPinLen, pinHash,
+				(uint16_t *)&pinHashLen);
+	if (ret != SKR_OK) {
+		print_error("SK_Digest failed with ret code 0x%x\n", ret);
+		rc = CKR_GENERAL_ERROR;
+		goto out;
+	}
+
+	memcpy(newPinHash, pinHash, pinHashLen);
+out:
+	return rc;
+}

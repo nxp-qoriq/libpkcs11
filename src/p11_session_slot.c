@@ -14,6 +14,7 @@
 #include <sessions.h>
 #include <objects.h>
 
+#define LABEL_MAX_SIZE	32
 /*
  *  SLOT AND TOKEN MANAGEMENT
  */
@@ -91,6 +92,7 @@ end:
 CK_RV C_GetTokenInfo(CK_SLOT_ID slotID, CK_TOKEN_INFO_PTR pInfo)
 {
 	CK_RV rc = CKR_OK;
+	struct slot_info *slot_info = NULL;
 
 	p11_global_lock();
 
@@ -106,7 +108,12 @@ CK_RV C_GetTokenInfo(CK_SLOT_ID slotID, CK_TOKEN_INFO_PTR pInfo)
 
 	switch (slotID) {
 		case TEE_SLOT_ID:
-			Get_TEE_TokenInfo(pInfo);
+			if (token_already_initialized(slotID)) {
+				slot_info = get_global_slot_info(TEE_SLOT_ID);
+				memcpy(pInfo, &slot_info->token_data.token_info,
+					sizeof(CK_TOKEN_INFO));
+			} else
+				Get_TEE_TokenInfo(pInfo);
 			break;
 		default:
 			rc = CKR_SLOT_ID_INVALID;
@@ -196,19 +203,92 @@ CK_RV C_InitToken(CK_SLOT_ID slotID,
 		  CK_ULONG ulPinLen,
 		  CK_UTF8CHAR_PTR pLabel)
 {
-	slotID = slotID;
-	pPin = pPin;
-	ulPinLen = ulPinLen;
-	pLabel = pLabel;
-	return CKR_FUNCTION_NOT_SUPPORTED; 
+	CK_RV rc = CKR_OK;
+
+	print_info("slotID = %lu, ulPinLen = %lu\n",
+			slotID, ulPinLen);
+
+	p11_global_lock();
+
+	if (!is_lib_initialized()) {
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
+	}
+
+	if (!pPin || !pLabel) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
+
+#if 0
+	// TBD
+	if (strlen(pLabel) > LABEL_MAX_SIZE) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
+#endif
+
+	//|| (strlen(pPin) != ulPinLen)	TBD
+	if ((ulPinLen < 4) || (ulPinLen > 8)) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
+
+	if (slotID != TEE_SLOT_ID) {
+		rc = CKR_SLOT_ID_INVALID;
+		goto end;
+	}
+
+	rc = token_init(slotID, pPin, ulPinLen, pLabel);
+	if (rc) {
+		print_error("token_init failed\n");
+		goto end;
+	}
+
+end:
+	p11_global_unlock();
+	return rc;
 }
 
-CK_RV C_InitPIN(CK_SESSION_HANDLE hSession, CK_UTF8CHAR_PTR pPin, CK_ULONG ulPinLen)
+CK_RV C_InitPIN(CK_SESSION_HANDLE hSession,
+		CK_UTF8CHAR_PTR pPin, CK_ULONG ulPinLen)
 {
-	hSession = hSession;
-	pPin = pPin;
-	ulPinLen = ulPinLen;
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	CK_RV rc = CKR_OK;
+
+	print_info("hSession = 0x%lx, ulPinLen = %lu\n",
+			hSession, ulPinLen);
+
+	p11_global_lock();
+
+	if (!is_lib_initialized()) {
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
+	}
+
+	if ((ulPinLen < 4) || (ulPinLen > 8)) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
+
+	if (!pPin) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
+
+	if (!is_session_valid(hSession)) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
+
+	rc = token_init_pin(hSession, pPin, ulPinLen);
+	if (rc) {
+		print_error("token_init_pin failed\n");
+		goto end;
+	}
+
+end:
+	p11_global_unlock();
+	return rc;
 }
 
 CK_RV C_SetPIN(CK_SESSION_HANDLE hSession,
@@ -217,12 +297,56 @@ CK_RV C_SetPIN(CK_SESSION_HANDLE hSession,
 	       CK_UTF8CHAR_PTR pNewPin,
 	       CK_ULONG ulNewLen)
 {
-	hSession = hSession;
-	pOldPin = pOldPin;
-	ulOldLen = ulOldLen;
-	pNewPin = pNewPin;
-	ulNewLen = ulNewLen;
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	CK_RV rc = CKR_OK;
+	CK_SESSION_INFO sess_info;
+
+	print_info("hSession = 0x%lx, ulOldLen = %lu, ulNewLen = %lu\n",
+			hSession, ulOldLen, ulNewLen);
+
+	p11_global_lock();
+
+	if (!is_lib_initialized()) {
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
+	}
+
+	if (!pOldPin || !pNewPin) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
+
+	if ((ulOldLen < 4) || (ulOldLen > 8)) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
+
+	if ((ulNewLen < 4) || (ulNewLen > 8)) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
+
+	if (!is_session_valid(hSession)) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
+
+	rc = get_session_info(hSession, &sess_info);
+	if (rc != CKR_OK) {
+		print_error("get_session_info failed\n");
+		goto end;
+	}
+
+	rc = token_set_pin(&sess_info, pOldPin, ulOldLen,
+			pNewPin, ulNewLen);
+	if (rc) {
+		print_error("token_init_pin failed\n");
+		goto end;
+	}
+
+end:
+	p11_global_unlock();
+	return rc;
+
 }
 
 /*

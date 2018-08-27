@@ -1687,7 +1687,7 @@ static CK_RV object_add_template(OBJECT *obj,
 
 		rc = map_sk_to_pkcs_attr(sk_attr, &ck_attr);
 		if (rc != CKR_OK) {
-			print_error("map_sk_to_pkcs_attr failed\n")
+			print_error("map_sk_to_pkcs_attr failed\n");
 			free(sk_attr);
 			return CKR_GENERAL_ERROR;
 		}

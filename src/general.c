@@ -10,6 +10,8 @@
 #include <tee_slot.h>
 #include <general.h>
 #include <pthread.h>
+#include <errno.h>
+#include <crypto.h>
 
 #include <securekey_api.h>
 #include <securekey_api_types.h>
@@ -280,7 +282,7 @@ CK_RV destroy_slot(CK_SLOT_ID slotID)
 	s_info = get_global_slot_info(slotID);
 	if (s_info == NULL) {
 		print_error("get_global_slot_info failed\n");
-		return CKR_GENERAL_ERROR;
+		return CKR_SLOT_ID_INVALID;
 	}
 
 	shared_lib_handle = s_info->shared_lib_handle;
@@ -301,7 +303,7 @@ CK_RV initialize_slot(CK_SLOT_ID slotID)
 	struct slot_info *s_info;
 	void *shared_lib_handle;
 	char library[20];
-	CK_RV rc;
+	CK_RV rc = CKR_OK;
 
 	switch (slotID) {
 		case TEE_SLOT_ID:
@@ -315,7 +317,7 @@ CK_RV initialize_slot(CK_SLOT_ID slotID)
 	s_info = get_global_slot_info(slotID);
 	if (s_info == NULL) {
 		print_error("get_global_slot_info failed\n");
-		return CKR_GENERAL_ERROR;
+		return CKR_SLOT_ID_INVALID;
 	}
 
 	shared_lib_handle = open_shared_lib(library);
@@ -332,6 +334,10 @@ CK_RV initialize_slot(CK_SLOT_ID slotID)
 		return CKR_GENERAL_ERROR;
 	}
 
+	rc = token_load_data(slotID, &s_info->token_data);
+	if (rc)
+		print_info("Token not initialized\n");
+
 	if (initialize_object_list(slotID) != CKR_OK)
 		return CKR_GENERAL_ERROR;
 
@@ -339,4 +345,351 @@ CK_RV initialize_slot(CK_SLOT_ID slotID)
 		return CKR_GENERAL_ERROR;
 
 	return CKR_OK;
+}
+
+//---------------------------------START---------------------------------//
+//TBD These functions will be shifted to another file.
+static uint32_t token_load_data_file(CK_SLOT_ID slotID,
+			struct token_data *token_data)
+{
+	FILE *fptr = NULL;
+	uint32_t rc = 0;
+	char file_name[50];
+	struct token_data td;
+
+	sprintf(file_name, "/lib/optee_armtz/%s%lu",  "TEE_TOKEN_", slotID);
+
+	fptr = fopen(file_name, "r");
+	if (!fptr) {
+		print_info("fopen failed\n");
+		rc = errno;
+		goto end;
+	}
+
+	/* Read token data */
+	if (!fread(&td, sizeof(struct token_data), 1, fptr)) {
+		print_info("fread failed\n");
+		rc = errno;
+		goto end;
+	}
+
+	memcpy(token_data, &td, sizeof(struct token_data));
+end:
+	return rc;
+}
+
+static uint32_t token_save_data_file(CK_SLOT_ID slotID,
+			struct token_data *token_data)
+{
+	FILE *fptr = NULL;
+	uint32_t rc = 0;
+	char file_name[50];
+	struct token_data td;
+
+	sprintf(file_name, "/lib/optee_armtz/%s%lu",  "TEE_TOKEN_", slotID);
+
+	fptr = fopen(file_name, "w");
+	if (!fptr) {
+		print_error("fopen failed\n");
+		rc = errno;
+		goto end;
+	}
+
+	/* Write token data */
+	memcpy(&td, token_data, sizeof(struct token_data));
+	if (!fwrite(&td, sizeof(struct token_data), 1, fptr)) {
+		print_error("fwrite failed\n");
+		rc = errno;
+		goto end;
+	}
+
+end:
+	return rc;
+}
+//--------------------------------END----------------------------------//
+
+CK_RV token_load_data(CK_SLOT_ID slotID,
+			struct token_data *token_data)
+{
+	CK_RV rc = CKR_OK;
+
+	if (token_load_data_file(slotID, token_data)) {
+		print_error("token_load_data_file failed\n");
+		rc = CKR_DEVICE_ERROR;
+	}
+
+	return rc;
+}
+
+CK_RV token_save_data(CK_SLOT_ID slotID,
+			struct token_data *token_data)
+{
+	CK_RV rc = CKR_OK;
+
+	if (token_save_data_file(slotID, token_data)) {
+		print_error("token_save_data_file failed\n");
+		rc = CKR_FUNCTION_FAILED;
+	}
+
+	return rc;
+}
+
+CK_BBOOL user_pin_initialized(CK_SLOT_ID slotID)
+{
+	struct slot_info *slot_info = NULL;
+	CK_TOKEN_INFO_PTR token_info = NULL;
+
+	slot_info = get_global_slot_info(slotID);
+	if (!slot_info) {
+		print_error("get_global_slot_info failed\n");
+		return CK_FALSE;
+	}
+
+	token_info = &(slot_info->token_data.token_info);
+	if (token_info->flags & CKF_USER_PIN_INITIALIZED)
+		return CK_TRUE;
+	else
+		return CK_FALSE;
+}
+
+CK_RV token_get_so_pin(CK_SLOT_ID slotID,
+			CK_UTF8CHAR_PTR pPinHash)
+{
+	CK_RV rc = CKR_OK;
+	struct slot_info *slot_info;
+	struct token_data *token_data;
+
+	if (!pPinHash) {
+		print_error("pPinHash is not valid \n");
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
+
+	slot_info = get_global_slot_info(slotID);
+	if (!slot_info) {
+		print_error("get_global_slot_info failed\n");
+		rc = CKR_SLOT_ID_INVALID;
+		goto end;
+	}
+
+	token_data = &(slot_info->token_data);
+	memcpy(pPinHash, token_data->so_pin_hash, PIN_LEN);
+
+end:
+	return rc;
+}
+
+CK_BBOOL token_already_initialized(CK_SLOT_ID slotID)
+{
+	CK_RV rc = CKR_OK;
+	struct slot_info *slot_info;
+	struct token_data *token_data;
+
+	slot_info = get_global_slot_info(slotID);
+	if (!slot_info) {
+		print_error("get_global_slot_info failed\n");
+		rc = CKR_SLOT_ID_INVALID;
+		goto end;
+	}
+
+	token_data = &slot_info->token_data;
+	if ((token_data->token_info.flags & CKF_TOKEN_INITIALIZED) == 0) {
+		rc = CKR_FUNCTION_FAILED;
+		goto end;
+	}
+
+end:
+	if (rc)
+		return CK_FALSE;
+	else
+		return CK_TRUE;
+}
+
+CK_RV token_init(CK_SLOT_ID slotID,
+		  CK_UTF8CHAR_PTR pPin,
+		  CK_ULONG ulPinLen,
+		  CK_UTF8CHAR_PTR pLabel)
+{
+	CK_RV rc = CKR_OK;
+	struct slot_info *slot_info = NULL;
+	struct token_data	*token_data = NULL;
+	CK_TOKEN_INFO_PTR token_info = NULL;
+	CK_BYTE oldPinHash[PIN_LEN];
+	CK_BYTE newPinHash[PIN_LEN];
+
+	/* Get SHA256  of pin */
+	rc = get_digest(pPin, ulPinLen, newPinHash);
+	if (rc) {
+		print_error("get_digest failed\n");
+		goto end;
+	}
+
+	if (token_already_initialized(slotID)) {
+		rc = token_get_so_pin(slotID, oldPinHash);
+		if (rc) {
+			print_error("token_get_so_pin failed\n");
+			goto end;
+		} else {
+			if (strncmp((const char *)newPinHash,
+				(const char *)oldPinHash,
+				PIN_LEN)) {
+				rc = CKR_PIN_INCORRECT;
+				print_error("SO Pin Mismatch\n");
+				goto end;
+			}
+		}
+	}
+
+	slot_info = get_global_slot_info(slotID);
+	if (slot_info == NULL) {
+		print_error("get_global_slot_info failed\n");
+		rc = CKR_SLOT_ID_INVALID;
+		goto end;
+	}
+
+	token_data = &slot_info->token_data;
+	token_info = &token_data->token_info;
+	switch (slotID) {
+		case TEE_SLOT_ID:
+			/* Get the Token information from TEE Token*/
+			Get_TEE_TokenInfo(token_info);
+			break;
+		default:
+			rc = CKR_SLOT_ID_INVALID;
+			goto end;
+	}
+
+	/* Update the label with user provided token label and
+	  * set token flags to CKF_TOKEN_INITIALIZED.
+	  */
+	memcpy(token_info->label, pLabel, 32);
+	token_info->flags = CKF_TOKEN_INITIALIZED;
+
+	memcpy(token_data->so_pin_hash, newPinHash, PIN_LEN);
+	if (token_save_data(slotID, token_data)) {
+		print_error("token_save_data failed\n");
+		rc = CKR_GENERAL_ERROR;
+		goto end;
+	}
+
+end:
+	return rc;
+}
+
+CK_RV token_init_pin(CK_SESSION_HANDLE hSession,
+		CK_UTF8CHAR_PTR pPin, CK_ULONG ulPinLen)
+{
+	CK_RV rc = CKR_OK;
+	struct slot_info *s_info = NULL;
+	struct token_data *token_data = NULL;
+	CK_BYTE pinHash[PIN_LEN];
+	CK_SESSION_INFO sess_info;
+
+	rc = get_session_info(hSession, &sess_info);
+	if (rc != CKR_OK) {
+		print_error("get_session_info failed\n");
+		goto end;
+	}
+
+	if (sess_info.state != CKS_RW_SO_FUNCTIONS) {
+		print_error("Not an SO Session\n");
+		rc = CKR_USER_NOT_LOGGED_IN;
+		goto end;
+	}
+
+	/* Get SHA256  of pin */
+	rc = get_digest(pPin, ulPinLen, pinHash);
+	if (rc) {
+		print_error("get_digest failed\n");
+		goto end;
+	}
+
+	s_info = get_global_slot_info(sess_info.slotID);
+	if (s_info == NULL) {
+		print_error("get_global_slot_info failed\n");
+		rc = CKR_SLOT_ID_INVALID;
+		goto end;
+	}
+
+	token_data = &s_info->token_data;
+
+	memcpy(token_data->user_pin_hash, pinHash, PIN_LEN);
+	token_data->token_info.flags |= CKF_USER_PIN_INITIALIZED;
+
+	if (token_save_data(sess_info.slotID, token_data)) {
+		print_error("token_save_data failed\n");
+		rc = CKR_GENERAL_ERROR;
+		goto end;
+	}
+
+end:
+	return rc;
+}
+
+CK_RV token_set_pin(CK_SESSION_INFO_PTR pSession,
+		CK_UTF8CHAR_PTR pOldPin, CK_ULONG ulOldLen,
+		CK_UTF8CHAR_PTR pNewPin, CK_ULONG ulNewLen)
+{
+	CK_RV rc = CKR_OK;
+	CK_BYTE oldPinHash[PIN_LEN] = { 0 };
+	CK_BYTE newPinHash[PIN_LEN] = { 0 };
+	struct slot_info *s_info = NULL;
+	struct token_data *token_data = NULL;
+
+	/* Get SHA256  of Old PIN */
+	if (get_digest(pOldPin, ulOldLen, oldPinHash)) {
+		print_error("get_digest failed\n");
+		rc = CKR_GENERAL_ERROR;
+		goto end;
+	}
+
+	/* Get SHA256  of New PIN */
+	if (get_digest(pNewPin, ulNewLen, newPinHash)) {
+		print_error("get_digest failed\n");
+		rc = CKR_GENERAL_ERROR;
+		goto end;
+	}
+
+	s_info = get_global_slot_info(pSession->slotID);
+	if (s_info == NULL) {
+		print_error("get_global_slot_info failed\n");
+		rc = CKR_SLOT_ID_INVALID;
+		goto end;
+	}
+
+	token_data = &s_info->token_data;
+
+	if ((pSession->state == CKS_RW_USER_FUNCTIONS) ||
+		(pSession->state == CKS_RW_PUBLIC_SESSION)) {
+		if (memcmp(token_data->user_pin_hash, oldPinHash,
+			PIN_LEN) == 0) {
+			memcpy(token_data->user_pin_hash,
+				newPinHash, PIN_LEN);
+		} else {
+			rc = CKR_PIN_INCORRECT;
+			goto end;
+		}
+	} else if (pSession->state == CKS_RW_SO_FUNCTIONS) {
+		if (memcmp(token_data->so_pin_hash, oldPinHash,
+			PIN_LEN) == 0) {
+			memcpy(token_data->so_pin_hash,
+				newPinHash, PIN_LEN);
+		} else {
+			rc = CKR_PIN_INCORRECT;
+			goto end;
+		}
+	} else {
+		print_error("Session R/O \n");
+		rc = CKR_SESSION_READ_ONLY;
+		goto end;
+	}
+
+	if (token_save_data(pSession->slotID, token_data)) {
+		print_error("token_save_data failed\n");
+		rc = CKR_GENERAL_ERROR;
+		goto end;
+	}
+
+end:
+	return rc;
 }

@@ -117,17 +117,19 @@ CK_RV Get_TEE_TokenInfo(CK_TOKEN_INFO_PTR pInfo)
 	strncpy((char *)pInfo->manufacturerID, "NXP", strlen("NXP"));
 
 	memset(pInfo->model, ' ', sizeof(pInfo->model));
+	strncpy((char *)pInfo->model, "PKCS11-OP-TEE",
+		strlen("PKCS11-OP-TEE"));
 
 	memset(pInfo->serialNumber, ' ', sizeof(pInfo->serialNumber));
 	strncpy((char *)pInfo->serialNumber, "1", strlen("1"));
 
-	pInfo->flags = CKF_WRITE_PROTECTED | CKF_TOKEN_INITIALIZED;
+	pInfo->flags = 0;
 	pInfo->ulMaxSessionCount = CK_UNAVAILABLE_INFORMATION;
 	pInfo->ulSessionCount = CK_UNAVAILABLE_INFORMATION;
 	pInfo->ulMaxRwSessionCount = CK_UNAVAILABLE_INFORMATION;
 	pInfo->ulRwSessionCount = CK_UNAVAILABLE_INFORMATION;
-	pInfo->ulMaxPinLen = 0;
-	pInfo->ulMinPinLen = 0;
+	pInfo->ulMaxPinLen = 8;
+	pInfo->ulMinPinLen = 4;
 	pInfo->ulTotalPublicMemory = CK_UNAVAILABLE_INFORMATION;
 	pInfo->ulFreePublicMemory = CK_UNAVAILABLE_INFORMATION;
 	pInfo->ulTotalPrivateMemory = CK_UNAVAILABLE_INFORMATION;
