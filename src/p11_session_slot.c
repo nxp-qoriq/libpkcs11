@@ -363,6 +363,9 @@ CK_RV C_OpenSession(CK_SLOT_ID slotID,
 	pApplication = pApplication;
 	Notify = Notify;
 
+	print_info("slotID = %lu, phSession = %p, flags = %lu\n",
+			slotID, phSession, flags);
+
 	p11_global_lock();
 
 	if (!is_lib_initialized()) {
@@ -375,7 +378,7 @@ CK_RV C_OpenSession(CK_SLOT_ID slotID,
 		goto end;
 	}
 
-	if ((flags & CKF_RW_SESSION)) {
+	if (pApplication || Notify) {
 		rc = CKR_ARGUMENTS_BAD;
 		goto end;
 	}
@@ -390,6 +393,13 @@ CK_RV C_OpenSession(CK_SLOT_ID slotID,
 		goto end;
 	}
 
+	if ((flags & CKF_RW_SESSION) == 0) {
+		if (so_session_exist()) {
+			rc = CKR_SESSION_READ_WRITE_SO_EXISTS;
+			goto end;
+		}
+	}
+
 	rc = create_session(slotID, flags, phSession);
 	if (rc != CKR_OK)
 		print_error("create_session failed \n");
@@ -402,6 +412,8 @@ end:
 CK_RV C_CloseSession(CK_SESSION_HANDLE hSession)
 {
 	CK_RV rc = CKR_OK;
+
+	print_info("hSession = 0x%lx\n", hSession);
 
 	p11_global_lock();
 
@@ -428,10 +440,17 @@ CK_RV C_CloseAllSessions(CK_SLOT_ID slotID)
 {
 	CK_RV rc = CKR_OK;
 
+	print_info("slotID = %lu\n", slotID);
+
 	p11_global_lock();
 
 	if (!is_lib_initialized()) {
 		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
+	}
+
+	if (slotID != TEE_SLOT_ID) {
+		rc = CKR_SLOT_ID_INVALID;
 		goto end;
 	}
 
@@ -503,15 +522,75 @@ CK_RV C_Login(CK_SESSION_HANDLE hSession,
 	      CK_UTF8CHAR_PTR pPin,
 	      CK_ULONG ulPinLen)
 {
-	hSession = hSession;
-	userType = userType;
-	pPin = pPin;
-	ulPinLen = ulPinLen;
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	CK_RV rc = CKR_OK;
+
+	print_info("hSession = 0x%lx, userType = %lu, ulPinLen = %lu\n",
+			hSession, userType, ulPinLen);
+
+	p11_global_lock();
+
+	if (!is_lib_initialized()) {
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
+	}
+
+	if (!pPin) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
+
+	if (!is_session_valid(hSession)) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
+
+	if ((ulPinLen < 4) || (ulPinLen > 8)) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
+
+	rc = session_login(hSession, userType, pPin, ulPinLen);
+	if (rc) {
+		print_error("session_login failed\n");
+		goto end;
+	}
+
+end:
+	p11_global_unlock();
+	return rc;
+
 }
 
 CK_RV C_Logout(CK_SESSION_HANDLE hSession)
 {
-	hSession = hSession;
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	CK_RV rc = CKR_OK;
+
+	print_info("hSession = 0x%lx\n", hSession);
+
+	p11_global_lock();
+
+	if (!is_lib_initialized()) {
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
+	}
+
+	if (!is_session_valid(hSession)) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
+
+	if (public_session_exist()) {
+		rc = CKR_USER_NOT_LOGGED_IN;
+		goto end;
+	}
+
+	rc = session_logout(hSession);
+	if (rc) {
+		print_error("session_logout failed\n");
+		goto end;
+	}
+
+end:
+	p11_global_unlock();
+	return rc;
 }

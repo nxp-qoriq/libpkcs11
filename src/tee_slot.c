@@ -124,10 +124,10 @@ CK_RV Get_TEE_TokenInfo(CK_TOKEN_INFO_PTR pInfo)
 	strncpy((char *)pInfo->serialNumber, "1", strlen("1"));
 
 	pInfo->flags = 0;
-	pInfo->ulMaxSessionCount = CK_UNAVAILABLE_INFORMATION;
-	pInfo->ulSessionCount = CK_UNAVAILABLE_INFORMATION;
-	pInfo->ulMaxRwSessionCount = CK_UNAVAILABLE_INFORMATION;
-	pInfo->ulRwSessionCount = CK_UNAVAILABLE_INFORMATION;
+	pInfo->ulMaxSessionCount = 10;
+	pInfo->ulSessionCount = 0;
+	pInfo->ulMaxRwSessionCount = 5;
+	pInfo->ulRwSessionCount = 0;
 	pInfo->ulMaxPinLen = 8;
 	pInfo->ulMinPinLen = 4;
 	pInfo->ulTotalPublicMemory = CK_UNAVAILABLE_INFORMATION;

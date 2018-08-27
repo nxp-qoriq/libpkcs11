@@ -55,6 +55,8 @@ session *get_session(CK_SESSION_HANDLE hSession);
 
 CK_BBOOL is_session_valid(CK_SESSION_HANDLE hSession);
 
+CK_BBOOL session_ro_exist(void);
+
 CK_RV create_session(CK_SLOT_ID slotID,  CK_FLAGS flags,
 		CK_SESSION_HANDLE_PTR phSession);
 
@@ -62,6 +64,18 @@ CK_RV delete_session(CK_SESSION_HANDLE hSession);
 
 CK_RV get_session_info(CK_SESSION_HANDLE hSession,
 		CK_SESSION_INFO_PTR pInfo);
+
+CK_BBOOL so_session_exist(void);
+
+CK_BBOOL user_session_exist(void);
+
+CK_BBOOL public_session_exist(void);
+
+CK_RV session_login(CK_SESSION_HANDLE hSession,
+	      CK_USER_TYPE userType, CK_UTF8CHAR_PTR pPin,
+	      CK_ULONG ulPinLen);
+
+CK_RV session_logout(CK_SESSION_HANDLE hSession);
 
 struct slot_info *get_global_slot_info(CK_SLOT_ID slotID);
 
