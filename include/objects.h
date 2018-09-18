@@ -11,6 +11,9 @@
 
 #define MAX_FIND_LIST_OBJECTS  100
 
+#define OP_GENERATE	0
+#define OP_CREATE	1
+
 /* Attributes in each objects are maintained as template nodes */
 struct template_node {
 	CK_ATTRIBUTE_PTR		attributes;
@@ -52,8 +55,24 @@ CK_RV destroy_object_list(CK_SLOT_ID slotID);
 
 CK_RV initialize_object_list(CK_SLOT_ID slotID);
 
-CK_BBOOL p11_template_compare(CK_ATTRIBUTE *t1, CK_ULONG ulCount,
-		struct template_list *tmpl_list);
+CK_RV
+template_destroy_template_list(struct template_list *template);
+
+CK_RV
+template_check_required_attributes(
+				struct template_list *template,
+				CK_ULONG class,
+				CK_ULONG subclass,
+				CK_ULONG op_type);
+
+CK_RV
+template_validate_attributes(struct template_list *template,
+				CK_ULONG class, CK_ULONG subclass,
+				CK_ULONG op_type);
+
+CK_BBOOL p11_template_compare(CK_ATTRIBUTE *t1,
+				CK_ULONG ulCount,
+				struct template_list *tmpl_list);
 
 CK_RV find_matching_objects(CK_OBJECT_HANDLE_PTR object_handle,
 	struct object_list *obj_list, CK_ATTRIBUTE_PTR pTemplate,
@@ -63,4 +82,55 @@ CK_RV get_attr_value(CK_SESSION_HANDLE hSession,
 		CK_OBJECT_HANDLE hObject,
 		CK_ATTRIBUTE_PTR pTemplate,
 		CK_ULONG ulCount);
+
+CK_RV
+attribute_validate_base_attributes(CK_ATTRIBUTE *attr,
+				CK_ULONG op_type);
+
+CK_RV objects_generate_key_pair(CK_SESSION_HANDLE hSession,
+			CK_MECHANISM_PTR pMechanism,
+			CK_ATTRIBUTE_PTR pPublicKeyTemplate,
+			CK_ULONG ulPublicKeyAttributeCount,
+			CK_ATTRIBUTE_PTR pPrivateKeyTemplate,
+			CK_ULONG ulPrivateKeyAttributeCount,
+			CK_OBJECT_HANDLE_PTR phPublicKey,
+			CK_OBJECT_HANDLE_PTR phPrivateKey);
+
+CK_RV template_check_consistency(
+			CK_MECHANISM_PTR pMechanism,
+			CK_ATTRIBUTE_PTR pPublicKeyTemplate,
+			CK_ULONG ulPublicKeyAttributeCount,
+			CK_ATTRIBUTE_PTR pPrivateKeyTemplate,
+			CK_ULONG ulPrivateKeyAttributeCount);
+
+CK_BBOOL p11_template_attribute_find(
+				struct template_list *template,
+				CK_ATTRIBUTE_TYPE type,
+				CK_ATTRIBUTE **attr);
+
+CK_RV
+template_create_template_list(CK_ATTRIBUTE_PTR pTemplate,
+			CK_ULONG ulCount,
+			struct template_list **tmpl_list);
+
+CK_BBOOL object_is_destroyable(CK_OBJECT_HANDLE hObject);
+
+CK_BBOOL object_is_private(CK_OBJECT_HANDLE hObject);
+
+CK_BBOOL
+template_is_modifiable_set(struct template_list *template);
+
+CK_BBOOL template_is_private_set(struct template_list *template);
+
+CK_BBOOL template_is_public_set(struct template_list *template);
+
+CK_BBOOL
+template_is_token_object(struct template_list *template);
+
+CK_BBOOL
+template_is_session_object(struct template_list *template);
+
+CK_RV destroy_object(CK_OBJECT_HANDLE hObject,
+			CK_SLOT_ID slotID);
+
 #endif

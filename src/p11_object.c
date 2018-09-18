@@ -47,9 +47,47 @@ CK_RV C_CopyObject(CK_SESSION_HANDLE hSession,
 
 CK_RV C_DestroyObject(CK_SESSION_HANDLE hSession, CK_OBJECT_HANDLE hObject)
 {
-	hSession = hSession;
-	hObject = hObject;
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	CK_RV rc = CKR_OK;
+	session *sess = NULL;
+	CK_BBOOL destroyable = CK_FALSE;
+	CK_BBOOL private = CK_FALSE;
+
+	print_info("hSession = 0x%lx , hObject = 0x%lx\n",
+			hSession, hObject);
+
+	p11_global_lock();
+
+	if (!is_lib_initialized()) {
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
+	}
+
+	destroyable = object_is_destroyable(hObject);
+	if (!destroyable) {
+		rc = CKR_ACTION_PROHIBITED;
+		goto end;
+	}
+
+	private = object_is_private(hObject);
+	sess = get_session(hSession);
+	if (!sess) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
+
+	if (private) {
+		if (sess->session_info.state != CKS_RW_USER_FUNCTIONS)
+			return CKR_USER_NOT_LOGGED_IN;
+	}
+
+	rc = destroy_object(hObject, sess->session_info.slotID);
+	if (rc != CKR_OK)
+		print_error("delete session failed\n");
+
+end:
+	p11_global_unlock();
+	return rc;
+
 }
 
 CK_RV C_GetObjectSize(CK_SESSION_HANDLE hSession, CK_OBJECT_HANDLE hObject, CK_ULONG_PTR pulSize)

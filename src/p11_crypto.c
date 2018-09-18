@@ -480,15 +480,53 @@ CK_RV C_GenerateKeyPair(CK_SESSION_HANDLE hSession,
 			CK_OBJECT_HANDLE_PTR phPublicKey,
 			CK_OBJECT_HANDLE_PTR phPrivateKey)
 {
-	hSession = hSession;
-	pMechanism = pMechanism;
-	pPublicKeyTemplate = pPublicKeyTemplate;
-	ulPublicKeyAttributeCount = ulPublicKeyAttributeCount;
-	pPrivateKeyTemplate = pPrivateKeyTemplate;
-	ulPrivateKeyAttributeCount = ulPrivateKeyAttributeCount;
-	phPublicKey = phPublicKey;
-	phPrivateKey = phPrivateKey;
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	session *sess = NULL;
+	CK_RV rc = CKR_OK;
+
+	p11_global_lock();
+
+	if (!is_lib_initialized()) {
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
+	}
+
+	if (!pMechanism || !phPublicKey || !phPrivateKey) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
+
+	if (!pPublicKeyTemplate && (ulPublicKeyAttributeCount != 0)) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
+
+	if (!pPrivateKeyTemplate && (ulPrivateKeyAttributeCount != 0)) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
+
+	sess = get_session(hSession);
+	if (!sess) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
+
+	if (!mechanism_is_valid(sess->session_info.slotID, pMechanism,
+			CKF_GENERATE_KEY_PAIR)) {
+		print_error("Invalid Mechanism passed\n");
+		rc = CKR_MECHANISM_INVALID;
+		goto end;
+	}
+
+	rc = objects_generate_key_pair(hSession, pMechanism,
+			pPublicKeyTemplate, ulPublicKeyAttributeCount,
+			pPrivateKeyTemplate,
+			ulPrivateKeyAttributeCount,
+			phPublicKey, phPrivateKey);
+
+end:
+	p11_global_unlock();
+	return rc;
 }
 
 CK_RV C_WrapKey(CK_SESSION_HANDLE hSession,

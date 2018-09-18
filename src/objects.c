@@ -87,12 +87,13 @@ static CK_BBOOL p11_is_attribute_defined(CK_ATTRIBUTE_TYPE attr_type)
 	}
 }
 
-static CK_RV p11_template_update_attr(struct template_list *tmpl_list,
-		struct template_node *tmpl_node)
+static CK_RV
+p11_template_update_attr(struct template_list *tmpl_list,
+				struct template_node *tmpl_node)
 {
 	CK_ATTRIBUTE *attr = NULL;
 	CK_ATTRIBUTE *new_attr;
-	struct template_node *temp = NULL, *s = NULL;
+	struct template_node *temp = NULL;
 
 	if (!tmpl_list || !tmpl_node)
 		return CKR_ARGUMENTS_BAD;
@@ -105,10 +106,10 @@ static CK_RV p11_template_update_attr(struct template_list *tmpl_list,
 	STAILQ_FOREACH(temp, tmpl_list, entry) {
 		attr = (CK_ATTRIBUTE *)temp->attributes;
 		if (new_attr->type == attr->type) {
-			s = temp;
-			STAILQ_REMOVE(tmpl_list, s, template_node, entry);
+			STAILQ_REMOVE(tmpl_list, temp, template_node, entry);
+			STAILQ_NEXT(temp, entry) = NULL;
 			free(attr);
-			free(s);
+			free(temp);
 			break;
 		}
 	}
@@ -118,83 +119,179 @@ static CK_RV p11_template_update_attr(struct template_list *tmpl_list,
 	return CKR_OK;
 }
 static CK_RV
-key_object_set_default_attr(struct template_list *tmpl_list)
+key_object_set_default_attr(struct template_list *tmpl_list,
+				CK_ULONG op_type)
 {
-	struct template_node *start_date;
-	struct template_node *end_date;
-	struct template_node *derive;
-	struct template_node *local;
+	CK_RV rc = CKR_OK;
+	CK_ATTRIBUTE_PTR derive_attr = NULL;
+	CK_ATTRIBUTE_PTR start_date_attr  = NULL;
+	CK_ATTRIBUTE_PTR end_date_attr  = NULL;
+	CK_ATTRIBUTE_PTR local_attr = NULL;
+	CK_ATTRIBUTE_PTR id_attr = NULL;
 
-	CK_ATTRIBUTE *derive_attr = NULL;
-	CK_ATTRIBUTE *start_date_attr  = NULL;
-	CK_ATTRIBUTE *end_date_attr  = NULL;
-	CK_ATTRIBUTE *local_attr  = NULL;
+	struct template_node *derive = NULL;
+	struct template_node *start_date = NULL;
+	struct template_node *end_date = NULL;
+	struct template_node *local = NULL;
+	struct template_node *id = NULL;
 
-	start_date_attr     = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE));
-	local_attr     = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
-	end_date_attr     = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE));
-	derive_attr    = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	if (!p11_template_attribute_find(tmpl_list, CKA_DERIVE,
+			&derive_attr)) {
+		derive_attr = (CK_ATTRIBUTE_PTR)malloc(
+				sizeof(CK_ATTRIBUTE) +
+				sizeof(CK_BBOOL));
+		derive = (struct template_node *)malloc(
+				sizeof(struct template_node));
 
-	start_date = (struct template_node *)malloc( sizeof(struct template_node));
-	end_date = (struct template_node *)malloc( sizeof(struct template_node));
-	derive = (struct template_node *)malloc( sizeof(struct template_node));
-	local = (struct template_node *)malloc( sizeof(struct template_node));
+		if (!derive_attr || !derive) {
+			rc = CKR_HOST_MEMORY;
+			goto free_memory;
+		}
 
-	if (!start_date_attr || !end_date_attr || !derive_attr || !local_attr ||
-		!start_date || !end_date || !derive || !local) {
-		if (start_date_attr)
-			free(start_date_attr);
-		if (end_date_attr)
-			free(end_date_attr);
-		if (derive_attr)
-			free(derive_attr);
-		if (local_attr)
-			free(local_attr);
-		if (start_date)
-			free(start_date);
-		if (end_date)
-			free(end_date);
-		if (derive)
-			free(derive);
-		if (local)
-			free(local);
-		return CKR_HOST_MEMORY;
+		derive->attributes = derive_attr;
+
+		derive_attr->type = CKA_DERIVE;
+		derive_attr->ulValueLen = sizeof(CK_BBOOL);
+		derive_attr->pValue = (CK_BYTE *)derive_attr +
+					sizeof(CK_ATTRIBUTE);
+		*(CK_BBOOL *)derive_attr->pValue = FALSE;
+	} else {
+		derive_attr = NULL;
 	}
 
-	start_date_attr->type        = CKA_START_DATE;
-	start_date_attr->ulValueLen  = 0;
-	start_date_attr->pValue      = NULL;
+	if (!p11_template_attribute_find(tmpl_list, CKA_START_DATE,
+			&start_date_attr)) {
+		start_date_attr = (CK_ATTRIBUTE_PTR)malloc(
+				sizeof(CK_ATTRIBUTE) +
+				sizeof(CK_DATE));
+		start_date = (struct template_node *)malloc(
+				sizeof(struct template_node));
 
-	derive_attr->type       = CKA_DERIVE;
-	derive_attr->ulValueLen = sizeof(CK_BBOOL);
-	derive_attr->pValue     = (CK_BYTE *)derive_attr + sizeof(CK_ATTRIBUTE);
-	*(CK_BBOOL *)derive_attr->pValue = FALSE;
+		if (!start_date_attr || !start_date) {
+			rc = CKR_HOST_MEMORY;
+			goto free_memory;
+		}
 
-	end_date_attr->type        = CKA_END_DATE;
-	end_date_attr->ulValueLen  = 0;
-	end_date_attr->pValue      = NULL;
+		start_date->attributes = start_date_attr;
 
-	local_attr->type        = CKA_LOCAL;
-	local_attr->ulValueLen  = sizeof(CK_BBOOL);
-	local_attr->pValue      = (CK_BYTE *)local_attr + sizeof(CK_ATTRIBUTE);
-	*(CK_BBOOL *)local_attr->pValue = FALSE;
+		start_date_attr->type = CKA_START_DATE;
+		start_date_attr->ulValueLen = sizeof(CK_BBOOL);
+		start_date_attr->pValue = (CK_BYTE *)start_date_attr +
+					sizeof(CK_ATTRIBUTE);
+		memset(start_date_attr->pValue, 0, sizeof(CK_DATE));
+	} else {
+		start_date_attr = NULL;
+	}
 
-	start_date->attributes = start_date_attr;
+	if (!p11_template_attribute_find(tmpl_list, CKA_END_DATE,
+			&end_date_attr)) {
+		end_date_attr = (CK_ATTRIBUTE_PTR)malloc(
+				sizeof(CK_ATTRIBUTE) +
+				sizeof(CK_DATE));
+		end_date = (struct template_node *)malloc(
+				sizeof(struct template_node));
+
+		if (!end_date_attr || !end_date) {
+			rc = CKR_HOST_MEMORY;
+			goto free_memory;
+		}
+
+		end_date->attributes = end_date_attr;
+
+		end_date_attr->type = CKA_END_DATE;
+		end_date_attr->ulValueLen = sizeof(CK_BBOOL);
+		end_date_attr->pValue = (CK_BYTE *)end_date_attr +
+					sizeof(CK_ATTRIBUTE);
+		memset(end_date_attr->pValue, 0, sizeof(CK_DATE));
+	} else {
+		end_date_attr = NULL;
+	}
+
+	if (!p11_template_attribute_find(tmpl_list, CKA_ID,
+			&id_attr)) {
+		id_attr = (CK_ATTRIBUTE_PTR)malloc(
+				sizeof(CK_ATTRIBUTE));
+		id = (struct template_node *)malloc(
+				sizeof(struct template_node));
+
+		if (!id_attr || !id) {
+			rc = CKR_HOST_MEMORY;
+			goto free_memory;
+		}
+
+		id->attributes = id_attr;
+
+		id_attr->type = CKA_ID;
+		id_attr->ulValueLen = 0;
+		id_attr->pValue = NULL;
+	} else {
+		id_attr = NULL;
+	}
+
+	local_attr = (CK_ATTRIBUTE *)malloc( sizeof(CK_ATTRIBUTE) +
+				sizeof(CK_BBOOL));
+	local = (struct template_node *)malloc(sizeof(struct template_node));
+
+	if (!local_attr || !local) {
+		rc = CKR_HOST_MEMORY;
+		goto free_memory;
+	}
+
+	local_attr->type = CKA_LOCAL;
+	local_attr->ulValueLen = sizeof(CK_BBOOL);
+	local_attr->pValue = (CK_BYTE *)local_attr +
+				sizeof(CK_ATTRIBUTE);
+	if (op_type == OP_GENERATE)
+		*(CK_BBOOL *)local_attr->pValue = CK_TRUE;
+	else
+		*(CK_BBOOL *)local_attr->pValue = CK_FALSE;
+
 	local->attributes = local_attr;
-	derive->attributes = derive_attr;
-	end_date->attributes = end_date_attr;
 
-	p11_template_update_attr(tmpl_list, start_date);
-	p11_template_update_attr(tmpl_list, derive);
-	p11_template_update_attr(tmpl_list, end_date);
-	p11_template_update_attr(tmpl_list, local);
+	if (derive && derive_attr)
+		p11_template_update_attr(tmpl_list, derive);
+	if (start_date && start_date_attr)
+		p11_template_update_attr(tmpl_list, start_date);
+	if (end_date && end_date_attr)
+		p11_template_update_attr(tmpl_list, end_date);
+	if (local && local_attr)
+		p11_template_update_attr(tmpl_list, local);
+	if (id && id_attr)
+		p11_template_update_attr(tmpl_list, id);
 
-	return CKR_OK;
+	goto end;
+
+free_memory:
+	if (local_attr)
+		free(local_attr);
+	if (local)
+		free(local);
+	if (derive_attr)
+		free(derive_attr);
+	if (derive)
+		free(derive);
+	if (start_date_attr)
+		free(start_date_attr);
+	if (start_date)
+		free(start_date);
+	if (end_date_attr)
+		free(end_date_attr);
+	if (end_date)
+		free(end_date);
+	if (id_attr)
+		free(id_attr);
+	if (id)
+		free(id);
+end:
+	return rc;
 }
 
 static CK_RV
-pubk_add_default_attr(struct template_list *tmpl_list)
+pubk_add_default_attr(struct template_list *tmpl_list,
+				CK_ULONG op_type)
 {
+	/* To satisfy compiler */
+	op_type = op_type;
 	struct template_node *class;
 	struct template_node *subject;
 	struct template_node *encrypt;
@@ -203,6 +300,7 @@ pubk_add_default_attr(struct template_list *tmpl_list)
 	struct template_node *wrap;
 	struct template_node *trusted;
 	struct template_node *wrap_template;
+	struct template_node *public_key_info;
 
 	CK_ATTRIBUTE    *pubk_class_attr = NULL;
 	CK_ATTRIBUTE    *pubk_subject_attr = NULL;
@@ -212,10 +310,11 @@ pubk_add_default_attr(struct template_list *tmpl_list)
 	CK_ATTRIBUTE    *pubk_wrap_attr = NULL;
 	CK_ATTRIBUTE    *pubk_trusted_attr = NULL;
 	CK_ATTRIBUTE    *pubk_wrap_template_attr = NULL;
+	CK_ATTRIBUTE_PTR pubk_public_key_info_attr = NULL;
 
-	CK_RV            rc;
+	CK_RV	rc;
 
-	rc = key_object_set_default_attr(tmpl_list);
+	rc = key_object_set_default_attr(tmpl_list, op_type);
 	if (rc != CKR_OK){
 		print_error("key_object_set_default_attr failed\n");
 		return rc;
@@ -234,6 +333,7 @@ pubk_add_default_attr(struct template_list *tmpl_list)
 		sizeof(CK_BBOOL));
 	pubk_trusted_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
 	pubk_wrap_template_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
+	pubk_public_key_info_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
 
 	class = (struct template_node *)malloc(sizeof(struct template_node));
 	subject = (struct template_node *)malloc(sizeof(struct template_node));
@@ -243,13 +343,15 @@ pubk_add_default_attr(struct template_list *tmpl_list)
 	wrap = (struct template_node *)malloc(sizeof(struct template_node));
 	trusted = (struct template_node *)malloc(sizeof(struct template_node));
 	wrap_template = (struct template_node *)malloc(sizeof(struct template_node));
+	public_key_info = (struct template_node *)malloc(sizeof(struct template_node));
 
 	if (!pubk_class_attr || !pubk_subject_attr || !pubk_encrypt_attr ||
 		!pubk_verify_attr  || !pubk_verify_recover_attr ||
-		!pubk_wrap_attr || !subject || !class || !encrypt ||
+		!pubk_wrap_attr || !pubk_public_key_info_attr ||
+		!subject || !class || !encrypt ||
 		!verify || !verify_recover || !wrap || !trusted ||
 		!wrap_template || !pubk_trusted_attr ||
-		!pubk_wrap_template_attr)
+		!pubk_wrap_template_attr || !public_key_info)
 	{
 		if (pubk_class_attr)
 			free(pubk_class_attr);
@@ -283,6 +385,10 @@ pubk_add_default_attr(struct template_list *tmpl_list)
 			free(pubk_trusted_attr);
 		if (pubk_wrap_template_attr)
 			free(pubk_wrap_template_attr);
+		if (pubk_public_key_info_attr)
+			free(pubk_public_key_info_attr);
+		if (public_key_info)
+			free(public_key_info);
 
 		return CKR_HOST_MEMORY;
 	}
@@ -293,7 +399,7 @@ pubk_add_default_attr(struct template_list *tmpl_list)
 	*(CK_OBJECT_CLASS *)pubk_class_attr->pValue = CKO_PUBLIC_KEY;
 
 	pubk_subject_attr->type         = CKA_SUBJECT;
-	pubk_subject_attr->ulValueLen   = 0;  // empty string
+	pubk_subject_attr->ulValueLen   = 0;
 	pubk_subject_attr->pValue       = NULL;
 
 	pubk_encrypt_attr->type          = CKA_ENCRYPT;
@@ -325,6 +431,10 @@ pubk_add_default_attr(struct template_list *tmpl_list)
 	pubk_wrap_template_attr->ulValueLen    = 0;
 	pubk_wrap_template_attr->pValue        = NULL;
 
+	pubk_public_key_info_attr->type          = CKA_PUBLIC_KEY_INFO;
+	pubk_public_key_info_attr->ulValueLen    = 0;
+	pubk_public_key_info_attr->pValue        = NULL;
+
 	class->attributes = pubk_class_attr;
 	subject->attributes = pubk_subject_attr;
 	encrypt->attributes = pubk_encrypt_attr;
@@ -333,6 +443,7 @@ pubk_add_default_attr(struct template_list *tmpl_list)
 	wrap->attributes = pubk_wrap_attr;
 	trusted->attributes = pubk_trusted_attr;
 	wrap_template->attributes = pubk_wrap_template_attr;
+	public_key_info->attributes = pubk_public_key_info_attr;
 
 	p11_template_update_attr(tmpl_list, class);
 	p11_template_update_attr(tmpl_list, subject);
@@ -342,15 +453,19 @@ pubk_add_default_attr(struct template_list *tmpl_list)
 	p11_template_update_attr(tmpl_list, wrap);
 	p11_template_update_attr(tmpl_list, trusted);
 	p11_template_update_attr(tmpl_list, wrap_template);
+	p11_template_update_attr(tmpl_list, public_key_info);
 
 	return CKR_OK;
 }
 
 
 static CK_RV
-rsa_pubk_add_default_attr(struct template_list *tmpl_list)
+rsa_pubk_add_default_attr(struct template_list *tmpl_list,
+				CK_ULONG op_type)
 {
 	CK_RV rc;
+	/* To satisfy compiler */
+	op_type = op_type;
 
 	struct template_node *keygen_mech;
 	struct template_node *allowed_mech;
@@ -360,7 +475,7 @@ rsa_pubk_add_default_attr(struct template_list *tmpl_list)
 	CK_ATTRIBUTE   *allowed_mech_attr = NULL;
 	CK_ATTRIBUTE   *key_type_attr = NULL;
 
-	rc = pubk_add_default_attr(tmpl_list);
+	rc = pubk_add_default_attr(tmpl_list, op_type);
 	if (rc != CKR_OK) {
 		print_error("pubk_add_default_attr failed\n");
 		return rc;
@@ -370,7 +485,8 @@ rsa_pubk_add_default_attr(struct template_list *tmpl_list)
 	keygen_mech = (struct template_node *)malloc(sizeof(struct template_node));
 	allowed_mech = (struct template_node *)malloc(sizeof(struct template_node));
 
-	keygen_mech_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
+	keygen_mech_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
+		+ sizeof(CK_MECHANISM_TYPE));
 	allowed_mech_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
 	key_type_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
 		+ sizeof(CK_KEY_TYPE));
@@ -400,8 +516,14 @@ rsa_pubk_add_default_attr(struct template_list *tmpl_list)
 	*(CK_KEY_TYPE *)key_type_attr->pValue = CKK_RSA;
 
 	keygen_mech_attr->type = CKA_KEY_GEN_MECHANISM;
-	keygen_mech_attr->ulValueLen = 0;
-	keygen_mech_attr->pValue = NULL;
+	if (op_type == OP_GENERATE) {
+		keygen_mech_attr->ulValueLen = sizeof(CK_MECHANISM_TYPE);
+		keygen_mech_attr->pValue = (CK_BYTE *)keygen_mech_attr + sizeof(CK_ATTRIBUTE);
+		*(CK_MECHANISM_TYPE_PTR)keygen_mech_attr->pValue = CKM_RSA_PKCS_KEY_PAIR_GEN;
+	} else {
+		keygen_mech_attr->ulValueLen = 0;
+		keygen_mech_attr->pValue = NULL;
+	}
 
 	allowed_mech_attr->type = CKA_ALLOWED_MECHANISMS;
 	allowed_mech_attr->ulValueLen = 0;
@@ -419,9 +541,12 @@ rsa_pubk_add_default_attr(struct template_list *tmpl_list)
 }
 
 static CK_RV
-ecc_pubk_add_default_attr(struct template_list *tmpl_list)
+ecc_pubk_add_default_attr(struct template_list *tmpl_list,
+				CK_ULONG op_type)
 {
 	CK_RV rc;
+	/* To satisfy compiler */
+	op_type = op_type;
 
 	struct template_node *keygen_mech;
 	struct template_node *allowed_mech;
@@ -431,7 +556,7 @@ ecc_pubk_add_default_attr(struct template_list *tmpl_list)
 	CK_ATTRIBUTE   *allowed_mech_attr = NULL;
 	CK_ATTRIBUTE   *key_type_attr = NULL;
 
-	rc = pubk_add_default_attr(tmpl_list);
+	rc = pubk_add_default_attr(tmpl_list, op_type);
 	if (rc != CKR_OK) {
 		print_error("pubk_add_default_attr failed\n");
 		return rc;
@@ -441,7 +566,8 @@ ecc_pubk_add_default_attr(struct template_list *tmpl_list)
 	keygen_mech = (struct template_node *)malloc(sizeof(struct template_node));
 	allowed_mech = (struct template_node *)malloc(sizeof(struct template_node));
 
-	keygen_mech_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
+	keygen_mech_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
+		+ sizeof(CK_MECHANISM_TYPE));
 	allowed_mech_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
 	key_type_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
 		+ sizeof(CK_KEY_TYPE));
@@ -471,8 +597,14 @@ ecc_pubk_add_default_attr(struct template_list *tmpl_list)
 	*(CK_KEY_TYPE *)key_type_attr->pValue = CKK_EC;
 
 	keygen_mech_attr->type = CKA_KEY_GEN_MECHANISM;
-	keygen_mech_attr->ulValueLen = 0;
-	keygen_mech_attr->pValue = NULL;
+	if (op_type == OP_GENERATE) {
+		keygen_mech_attr->ulValueLen = sizeof(CK_MECHANISM_TYPE);
+		keygen_mech_attr->pValue = (CK_BYTE *)keygen_mech_attr + sizeof(CK_ATTRIBUTE);
+		*(CK_MECHANISM_TYPE_PTR)keygen_mech_attr->pValue = CKM_EC_KEY_PAIR_GEN;
+	} else {
+		keygen_mech_attr->ulValueLen = 0;
+		keygen_mech_attr->pValue = NULL;
+	}
 
 	allowed_mech_attr->type = CKA_ALLOWED_MECHANISMS;
 	allowed_mech_attr->ulValueLen = 0;
@@ -490,8 +622,12 @@ ecc_pubk_add_default_attr(struct template_list *tmpl_list)
 }
 
 static CK_RV
-privk_add_default_attr(struct template_list *tmpl_list)
+privk_add_default_attr(struct template_list *tmpl_list,
+			CK_ULONG op_type)
 {
+	/* To satisfy compiler */
+	op_type = op_type;
+
 	struct template_node *class;
 	struct template_node *subject;
 	struct template_node *sensitive;
@@ -505,6 +641,7 @@ privk_add_default_attr(struct template_list *tmpl_list)
 	struct template_node *wrap_with_trusted;
 	struct template_node *unwrap_templ;
 	struct template_node *always_auth;
+	struct template_node *public_key_info;
 
 	CK_ATTRIBUTE *privk_class_attr = NULL;
 	CK_ATTRIBUTE *privk_subject_attr = NULL;
@@ -519,10 +656,11 @@ privk_add_default_attr(struct template_list *tmpl_list)
 	CK_ATTRIBUTE *privk_wrap_with_trusted_attr = NULL;
 	CK_ATTRIBUTE *privk_unwrap_templ_attr = NULL;
 	CK_ATTRIBUTE *privk_always_auth_attr = NULL;
+	CK_ATTRIBUTE_PTR privk_public_key_info_attr = NULL;
+
 	CK_RV	rc;
 
-
-	rc = key_object_set_default_attr(tmpl_list);
+	rc = key_object_set_default_attr(tmpl_list, op_type);
 	if (rc != CKR_OK){
 		print_error("key_object_set_default_attr failed\n");
 		return rc;
@@ -541,6 +679,7 @@ privk_add_default_attr(struct template_list *tmpl_list)
 	wrap_with_trusted = (struct template_node *)malloc(sizeof(struct template_node));
 	unwrap_templ = (struct template_node *)malloc(sizeof(struct template_node));
 	always_auth = (struct template_node *)malloc(sizeof(struct template_node));
+	public_key_info = (struct template_node *)malloc(sizeof(struct template_node));
 
 	privk_class_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_OBJECT_CLASS)) ;
 	privk_subject_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
@@ -555,6 +694,7 @@ privk_add_default_attr(struct template_list *tmpl_list)
 	privk_wrap_with_trusted_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
 	privk_unwrap_templ_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
 	privk_always_auth_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+	privk_public_key_info_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
 
 	if (!privk_class_attr || !privk_subject_attr || !privk_sensitive_attr
 		|| !privk_decrypt_attr || !privk_sign_attr  ||
@@ -565,7 +705,8 @@ privk_add_default_attr(struct template_list *tmpl_list)
 		!unwrap || !extractable || !never_extr ||
 		!always_sens || !wrap_with_trusted || !unwrap_templ ||
 		!always_auth|| !privk_wrap_with_trusted_attr ||
-		!privk_unwrap_templ_attr || !privk_always_auth_attr)
+		!privk_unwrap_templ_attr || !privk_always_auth_attr ||
+		!privk_public_key_info_attr || !public_key_info)
 	{
 		if (privk_class_attr)
 			free(privk_class_attr);
@@ -619,6 +760,10 @@ privk_add_default_attr(struct template_list *tmpl_list)
 			free(privk_unwrap_templ_attr);
 		if (privk_always_auth_attr)
 			free(privk_always_auth_attr);
+		if (public_key_info)
+			free(public_key_info);
+		if (privk_public_key_info_attr)
+			free(privk_public_key_info_attr);
 
 		return CKR_HOST_MEMORY;
 	}
@@ -629,7 +774,7 @@ privk_add_default_attr(struct template_list *tmpl_list)
 	*(CK_OBJECT_CLASS *)privk_class_attr->pValue = CKO_PRIVATE_KEY;
 
 	privk_subject_attr->type       = CKA_SUBJECT;
-	privk_subject_attr->ulValueLen = 0;  // empty string
+	privk_subject_attr->ulValueLen = 0;
 	privk_subject_attr->pValue     = NULL;
 
 	privk_sensitive_attr->type       = CKA_SENSITIVE;
@@ -686,6 +831,10 @@ privk_add_default_attr(struct template_list *tmpl_list)
 	privk_always_auth_attr->pValue     = (CK_BYTE *)privk_always_auth_attr + sizeof(CK_ATTRIBUTE);
 	*(CK_BBOOL *)privk_always_auth_attr->pValue = FALSE;
 
+	privk_public_key_info_attr->type          = CKA_PUBLIC_KEY_INFO;
+	privk_public_key_info_attr->ulValueLen    = 0;
+	privk_public_key_info_attr->pValue        = NULL;
+
 	class->attributes = privk_class_attr;
 	subject->attributes = privk_subject_attr;
 	sensitive->attributes = privk_sensitive_attr;
@@ -699,6 +848,7 @@ privk_add_default_attr(struct template_list *tmpl_list)
 	wrap_with_trusted->attributes = privk_wrap_with_trusted_attr;
 	unwrap_templ->attributes = privk_unwrap_templ_attr;
 	always_auth->attributes = privk_always_auth_attr;
+	public_key_info->attributes = privk_public_key_info_attr;
 
 	p11_template_update_attr(tmpl_list, class);
 	p11_template_update_attr(tmpl_list, subject);
@@ -713,17 +863,21 @@ privk_add_default_attr(struct template_list *tmpl_list)
 	p11_template_update_attr(tmpl_list, wrap_with_trusted);
 	p11_template_update_attr(tmpl_list, unwrap_templ);
 	p11_template_update_attr(tmpl_list, always_auth);
+	p11_template_update_attr(tmpl_list, public_key_info);
 
 	return CKR_OK;
 }
 
 
 static CK_RV
-rsa_privk_add_default_attr(struct template_list *tmpl_list)
+rsa_privk_add_default_attr(struct template_list *tmpl_list,
+				CK_ULONG op_type)
 {
 	CK_RV rc;
 	uint32_t rsa_priv_key_mech_count = 7;
 	CK_MECHANISM_TYPE_PTR mech;
+	/* To satisfy compiler */
+	op_type = op_type;
 
 	struct template_node *keygen_mech;
 	struct template_node *allowed_mech;
@@ -733,7 +887,7 @@ rsa_privk_add_default_attr(struct template_list *tmpl_list)
 	CK_ATTRIBUTE   *allowed_mech_attr = NULL;
 	CK_ATTRIBUTE   *key_type_attr = NULL;
 
-	rc = privk_add_default_attr(tmpl_list);
+	rc = privk_add_default_attr(tmpl_list, op_type);
 	if (rc != CKR_OK) {
 		print_error("privk_add_default_attr failed\n");
 		return rc;
@@ -745,7 +899,8 @@ rsa_privk_add_default_attr(struct template_list *tmpl_list)
 
 	key_type_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
 		+ sizeof(CK_KEY_TYPE));
-	keygen_mech_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
+	keygen_mech_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
+		+ sizeof(CK_MECHANISM_TYPE));
 	allowed_mech_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
 		+ (sizeof(CK_MECHANISM_TYPE) * rsa_priv_key_mech_count));
 
@@ -774,8 +929,14 @@ rsa_privk_add_default_attr(struct template_list *tmpl_list)
 	*(CK_KEY_TYPE *)key_type_attr->pValue = CKK_RSA;
 
 	keygen_mech_attr->type = CKA_KEY_GEN_MECHANISM;
-	keygen_mech_attr->ulValueLen = 0;
-	keygen_mech_attr->pValue = NULL;
+	if (op_type == OP_GENERATE) {
+		keygen_mech_attr->ulValueLen = sizeof(CK_MECHANISM_TYPE);
+		keygen_mech_attr->pValue = (CK_BYTE *)keygen_mech_attr + sizeof(CK_ATTRIBUTE);
+		*(CK_MECHANISM_TYPE_PTR)keygen_mech_attr->pValue = CKM_RSA_PKCS_KEY_PAIR_GEN;
+	} else {
+		keygen_mech_attr->ulValueLen = 0;
+		keygen_mech_attr->pValue = NULL;
+	}
 
 	allowed_mech_attr->type = CKA_ALLOWED_MECHANISMS;
 	allowed_mech_attr->ulValueLen = rsa_priv_key_mech_count *
@@ -804,11 +965,14 @@ rsa_privk_add_default_attr(struct template_list *tmpl_list)
 }
 
 static CK_RV
-ecc_privk_add_default_attr(struct template_list *tmpl_list)
+ecc_privk_add_default_attr(struct template_list *tmpl_list,
+				CK_ULONG op_type)
 {
 	CK_RV rc;
 	uint32_t ecc_priv_key_mech_count = 2;
 	CK_MECHANISM_TYPE_PTR mech;
+	/* To satisfy compiler */
+	op_type = op_type;
 
 	struct template_node *keygen_mech;
 	struct template_node *allowed_mech;
@@ -818,7 +982,7 @@ ecc_privk_add_default_attr(struct template_list *tmpl_list)
 	CK_ATTRIBUTE   *allowed_mech_attr = NULL;
 	CK_ATTRIBUTE   *key_type_attr = NULL;
 
-	rc = privk_add_default_attr(tmpl_list);
+	rc = privk_add_default_attr(tmpl_list, op_type);
 	if (rc != CKR_OK) {
 		print_error("privk_add_default_attr failed\n");
 		return rc;
@@ -830,7 +994,8 @@ ecc_privk_add_default_attr(struct template_list *tmpl_list)
 
 	key_type_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
 		+ sizeof(CK_KEY_TYPE));
-	keygen_mech_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE));
+	keygen_mech_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
+		+ sizeof(CK_MECHANISM_TYPE));
 	allowed_mech_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
 		+ (sizeof(CK_MECHANISM_TYPE) * ecc_priv_key_mech_count));
 
@@ -859,8 +1024,14 @@ ecc_privk_add_default_attr(struct template_list *tmpl_list)
 	*(CK_KEY_TYPE *)key_type_attr->pValue = CKK_EC;
 
 	keygen_mech_attr->type = CKA_KEY_GEN_MECHANISM;
-	keygen_mech_attr->ulValueLen = 0;
-	keygen_mech_attr->pValue = NULL;
+	if (op_type == OP_GENERATE) {
+		keygen_mech_attr->ulValueLen = sizeof(CK_MECHANISM_TYPE);
+		keygen_mech_attr->pValue = (CK_BYTE *)keygen_mech_attr + sizeof(CK_ATTRIBUTE);
+		*(CK_MECHANISM_TYPE_PTR)keygen_mech_attr->pValue = CKM_EC_KEY_PAIR_GEN;
+	} else {
+		keygen_mech_attr->ulValueLen = 0;
+		keygen_mech_attr->pValue = NULL;
+	}
 
 	allowed_mech_attr->type = CKA_ALLOWED_MECHANISMS;
 	allowed_mech_attr->ulValueLen = ecc_priv_key_mech_count *
@@ -883,6 +1054,612 @@ ecc_privk_add_default_attr(struct template_list *tmpl_list)
 	return CKR_OK;
 }
 
+static
+CK_RV attribute_check_required_base_attributes(
+		struct template_list *template,
+		CK_ULONG op_type)
+{
+	CK_ATTRIBUTE *attr;
+	CK_BBOOL found;
+
+	found = p11_template_attribute_find(template, CKA_CLASS, &attr);
+
+	if (op_type == OP_CREATE && found == FALSE) {
+		print_error("Class attribute not given\n");
+		return CKR_TEMPLATE_INCOMPLETE;
+	}
+
+	return CKR_OK;
+}
+
+
+CK_RV
+attribute_validate_base_attributes(CK_ATTRIBUTE *attr,
+		CK_ULONG op_type)
+{
+	CK_BBOOL value;
+	if (!attr) {
+		print_error("attr passed is NULL");
+		return CKR_FUNCTION_FAILED;
+	}
+
+	switch (attr->type) {
+		case CKA_TOKEN:
+			value = *(CK_BBOOL *)attr->pValue;
+			if (value == CK_FALSE) {
+				print_error("Session Objects not supported.\n");
+				return CKR_ATTRIBUTE_VALUE_INVALID;
+			} else
+				return CKR_OK;
+		case CKA_CLASS:
+		case CKA_PRIVATE:
+			return CKR_OK;
+		case CKA_LABEL:
+			return CKR_OK;
+		case CKA_MODIFIABLE:
+			/* For now in any operation if CKA_MODIFIABLE
+			  * is set to CK_TRUE, we are returning error */
+			if ((op_type & (OP_CREATE|OP_GENERATE))  != 0) {
+				value = *(CK_BBOOL *)attr->pValue;
+				if (value == CK_TRUE) {
+					print_error("Objects Modification not suppoted.\n");
+					return CKR_ATTRIBUTE_VALUE_INVALID;
+				}
+				return CKR_OK;
+			} else {
+				print_error("Objects modification is not supported.\n");
+				return CKR_ATTRIBUTE_VALUE_INVALID;
+			}
+		case CKA_COPYABLE:
+			value = *(CK_BBOOL *)attr->pValue;
+			if (value == CK_TRUE) {
+				print_error("Objects Copy not suppoted.\n");
+				return CKR_ATTRIBUTE_VALUE_INVALID;
+			}
+			return CKR_OK;
+		case CKA_DESTROYABLE:
+			return CKR_OK;
+		default:
+			print_error("Template Inconsistent\n");
+			return CKR_TEMPLATE_INCONSISTENT;
+	}
+
+	print_error(" Attribute Read Only op_type = %lu, Attr type = %lu\n",
+				op_type, attr->type);
+	return CKR_ATTRIBUTE_READ_ONLY;
+}
+
+static CK_RV
+attribute_key_object_check_required_attributes(
+		struct template_list *template,
+		CK_ULONG op_type)
+{
+	CK_ATTRIBUTE * attr = NULL;
+	CK_BBOOL    found;
+
+	found = p11_template_attribute_find(template, CKA_KEY_TYPE,
+			&attr);
+	if (!found) {
+		if (op_type == OP_CREATE){
+			print_error("Key type not given\n");
+			return CKR_TEMPLATE_INCOMPLETE;
+		}
+	}
+
+	return attribute_check_required_base_attributes(template, op_type);
+}
+
+
+	static CK_RV
+attribute_key_object_validate(CK_ATTRIBUTE *attr,
+		CK_ULONG op_type)
+{
+	CK_BBOOL value;
+	switch (attr->type) {
+		case CKA_KEY_TYPE:
+			if (op_type == OP_CREATE ||
+					op_type == OP_GENERATE)
+				return CKR_OK;
+			else {
+				print_error("Attribute Read Only\n");
+				return CKR_ATTRIBUTE_READ_ONLY;
+			}
+		case CKA_ID:
+		case CKA_START_DATE:
+		case CKA_END_DATE:
+			return CKR_OK;
+
+		case CKA_DERIVE:
+			value = *(CK_BBOOL *)attr->pValue;
+			if (value != CK_FALSE) {
+				print_error("Derive Key not supported\n");
+				return CKR_ATTRIBUTE_VALUE_INVALID;
+			} else
+				return CKR_OK;
+
+		case CKA_LOCAL:
+			print_error("Attribute Read Only\n");
+			return CKR_ATTRIBUTE_READ_ONLY;
+		default:
+			return attribute_validate_base_attributes(attr,
+					op_type);
+	}
+
+	print_error("Attribute Type Invalid\n");
+	return CKR_ATTRIBUTE_TYPE_INVALID;
+}
+
+static CK_RV
+attribute_pubk_check_required_attributes(
+		struct template_list *template,
+		CK_ULONG op_type)
+{
+	//CKO_PRIVATE_KEY has no required attributes
+
+	return attribute_key_object_check_required_attributes(template,
+			op_type);
+}
+
+	static CK_RV
+attribute_pubk_validate(CK_ATTRIBUTE *attr, CK_ULONG op_type)
+{
+	CK_BBOOL value;
+	switch (attr->type) {
+		case CKA_SUBJECT:
+			return CKR_OK;
+
+		case CKA_ENCRYPT:
+		case CKA_VERIFY:
+			return CKR_OK;
+		case CKA_VERIFY_RECOVER:
+		case CKA_WRAP:
+			value = *(CK_BBOOL *)attr->pValue;
+			if (value == CK_TRUE) {
+				print_error("Wrap/Verify Recover not supported\n");
+				return CKR_ATTRIBUTE_VALUE_INVALID;
+			} else
+				return CKR_OK;
+		default:
+			return attribute_key_object_validate(attr,
+					op_type);
+	}
+
+	print_error("Attribute Type Invalid\n");
+	return CKR_ATTRIBUTE_TYPE_INVALID;
+}
+
+static CK_RV
+attribute_privk_check_required_attributes(
+		struct template_list *template,
+		CK_ULONG op_type)
+{
+	//CKO_PRIVATE_KEY has no required attributes
+
+	return attribute_key_object_check_required_attributes(template,
+			op_type);
+}
+
+
+	static CK_RV
+attribute_privk_validate(CK_ATTRIBUTE *attr, CK_ULONG op_type)
+{
+	CK_BBOOL value;
+	switch (attr->type) {
+		case CKA_SUBJECT:
+		case CKA_DECRYPT:
+		case CKA_SIGN:
+			return CKR_OK;
+
+		case CKA_SIGN_RECOVER:
+		case CKA_UNWRAP:
+			value = *(CK_BBOOL *)attr->pValue;
+			if (value != CK_FALSE) {
+				print_error("SIGN_RECOVER/UNWRAP not supported\n");
+				return CKR_ATTRIBUTE_VALUE_INVALID;
+			} else
+				return CKR_OK;
+		case CKA_SENSITIVE:
+			if (op_type == OP_CREATE ||
+					op_type == OP_GENERATE) {
+				value = *(CK_BBOOL *)attr->pValue;
+				if (value != TRUE) {
+					print_error("Attribute Read Only\n");
+					return CKR_ATTRIBUTE_VALUE_INVALID;
+				} else
+					return CKR_OK;
+			} else
+				return CKR_ATTRIBUTE_READ_ONLY;
+		case CKA_EXTRACTABLE:
+			value = *(CK_BBOOL *)attr->pValue;
+			if ((op_type != OP_CREATE && op_type != OP_GENERATE) && value !=
+					FALSE) {
+				print_error("Attribute Read Only\n");
+				return CKR_ATTRIBUTE_READ_ONLY;
+			}
+			if (value == CK_TRUE) {
+				print_error("CKA_EXTRACTABLE only CK_FALSE allowed\n");
+				return CKR_ATTRIBUTE_VALUE_INVALID;
+			}
+			return CKR_OK;
+
+		case CKA_ALWAYS_SENSITIVE:
+		case CKA_NEVER_EXTRACTABLE:
+			print_error("Attribute Read Only\n");
+			return CKR_ATTRIBUTE_READ_ONLY;
+
+		default:
+			return attribute_key_object_validate(attr,
+					op_type);
+	}
+
+	print_error("Attribute Invalid \n");
+	return CKR_ATTRIBUTE_TYPE_INVALID;
+}
+
+static CK_RV
+attribute_rsa_pubk_check_required_attributes(
+		struct template_list *template, CK_ULONG op_type)
+{
+	CK_ATTRIBUTE *attr = NULL;
+	CK_BBOOL   found = CK_FALSE;
+
+	found = p11_template_attribute_find(template,
+				CKA_MODULUS, &attr);
+	if (!found) {
+		if (op_type == OP_CREATE) {
+			print_error("Modulus not given\n");
+			return CKR_TEMPLATE_INCOMPLETE;
+		}
+	}
+
+	found = p11_template_attribute_find(template,
+				CKA_MODULUS_BITS, &attr);
+	if (!found) {
+		if (op_type == OP_GENERATE) {
+			print_error("Modulus bits not given\n");
+			return CKR_TEMPLATE_INCOMPLETE;
+		}
+	}
+
+	found = p11_template_attribute_find(template,
+				CKA_PUBLIC_EXPONENT, &attr);
+	if (!found) {
+		if (op_type == OP_CREATE) {
+			print_error("Public Exponent not given\n");
+			return CKR_TEMPLATE_INCOMPLETE;
+		}
+	}
+
+	return attribute_pubk_check_required_attributes(template,
+						op_type);
+}
+
+
+static
+CK_RV attribute_rsa_pubk_validate(CK_ATTRIBUTE_PTR attr,
+		CK_ULONG op_type)
+{
+	switch (attr->type) {
+		case CKA_MODULUS_BITS:
+			if (op_type == OP_GENERATE) {
+				if (attr->ulValueLen != sizeof(CK_ULONG))
+					return CKR_ATTRIBUTE_VALUE_INVALID;
+				else {
+					CK_ULONG mod_bits = *(CK_ULONG *)attr->pValue;
+
+					if (mod_bits < 1024 || mod_bits > 2048) {
+						print_error("Unsupported RSA size = %lu\n", mod_bits);
+						return CKR_ATTRIBUTE_VALUE_INVALID;
+					}
+
+					if (mod_bits % 8 != 0) {
+						print_error("Unsupported RSA size = %lu\n", mod_bits);
+						return CKR_ATTRIBUTE_VALUE_INVALID;
+					}
+
+					return CKR_OK;
+				}
+			} else {
+				print_error("Attribute read only\n");
+				return CKR_ATTRIBUTE_READ_ONLY;
+			}
+		case CKA_MODULUS:
+			if (op_type == OP_CREATE) {
+				//				p11_attribute_trim(attr);
+				return CKR_OK;
+			}
+			else {
+				print_error("Attribute read only\n");
+				return CKR_ATTRIBUTE_READ_ONLY;
+			}
+		case CKA_PUBLIC_EXPONENT:
+			if (op_type == OP_CREATE || op_type == OP_GENERATE) {
+				//				p11_attribute_trim(attr);
+				return CKR_OK;
+			} else {
+				print_error("Attribute read only\n");
+				return CKR_ATTRIBUTE_READ_ONLY;
+			}
+		default:
+			return attribute_pubk_validate(attr, op_type);
+	}
+
+}
+
+static CK_RV
+attribute_rsa_privk_check_required_attributes(
+		struct template_list *template,
+		CK_ULONG op_type)
+{
+	CK_ATTRIBUTE *attr = NULL;
+	CK_BBOOL   found;
+
+
+	found = p11_template_attribute_find(template, CKA_MODULUS, &attr);
+	if (!found) {
+		if (op_type == OP_CREATE){
+			print_error("Modulus not given \n");
+			return CKR_TEMPLATE_INCOMPLETE;
+		}
+	}
+
+
+	//
+	// PKCS #11 is flexible with respect to which attributes must be present
+	// in an RSA key.  Keys can be specified in Chinese-Remainder format or
+	// they can be specified in modular-exponent format.  Right now, I only
+	// support keys created in Chinese-Remainder format.  That is, we return
+	// CKR_TEMPLATE_INCOMPLETE if a modular-exponent key is specified.  This
+	// is allowed by PKCS #11.
+	//
+	// In the future, we should allow for creation of keys in modular-exponent
+	// format too.  This raises some issues.  It's easy enough to recognize
+	// when a key has been specified in modular-exponent format.  And it's
+	// easy enough to recognize when all attributes have been specified
+	// (which is what we require right now).  What's trickier to handle is
+	// the "middle" cases in which more than the minimum yet less than the
+	// full number of attributes have been specified.  Do we revert back to
+	// modular-exponent representation?  Do we compute the missing attributes
+	// ourselves?  Do we simply return CKR_TEMPLATE_INCOMPLETE?
+	//
+
+	found = p11_template_attribute_find(template, CKA_PUBLIC_EXPONENT,
+			&attr );
+	if (!found) {
+		if (op_type == OP_CREATE){
+			print_error("Public Exponent not given\n");
+			return CKR_TEMPLATE_INCOMPLETE;
+		}
+	}
+
+	found = p11_template_attribute_find(template, CKA_PRIVATE_EXPONENT,
+			&attr);
+	if (!found) {
+		if (op_type == OP_CREATE){
+			print_error("Private Exponent not given\n");
+			return CKR_TEMPLATE_INCOMPLETE;
+		}
+	}
+#if 0
+	found = p11_template_attribute_find( tmpl, CKA_PRIME_1, &attr );
+	if (!found) {
+		if (mode == MODE_CREATE){
+			TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+			return CKR_TEMPLATE_INCOMPLETE;
+		}
+	}
+
+	found = p11_template_attribute_find( tmpl, CKA_PRIME_2, &attr );
+	if (!found) {
+		if (mode == MODE_CREATE){
+			TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+			return CKR_TEMPLATE_INCOMPLETE;
+		}
+	}
+
+	found = p11_template_attribute_find( tmpl, CKA_EXPONENT_1, &attr );
+	if (!found) {
+		if (mode == MODE_CREATE){
+			TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+			return CKR_TEMPLATE_INCOMPLETE;
+		}
+	}
+
+	found = p11_template_attribute_find( tmpl, CKA_EXPONENT_2, &attr );
+	if (!found) {
+		if (mode == MODE_CREATE){
+			TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+			return CKR_TEMPLATE_INCOMPLETE;
+		}
+	}
+
+	found = p11_template_attribute_find( tmpl, CKA_COEFFICIENT, &attr );
+	if (!found) {
+		if (mode == MODE_CREATE){
+			TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+			return CKR_TEMPLATE_INCOMPLETE;
+		}
+	}
+#endif
+	return attribute_privk_check_required_attributes(template, op_type);
+}
+
+static
+CK_RV attribute_rsa_privk_validate(CK_ATTRIBUTE_PTR attr,
+		CK_ULONG op_type)
+{
+	switch (attr->type) {
+		case CKA_MODULUS:
+		case CKA_PRIVATE_EXPONENT:
+			if (op_type == OP_CREATE) {
+				//				p11_attribute_trim(attr);
+				return CKR_OK;
+			} else {
+				print_error("Attribute Read Only\n");
+				return CKR_ATTRIBUTE_READ_ONLY;
+			}
+		case CKA_PUBLIC_EXPONENT:
+		case CKA_PRIME_1:
+		case CKA_PRIME_2:
+		case CKA_EXPONENT_1:
+		case CKA_EXPONENT_2:
+		case CKA_COEFFICIENT:
+			if (op_type == OP_CREATE) {
+				//				p11_attribute_trim( attr );
+				return CKR_OK;
+			}
+			else{
+				print_error("Attribute Read Only\n");
+				return CKR_ATTRIBUTE_READ_ONLY;
+			}
+		default:
+			return attribute_privk_validate(attr,
+					op_type);
+	}
+
+}
+
+static CK_RV
+attribute_ec_pubk_check_required_attributes(
+		struct template_list *template,
+		CK_ULONG op_type)
+{
+	CK_ATTRIBUTE *attr = NULL;
+	CK_BBOOL   found;
+
+
+	found = p11_template_attribute_find(template, CKA_EC_PARAMS, &attr);
+	if (!found) {
+		if (op_type == OP_CREATE || op_type == OP_GENERATE) {
+			print_error("EC Params not given\n");
+			return CKR_TEMPLATE_INCOMPLETE;
+		}
+	}
+
+	found = p11_template_attribute_find(template, CKA_EC_POINT, &attr);
+	if (!found) {
+		if (op_type == OP_CREATE) {
+			print_error("EC Point is not given\n");
+			return CKR_TEMPLATE_INCOMPLETE;
+		}
+	}
+
+	return attribute_pubk_check_required_attributes(template, op_type);
+}
+
+
+static
+CK_RV attribute_ec_pubk_validate(CK_ATTRIBUTE_PTR attr,
+		CK_ULONG op_type)
+{
+	switch (attr->type) {
+		case CKA_EC_PARAMS:
+			if (op_type == OP_GENERATE || op_type == OP_CREATE)
+				return CKR_OK;
+			else {
+				print_error("Attribute Read Only\n");
+				return CKR_ATTRIBUTE_READ_ONLY;
+			}
+		case CKA_EC_POINT:
+			if (op_type == OP_CREATE)
+				return CKR_OK;
+			else {
+				print_error("Attribute Read Only\n");
+				return CKR_ATTRIBUTE_READ_ONLY;
+			}
+		default:
+			return attribute_pubk_validate(attr, op_type);
+	}
+}
+
+static CK_RV
+attribute_ec_privk_check_required_attributes(
+		struct template_list *template,
+		CK_ULONG op_type)
+{
+	CK_ATTRIBUTE *attr = NULL;
+	CK_BBOOL   found;
+
+
+	found = p11_template_attribute_find(template, CKA_EC_PARAMS, &attr);
+	if (!found) {
+		if (op_type == OP_CREATE){
+			print_error("EC Params not given\n");
+			return CKR_TEMPLATE_INCOMPLETE;
+		}
+	}
+
+	found = p11_template_attribute_find(template, CKA_VALUE, &attr);
+	if (!found) {
+		if (op_type == OP_CREATE){
+			print_error("Priv Key Value not provided for EC\n");
+			return CKR_TEMPLATE_INCOMPLETE;
+		}
+	}
+
+	return attribute_privk_check_required_attributes(template, op_type);
+}
+
+
+static
+CK_RV attribute_ec_privk_validate(CK_ATTRIBUTE_PTR attr,
+		CK_ULONG op_type)
+{
+	switch (attr->type) {
+		case CKA_EC_PARAMS:
+			if (op_type == OP_CREATE)
+				return CKR_OK;
+			else {
+				print_error("Attribute Read Only\n");
+				return CKR_ATTRIBUTE_READ_ONLY;
+			}
+		case CKA_VALUE:
+			if (op_type == OP_CREATE) {
+				//				p11_attribute_trim(attr);
+				return CKR_OK;
+			} else {
+				print_error("Attribute Read Only\n");
+				return CKR_ATTRIBUTE_READ_ONLY;
+			}
+		default:
+			return attribute_privk_validate(attr, op_type);
+	}
+
+}
+
+static CK_RV template_merge(struct template_list *dest,
+			struct template_list **src)
+{
+	CK_RV rc = CKR_OK;
+	struct template_node *temp = NULL, *s = NULL;
+	struct template_list *src_tmpl_list = NULL;
+
+	if (!dest || !src) {
+		print_error("Invalid Function arguements\n");
+		return CKR_FUNCTION_FAILED;
+	}
+
+	src_tmpl_list = *src;
+
+	temp = STAILQ_FIRST(src_tmpl_list);
+	while (temp) {
+		s = STAILQ_NEXT(temp, entry);
+		STAILQ_REMOVE(src_tmpl_list, temp, template_node, entry);
+		STAILQ_NEXT(temp, entry) = NULL;
+		rc = p11_template_update_attr(dest, temp);
+		if (rc != CKR_OK) {
+			print_error("p11_template_update_attr failed\n");
+			return rc;
+		}
+		temp = s;
+	}
+
+	template_destroy_template_list(src_tmpl_list);
+	*src = NULL;
+
+	return CKR_OK;
+}
+
 /* p11_template_add_default_common_attr()
  *
  * Set the default attributes common to all objects:
@@ -892,67 +1669,116 @@ ecc_privk_add_default_attr(struct template_list *tmpl_list)
  *	CKA_MODIFIABLE:	FALSE
  */
 static CK_RV
-p11_template_add_default_common_attr(struct template_list *tmpl_list)
+p11_template_add_default_common_attr(
+			struct template_list *tmpl_list,
+			CK_ULONG op_type)
 {
+	/* To satisfy compiler */
+	op_type = op_type;
+
 	struct template_node *token_node;
 	struct template_node *mod_node;
-	struct template_node *priv_node;
+	struct template_node *copyable_node;
+	struct template_node *destroyable_node;
 
 	CK_ATTRIBUTE *com_token_attr;
 	CK_ATTRIBUTE *com_mod_attr;
-	CK_ATTRIBUTE *com_priv_attr;
+	CK_ATTRIBUTE *com_copyable_attr;
+	CK_ATTRIBUTE *com_destroyable_attr;
+	CK_ATTRIBUTE_PTR temp = NULL_PTR;
 
 	token_node = (struct template_node *)malloc(sizeof(struct template_node));
 	mod_node = (struct template_node *)malloc(sizeof(struct template_node));
-	priv_node = (struct template_node *)malloc(sizeof(struct template_node));
+	copyable_node = (struct template_node *)malloc(sizeof(struct template_node));
+	destroyable_node = (struct template_node *)malloc(sizeof(struct template_node));
 
 	/* add the default common attributes */
 	com_token_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
 			+ sizeof(CK_BBOOL));
 	com_mod_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
 			+ sizeof(CK_BBOOL));
-	com_priv_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
+	com_copyable_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
+			+ sizeof(CK_BBOOL));
+	com_destroyable_attr = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE)
 			+ sizeof(CK_BBOOL));
 
-	if (!com_token_attr || !com_priv_attr || !com_mod_attr ||!token_node ||
-		!priv_node || !mod_node) {
+	if (!com_token_attr || !com_mod_attr ||
+		!com_copyable_attr || !com_copyable_attr ||
+		!token_node || !mod_node ||
+		!copyable_node || !destroyable_node) {
 		if (com_token_attr) free(com_token_attr);
-		if (com_priv_attr) free(com_priv_attr);
 		if (com_mod_attr) free(com_mod_attr);
+		if (com_copyable_attr) free(com_copyable_attr);
+		if (com_destroyable_attr) free(com_destroyable_attr);
 		if (token_node) free(token_node);
-		if (priv_node) free(priv_node);
 		if (mod_node) free(mod_node);
+		if (copyable_node) free(copyable_node);
+		if (destroyable_node) free(destroyable_node);
 
 		return CKR_HOST_MEMORY;
 	}
 
 	com_token_attr->type = CKA_TOKEN;
 	com_token_attr->ulValueLen = sizeof(CK_BBOOL);
-	com_token_attr->pValue = (CK_BYTE *)com_token_attr + sizeof(CK_ATTRIBUTE);
+	com_token_attr->pValue = (CK_BYTE *)com_token_attr +
+				sizeof(CK_ATTRIBUTE);
 	*(CK_BBOOL *)com_token_attr->pValue = TRUE;
 
 	com_mod_attr->type = CKA_MODIFIABLE;
 	com_mod_attr->ulValueLen = sizeof(CK_BBOOL);
-	com_mod_attr->pValue = (CK_BYTE *)com_mod_attr + sizeof(CK_ATTRIBUTE);
+	com_mod_attr->pValue = (CK_BYTE *)com_mod_attr +
+				sizeof(CK_ATTRIBUTE);
 	*(CK_BBOOL *)com_mod_attr->pValue = FALSE;
 
-	com_priv_attr->type = CKA_PRIVATE;
-	com_priv_attr->ulValueLen = sizeof(CK_BBOOL);
-	com_priv_attr->pValue = (CK_BYTE *)com_priv_attr + sizeof(CK_ATTRIBUTE);
-	*(CK_BBOOL *)com_priv_attr->pValue = FALSE;
+	com_copyable_attr->type = CKA_COPYABLE;
+	com_copyable_attr->ulValueLen = sizeof(CK_BBOOL);
+	com_copyable_attr->pValue = (CK_BYTE *)com_copyable_attr +
+				sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)com_copyable_attr->pValue = FALSE;
+
+	com_destroyable_attr->type = CKA_DESTROYABLE;
+	com_destroyable_attr->ulValueLen = sizeof(CK_BBOOL);
+	com_destroyable_attr->pValue = (CK_BYTE *)com_destroyable_attr
+		+ sizeof(CK_ATTRIBUTE);
+	*(CK_BBOOL *)com_destroyable_attr->pValue = TRUE;
+
 
 	token_node->attributes = com_token_attr;
 	mod_node->attributes = com_mod_attr;
-	priv_node->attributes = com_priv_attr;
+	copyable_node->attributes = com_copyable_attr;
+	destroyable_node->attributes = com_destroyable_attr;
 
 	p11_template_update_attr(tmpl_list, token_node);
 	p11_template_update_attr(tmpl_list, mod_node);
-	p11_template_update_attr(tmpl_list, priv_node);
+	p11_template_update_attr(tmpl_list, copyable_node);
+	p11_template_update_attr(tmpl_list, destroyable_node);
+
+	if (!p11_template_attribute_find(
+			tmpl_list, CKA_PRIVATE,
+			&temp)) {
+		struct template_node *priv_node = NULL;
+		CK_ATTRIBUTE_PTR com_priv_attr = NULL_PTR;
+
+		com_priv_attr = (CK_ATTRIBUTE_PTR)malloc(
+				sizeof(CK_ATTRIBUTE) +
+				sizeof(CK_BBOOL));
+		priv_node = (struct template_node *)malloc(
+				sizeof(struct template_node));
+
+		priv_node->attributes = com_priv_attr;
+
+		com_priv_attr->type = CKA_PRIVATE;
+		com_priv_attr->ulValueLen = sizeof(CK_BBOOL);
+		com_priv_attr->pValue = (CK_BYTE *)com_priv_attr +
+					sizeof(CK_ATTRIBUTE);
+		*(CK_BBOOL *)com_priv_attr->pValue = FALSE;
+	}
 
 	return CKR_OK;
 }
 
-static CK_RV p11_template_add_default_attr(OBJECT *obj)
+static CK_RV p11_template_add_default_attr(OBJECT *obj,
+					CK_ULONG op_type)
 {
 	CK_RV rc;
 
@@ -962,7 +1788,8 @@ static CK_RV p11_template_add_default_attr(OBJECT *obj)
 	subclass = obj->obj_subclass;
 
 	/* first add the default common attributes */
-	rc = p11_template_add_default_common_attr(&obj->template_list);
+	rc = p11_template_add_default_common_attr(&obj->template_list,
+						op_type);
 	if (rc != CKR_OK) {
 		print_error("p11_template_add_default_common_attr failed.\n");
 		return rc;
@@ -973,9 +1800,9 @@ static CK_RV p11_template_add_default_attr(OBJECT *obj)
 		case CKO_PUBLIC_KEY:
 			switch (subclass) {
 				case CKK_RSA:
-					return rsa_pubk_add_default_attr(&obj->template_list);
+					return rsa_pubk_add_default_attr(&obj->template_list, op_type);
 				case CKK_EC:
-					return ecc_pubk_add_default_attr(&obj->template_list);
+					return ecc_pubk_add_default_attr(&obj->template_list, op_type);
 				default:
 					print_error("Invalid Attribute\n");
 					return CKR_ATTRIBUTE_VALUE_INVALID;
@@ -984,9 +1811,9 @@ static CK_RV p11_template_add_default_attr(OBJECT *obj)
 		case CKO_PRIVATE_KEY:
 			switch (subclass) {
 				case CKK_RSA:
-					return rsa_privk_add_default_attr(&obj->template_list);
+					return rsa_privk_add_default_attr(&obj->template_list, op_type);
 				case CKK_EC:
-					return ecc_privk_add_default_attr(&obj->template_list);
+					return ecc_privk_add_default_attr(&obj->template_list, op_type);
 				default:
 					print_error("Invalid Attribute\n");
 					return CKR_ATTRIBUTE_VALUE_INVALID;
@@ -998,7 +1825,8 @@ static CK_RV p11_template_add_default_attr(OBJECT *obj)
 	}
 }
 
-static CK_RV p11_template_add_attr(OBJECT *obj,
+static CK_RV
+p11_template_add_attr(struct template_list *template_list,
 		CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount)
 {
 	struct template_node *tmpl_node;
@@ -1041,8 +1869,9 @@ static CK_RV p11_template_add_attr(OBJECT *obj,
 		}
 
 		tmpl_node->attributes = attr;
-
-		p11_template_update_attr(&obj->template_list, tmpl_node);
+		print_info("tmpl_node = %p, attr type = 0x%08lx, attr = %p, len = %lu\n",
+			tmpl_node, attr->type, attr->pValue, attr->ulValueLen);
+		p11_template_update_attr(template_list, tmpl_node);
 	}
 
 	return CKR_OK;
@@ -1130,6 +1959,254 @@ static CK_BBOOL p11_template_get_class(struct template_list *tmpl_list,
 	return found;
 }
 
+CK_BBOOL p11_template_attribute_find(struct template_list *template,
+				CK_ATTRIBUTE_TYPE type,
+				CK_ATTRIBUTE **attr)
+{
+	struct template_node *tmpl_node;
+
+	if (!template || !attr)
+		return CK_FALSE;
+
+	/* have to iterate through all attributes. no early exits */
+	STAILQ_FOREACH(tmpl_node, template, entry) {
+		CK_ATTRIBUTE *temp = (CK_ATTRIBUTE *)tmpl_node->attributes;
+		if (type == temp->type) {
+			*attr = temp;
+			return CK_TRUE;
+		}
+	}
+
+	*attr = NULL;
+	return CK_FALSE;
+}
+
+CK_BBOOL
+template_is_modifiable_set(struct template_list *template)
+{
+	CK_ATTRIBUTE  *modifiable_attr = NULL;
+
+	if (p11_template_attribute_find(template,
+			CKA_MODIFIABLE, &modifiable_attr)) {
+		if (*(CK_BBOOL *)(modifiable_attr->pValue) == CK_TRUE)
+			return CK_TRUE;
+		else
+			return CK_FALSE;
+	} else
+		return CK_FALSE;
+}
+
+CK_BBOOL template_is_private_set(struct template_list *template)
+{
+	CK_ATTRIBUTE  *private_attr = NULL;
+
+	if (p11_template_attribute_find(template,
+			CKA_PRIVATE, &private_attr)) {
+		if (*(CK_BBOOL *)(private_attr->pValue) == CK_TRUE)
+			return CK_TRUE;
+		else
+			return CK_FALSE;
+	} else
+		return CK_FALSE;
+}
+
+CK_BBOOL template_is_public_set(struct template_list *template)
+{
+	CK_BBOOL rc;
+
+	rc = template_is_private_set(template);
+
+	if (rc)
+		return FALSE;
+	else
+		return TRUE;
+}
+
+CK_BBOOL
+template_is_token_object(struct template_list *template)
+{
+	CK_ATTRIBUTE  *token_attr = NULL;
+
+	if (p11_template_attribute_find(template,
+			CKA_TOKEN, &token_attr)) {
+		if (*(CK_BBOOL *)(token_attr->pValue) == CK_TRUE)
+			return CK_TRUE;
+		else
+			return CK_FALSE;
+	} else
+		return CK_FALSE;
+}
+
+CK_BBOOL
+template_is_session_object(struct template_list *template)
+{
+	CK_BBOOL rc;
+
+	rc = template_is_token_object(template);
+
+	if (rc)
+		return FALSE;
+	else
+		return TRUE;
+}
+
+CK_RV
+template_destroy_template_list(struct template_list *template)
+{
+	CK_RV rc = CKR_OK;
+	struct template_list *tmpl_list = NULL;
+	struct template_node *t = NULL;
+
+	if (!template)
+		return CKR_ARGUMENTS_BAD;
+
+	tmpl_list = template;
+	while ((t = STAILQ_FIRST(tmpl_list)) != NULL ) {
+		if (t->attributes)
+			free(t->attributes);
+			STAILQ_REMOVE(tmpl_list, t, template_node, entry);
+			free(t);
+	}
+
+	return rc;
+}
+
+CK_RV
+template_create_template_list(CK_ATTRIBUTE_PTR pTemplate,
+			CK_ULONG ulCount,
+			struct template_list **tmpl_list)
+{
+	CK_RV rc = CKR_OK;
+	struct template_list *list = NULL;
+
+	/* Not checking pTemplate validity status, because in some
+	  * cases it can be NULL also. Like in case if private key template
+	  * in C_GenerateKeyPair function.
+	  */
+	if (!tmpl_list) {
+		print_error("Arguments bad\n");
+		return CKR_ARGUMENTS_BAD;
+	}
+
+	list = malloc(sizeof(struct template_list));
+	if (!list) {
+		print_error("malloc failed\n");
+		rc = CKR_HOST_MEMORY;
+		goto end;
+	}
+
+	STAILQ_INIT(list);
+	rc = p11_template_add_attr(list, pTemplate, ulCount);
+	if (rc != CKR_OK) {
+		print_error("p11_template_add_attr failed\n");
+		goto end;
+	}
+
+	*tmpl_list = list;
+end:
+	return rc;
+}
+
+static CK_RV
+template_validate_attribute(CK_ATTRIBUTE *attr,
+				CK_ULONG class, CK_ULONG subclass,
+				CK_ULONG op_type)
+{
+	if (class == CKO_PUBLIC_KEY) {
+		switch (subclass) {
+		case CKK_RSA:
+			return attribute_rsa_pubk_validate(attr,
+						op_type);
+
+		case CKK_ECDSA:
+			return attribute_ec_pubk_validate(attr,
+						op_type);
+
+		default:
+			print_error("Only RSA/EC Keys supported\n");
+			return CKR_ATTRIBUTE_VALUE_INVALID;
+		}
+	} else if (class == CKO_PRIVATE_KEY) {
+		switch (subclass) {
+		case CKK_RSA:
+			return attribute_rsa_privk_validate(attr,
+						op_type);
+		case CKK_ECDSA:
+			return attribute_ec_privk_validate(attr,
+						op_type);
+
+		default:
+			print_error("Only RSA/EC Keys supported\n");
+			return CKR_ATTRIBUTE_VALUE_INVALID;
+		}
+	}
+
+	print_error("Only Public/Private Keys are supported\n");
+	return CKR_ATTRIBUTE_VALUE_INVALID;
+
+}
+
+CK_RV
+template_check_required_attributes(
+				struct template_list *template,
+				CK_ULONG class,
+				CK_ULONG subclass,
+				CK_ULONG op_type)
+{
+	if (class == CKO_PUBLIC_KEY) {
+		switch (subclass) {
+		case CKK_RSA:
+			return attribute_rsa_pubk_check_required_attributes(template, op_type);
+
+		case CKK_ECDSA:
+			return attribute_ec_pubk_check_required_attributes(template, op_type);
+
+		default:
+			print_error("Only RSA/EC Keys supported\n");
+			return CKR_ATTRIBUTE_VALUE_INVALID;
+		}
+	} else if (class == CKO_PRIVATE_KEY) {
+		switch (subclass) {
+		case CKK_RSA:
+			return attribute_rsa_privk_check_required_attributes(template, op_type);
+
+		case CKK_ECDSA:
+			return attribute_ec_privk_check_required_attributes(template, op_type);
+
+		default:
+			print_error("Only RSA/EC  keys Supported\n");
+			return CKR_ATTRIBUTE_VALUE_INVALID;
+		}
+	}
+
+	print_error("Only Public/Private Keys supported\n");
+	return CKR_ATTRIBUTE_VALUE_INVALID;
+}
+
+
+CK_RV
+template_validate_attributes(struct template_list *template,
+				CK_ULONG class,
+				CK_ULONG subclass,
+				CK_ULONG op_type)
+{
+	CK_RV rc = CKR_OK;
+	struct template_node *tmpl_node = NULL;
+
+	STAILQ_FOREACH(tmpl_node, template, entry) {
+		CK_ATTRIBUTE *attr = (CK_ATTRIBUTE *)tmpl_node->attributes;
+		rc = template_validate_attribute(attr, class, subclass,
+					op_type);
+		if (rc != CKR_OK) {
+			print_error("template_validate_attribute failed\n");
+			goto end;
+		}
+	}
+
+end:
+	return rc;
+}
+
 static CK_BBOOL
 check_rsa_privk_exportability(CK_ATTRIBUTE_TYPE type)
 {
@@ -1214,6 +2291,222 @@ static CK_BBOOL check_attr_exportability(struct template_list *tmpl_list,
 	}
 
 	return TRUE;
+}
+
+static CK_RV map_pkcs_to_sk_attr(CK_ATTRIBUTE_PTR ck_attr,
+		CK_ULONG ck_attr_count, SK_ATTRIBUTE **sk_attrs,
+		uint32_t *attr_count)
+{
+	CK_ATTRIBUTE_TYPE ck_attr_type;
+	CK_ATTRIBUTE_PTR ck_attrs = NULL;
+
+	SK_ATTRIBUTE *sk_attr =NULL;
+
+	unsigned char *sk_label = NULL, *sk_id = NULL;
+	uint32_t *mod_bits = NULL;
+	unsigned char *sk_mod = NULL, *sk_pub_exp = NULL;
+	unsigned char *sk_ec_params = NULL, *sk_ec_point = NULL;
+	uint32_t i = 0, attrCount = 0;
+
+	sk_attr = malloc(sizeof(SK_ATTRIBUTE) * 7);
+	if (!sk_attr)
+		return CKR_HOST_MEMORY;
+
+	memset(sk_attr, 0, sizeof(SK_ATTRIBUTE) * 7);
+
+	for (i = 0; i < ck_attr_count; i++) {
+		ck_attrs = &ck_attr[i];
+		ck_attr_type = ck_attrs->type;
+
+		switch(ck_attr_type) {
+#if 0
+			case CKA_CLASS:
+				ck_obj_class = *(CK_OBJECT_CLASS *)ck_attr->pValue;
+				switch (ck_obj_class) {
+					case CKO_PRIVATE_KEY:
+						sk_attr = (SK_ATTRIBUTE *)malloc(sizeof(SK_ATTRIBUTE) +
+							sizeof(CK_OBJECT_CLASS));
+						if (!sk_attr)
+							return CKR_HOST_MEMORY;
+
+						sk_object_type = (SK_OBJECT_TYPE *)((uint8_t  *)sk_attr + sizeof(SK_ATTRIBUTE));
+						*(sk_object_type) = SK_KEY_PAIR;
+
+						sk_attr->type = SK_ATTR_OBJECT_TYPE;
+						sk_attr->value = sk_object_type;
+						sk_attr->valueLen = sizeof(SK_OBJECT_TYPE);
+
+						break;
+					case CKO_PUBLIC_KEY:
+						sk_attr = (SK_ATTRIBUTE *)malloc(sizeof(SK_ATTRIBUTE) +
+							sizeof(CK_OBJECT_CLASS));
+						if (!sk_attr)
+							return CKR_HOST_MEMORY;
+
+						sk_object_type = (SK_OBJECT_TYPE *)((uint8_t  *)sk_attr + sizeof(SK_ATTRIBUTE));
+						*(sk_object_type) = SK_PUBLIC_KEY;
+
+						sk_attr->type = SK_ATTR_OBJECT_TYPE;
+						sk_attr->value = sk_object_type;
+						sk_attr->valueLen = sizeof(SK_OBJECT_TYPE);
+
+						break;
+					default:
+						print_error("Ojbect type not supported\n");
+						return CKR_ATTRIBUTE_TYPE_INVALID;
+				}
+				break;
+			case CKA_KEY_TYPE:
+				ck_key_type = *(CK_KEY_TYPE *)ck_attr->pValue;
+
+				switch (ck_key_type) {
+					case CKK_RSA:
+						sk_attr = (SK_ATTRIBUTE *)malloc(sizeof(SK_ATTRIBUTE) +
+							sizeof(CK_KEY_TYPE));
+						if (!sk_attr)
+							return CKR_HOST_MEMORY;
+
+						sk_key_type = (SK_KEY_TYPE *)((uint8_t  *)sk_attr + sizeof(SK_ATTRIBUTE));
+						*(sk_key_type) = SKK_RSA;
+
+						sk_attr->type = SK_ATTR_KEY_TYPE;
+						sk_attr->value = sk_key_type;
+						sk_attr->valueLen = sizeof(SK_KEY_TYPE);
+
+						break;
+
+					case CKK_EC:
+						sk_attr = (SK_ATTRIBUTE *)malloc(sizeof(SK_ATTRIBUTE) +
+							sizeof(CK_KEY_TYPE));
+						if (!sk_attr)
+							return CKR_HOST_MEMORY;
+
+						sk_key_type = (SK_KEY_TYPE *)((uint8_t  *)sk_attr + sizeof(SK_ATTRIBUTE));
+						*(sk_key_type) = SKK_EC;
+
+						sk_attr->type = SK_ATTR_KEY_TYPE;
+						sk_attr->value = sk_key_type;
+						sk_attr->valueLen = sizeof(SK_KEY_TYPE);
+
+						break;
+
+					default:
+						print_error("Key type not supported\n");
+						return CKR_ATTRIBUTE_TYPE_INVALID;
+				}
+				break;
+#endif
+			case CKA_LABEL:
+				sk_label = (unsigned char *)malloc(
+					ck_attrs->ulValueLen);
+				if (!sk_label)
+					return CKR_HOST_MEMORY;
+				memset(sk_label, 0, ck_attrs->ulValueLen);
+				memcpy(sk_label, ck_attrs->pValue, ck_attrs->ulValueLen);
+
+				sk_attr[attrCount].type = SK_ATTR_OBJECT_LABEL;
+				sk_attr[attrCount].value = sk_label;
+				sk_attr[attrCount].valueLen = ck_attrs->ulValueLen;
+				attrCount++;
+
+				break;
+			case CKA_ID:
+				sk_id = (unsigned char *)malloc(
+					ck_attrs->ulValueLen);
+				if (!sk_id)
+					return CKR_HOST_MEMORY;
+
+				memset(sk_id, 0, ck_attrs->ulValueLen);
+				memcpy(sk_id, ck_attrs->pValue, ck_attrs->ulValueLen);
+
+				sk_attr[attrCount].type = SK_ATTR_OBJECT_INDEX;
+				sk_attr[attrCount].value = sk_id;
+				sk_attr[attrCount].valueLen = ck_attrs->ulValueLen;
+				attrCount++;
+
+				break;
+			case CKA_MODULUS_BITS:
+				mod_bits = malloc(	sizeof(uint32_t));
+				if (!mod_bits)
+					return CKR_HOST_MEMORY;
+				*mod_bits = *(uint32_t *)(ck_attrs->pValue);
+				sk_attr[attrCount].type = SK_ATTR_MODULUS_BITS;
+				sk_attr[attrCount].value = mod_bits;
+				sk_attr[attrCount].valueLen = sizeof(uint32_t);
+				attrCount++;
+
+				break;
+			case CKA_MODULUS:
+				sk_mod = (unsigned char *)malloc(
+					ck_attrs->ulValueLen);
+				if (!sk_mod)
+					return CKR_HOST_MEMORY;
+
+				memset(sk_mod, 0, ck_attrs->ulValueLen);
+				memcpy(sk_mod, ck_attrs->pValue, ck_attrs->ulValueLen);
+
+				sk_attr[attrCount].type = SK_ATTR_MODULUS;
+				sk_attr[attrCount].value = sk_mod;
+				sk_attr[attrCount].valueLen = (uint32_t)ck_attrs->ulValueLen;
+				attrCount++;
+
+				break;
+			case CKA_PUBLIC_EXPONENT:
+				sk_pub_exp = (unsigned char *)malloc(
+					ck_attrs->ulValueLen);
+				if (!sk_pub_exp)
+					return CKR_HOST_MEMORY;
+
+				memset(sk_pub_exp, 0, ck_attrs->ulValueLen);
+				memcpy(sk_pub_exp, ck_attrs->pValue,
+					ck_attrs->ulValueLen);
+
+				sk_attr[attrCount].type = SK_ATTR_PUBLIC_EXPONENT;
+				sk_attr[attrCount].value = sk_pub_exp;
+				sk_attr[attrCount].valueLen = (uint32_t)ck_attrs->ulValueLen;
+				attrCount++;
+
+				break;
+			case CKA_EC_PARAMS:
+				sk_ec_params = (unsigned char *)malloc(
+					ck_attrs->ulValueLen);
+				if (!sk_ec_params)
+					return CKR_HOST_MEMORY;
+
+				memset(sk_ec_params, 0, ck_attrs->ulValueLen);
+				memcpy(sk_ec_params, ck_attrs->pValue,
+					ck_attrs->ulValueLen);
+
+				sk_attr[attrCount].type = SK_ATTR_PARAMS;
+				sk_attr[attrCount].value = sk_ec_params;
+				sk_attr[attrCount].valueLen = ck_attrs->ulValueLen;
+				attrCount++;
+
+				break;
+			case CKA_EC_POINT:
+				sk_ec_point = (unsigned char *)malloc(
+					ck_attrs->ulValueLen);
+				if (!sk_ec_point)
+					return CKR_HOST_MEMORY;
+
+				memset(sk_ec_point, 0, ck_attrs->ulValueLen);
+				memcpy(sk_ec_point, ck_attrs->pValue,
+					ck_attrs->ulValueLen);
+
+				sk_attr[attrCount].type = SK_ATTR_POINT;
+				sk_attr[attrCount].value = sk_ec_point;
+				sk_attr[attrCount].valueLen = ck_attrs->ulValueLen;
+				attrCount++;
+
+				break;
+			default:
+				break;
+		}
+	}
+
+	*attr_count = attrCount;
+	*sk_attrs = sk_attr;
+	return CKR_OK;
 }
 
 static CK_RV map_sk_to_pkcs_attr(SK_ATTRIBUTE *sk_attrs,
@@ -1639,6 +2932,32 @@ SK_ATTRIBUTE_TYPE ecc_priv_attr_type[ECC_PRIV_SK_ATTR_COUNT] = {
 	SK_ATTR_PARAMS
 };
 
+CK_BBOOL object_is_destroyable(CK_OBJECT_HANDLE hObject)
+{
+	struct object_node *obj_node = NULL;
+	CK_ATTRIBUTE_PTR destroy_attr = NULL;
+
+	obj_node = (struct object_node *)hObject;
+
+	if (p11_template_attribute_find(&obj_node->object.template_list,
+			CKA_DESTROYABLE, &destroy_attr)) {
+		if (*(CK_BBOOL *)(destroy_attr->pValue) == CK_TRUE)
+			return CK_TRUE;
+		else
+			return CK_FALSE;
+	} else
+		return CK_FALSE;
+}
+
+CK_BBOOL object_is_private(CK_OBJECT_HANDLE hObject)
+{
+	struct object_node *obj_node = NULL;
+	obj_node = (struct object_node *)hObject;
+
+	return template_is_private_set(&obj_node->object.template_list);
+}
+
+
 static CK_RV object_add_template(OBJECT *obj,
 		SK_ATTRIBUTE_TYPE *sk_attr_type, uint32_t attrCount)
 {
@@ -1692,7 +3011,8 @@ static CK_RV object_add_template(OBJECT *obj,
 			return CKR_GENERAL_ERROR;
 		}
 
-		rc = p11_template_add_attr(obj, ck_attr, 1);
+		rc = p11_template_add_attr(&obj->template_list,
+					ck_attr, 1);
 		if (rc != CKR_OK) {
 			print_error("p11_template_add_attr failed\n");
 			return rc;
@@ -1703,6 +3023,25 @@ static CK_RV object_add_template(OBJECT *obj,
 	}
 
 	return CKR_OK;
+}
+
+static CK_RV object_add_to_list(CK_SLOT_ID slotID,
+			struct object_node *object)
+{
+	struct object_list *obj_list = NULL;
+	CK_RV rc = CKR_OK;
+
+	obj_list = get_object_list(slotID);
+	if (!obj_list) {
+		print_error("Object list not found for given SLOT\n");
+		rc = CKR_FUNCTION_FAILED;
+		goto end;
+	}
+
+	STAILQ_INSERT_HEAD(obj_list, object, entry);
+
+end:
+	return rc;
 }
 
 static CK_RV create_rsa_pub_key_object(SK_OBJECT_HANDLE hObject,
@@ -1722,6 +3061,9 @@ static CK_RV create_rsa_pub_key_object(SK_OBJECT_HANDLE hObject,
 
 	pub_key->object.sk_obj_handle = hObject;
 	pub_key->object.slotID = slotID;
+
+	pub_key->object.obj_class = CKO_PUBLIC_KEY;
+	pub_key->object.obj_subclass = CKK_RSA;
 
 	rc = object_add_template(&pub_key->object, rsa_pub_attr_type,
 			RSA_PUB_SK_ATTR_COUNT);
@@ -1752,6 +3094,8 @@ static CK_RV create_rsa_priv_key_object(SK_OBJECT_HANDLE hObject,
 
 	priv_key->object.sk_obj_handle = hObject;
 	priv_key->object.slotID = slotID;
+	priv_key->object.obj_class = CKO_PRIVATE_KEY;
+	priv_key->object.obj_subclass = CKK_RSA;
 
 	rc = object_add_template(&priv_key->object, rsa_priv_attr_type,
 			RSA_PRIV_SK_ATTR_COUNT);
@@ -1782,6 +3126,8 @@ static CK_RV create_ecc_pub_key_object(SK_OBJECT_HANDLE hObject,
 
 	pub_key->object.sk_obj_handle = hObject;
 	pub_key->object.slotID = slotID;
+	pub_key->object.obj_class = CKO_PUBLIC_KEY;
+	pub_key->object.obj_subclass = CKK_EC;
 
 	rc = object_add_template(&pub_key->object, ecc_pub_attr_type,
 		ECC_PUB_SK_ATTR_COUNT);
@@ -1812,6 +3158,8 @@ static CK_RV create_ecc_priv_key_object(SK_OBJECT_HANDLE hObject,
 
 	priv_key->object.sk_obj_handle = hObject;
 	priv_key->object.slotID = slotID;
+	priv_key->object.obj_class = CKO_PRIVATE_KEY;
+	priv_key->object.obj_subclass = CKK_EC;
 
 	rc = object_add_template(&priv_key->object, ecc_priv_attr_type,
 		ECC_PRIV_SK_ATTR_COUNT);
@@ -1825,6 +3173,290 @@ static CK_RV create_ecc_priv_key_object(SK_OBJECT_HANDLE hObject,
 	return CKR_OK;
 }
 
+static CK_RV create_key_object(SK_OBJECT_HANDLE hObject,
+			CK_ULONG class,
+			CK_ULONG subclass,
+			struct template_list *template,
+			struct object_node **object_node,
+			CK_SLOT_ID slotID)
+{
+	CK_RV rc = CKR_OK;
+	struct object_node *temp = NULL;
+
+	switch (class) {
+		case CKO_PUBLIC_KEY:
+			switch (subclass) {
+				case CKK_RSA:
+					rc = create_rsa_pub_key_object(hObject, object_node, slotID);
+					if (rc != CKR_OK) {
+						print_error("create_rsa_pub_key_object failed\n");
+						return rc;
+					}
+					break;
+				case CKK_EC:
+					rc = create_ecc_pub_key_object(hObject, object_node, slotID);
+					if (rc != CKR_OK) {
+						print_error("create_ecc_pub_key_object failed\n");
+						return rc;
+					}
+					break;
+				default:
+					print_error("Only RSA/EC keys supported\n");
+					return CKR_FUNCTION_FAILED;
+			}
+			break;
+		case CKO_PRIVATE_KEY:
+			switch (subclass) {
+				case CKK_RSA:
+					rc = create_rsa_priv_key_object(hObject, object_node, slotID);
+					if (rc != CKR_OK) {
+						print_error("create_rsa_priv_key_object failed\n");
+						return rc;
+					}
+					break;
+				case CKK_EC:
+					rc = create_ecc_priv_key_object(hObject, object_node, slotID);
+					if (rc != CKR_OK) {
+						print_error("create_ecc_priv_key_object failed\n");
+						return rc;
+					}
+					break;
+				default:
+					print_error("Only RSA/EC keys supported\n");
+					return CKR_FUNCTION_FAILED;
+			}
+			break;
+		default:
+			print_error("Only Public/Private Keys supported\n");
+			return CKR_FUNCTION_FAILED;
+	}
+
+	temp = *object_node;
+
+	rc = template_merge(&temp->object.template_list, &template);
+	if (rc != CKR_OK) {
+		print_error("template_merge failed\n");
+		return rc;
+	}
+
+	rc = p11_template_add_default_attr(&temp->object, OP_GENERATE);
+	if (rc != CKR_OK) {
+		print_error("p11_template_add_default_attr failed\n");
+		return rc;
+	}
+
+	rc = object_add_to_list(slotID, *object_node);
+	if (rc != CKR_OK) {
+		print_error("p11_template_add_default_attr failed\n");
+		return rc;
+	}
+
+	return CKR_OK;
+}
+
+CK_RV destroy_object(CK_OBJECT_HANDLE hObject,
+			CK_SLOT_ID slotID)
+{
+	struct object_node *o = NULL;
+	struct object_list *obj_list = NULL;
+	struct template_list *tmpl_list = NULL;
+	OBJECT *obj = NULL;
+	struct template_node *t = NULL;
+	SK_FUNCTION_LIST_PTR sk_funcs = NULL;
+	SK_RET_CODE ret = SKR_OK;
+
+	o = (struct object_node *)hObject;
+	if (o) {
+		obj_list = get_object_list(slotID);
+		if (!obj_list)
+			return CKR_ARGUMENTS_BAD;
+
+		obj = &o->object;
+		tmpl_list = &obj->template_list;
+
+		while ((t = STAILQ_FIRST(tmpl_list)) != NULL ) {
+			if (t->attributes)
+				free(t->attributes);
+
+			STAILQ_REMOVE(tmpl_list, t, template_node, entry);
+			free(t);
+		}
+
+		sk_funcs = get_slot_function_list(slotID);
+		if (!sk_funcs)
+			return CKR_ARGUMENTS_BAD;
+
+		ret = sk_funcs->SK_EraseObject(obj->sk_obj_handle);
+		if (ret != SKR_OK) {
+			if (ret != SKR_ERR_ITEM_NOT_FOUND) {
+				print_error("SK_EraseObject failed\n");
+				return CKR_FUNCTION_FAILED;
+			}
+		}
+
+		STAILQ_REMOVE(obj_list, o, object_node, entry);
+		free(o);
+	}
+
+	return CKR_OK;
+}
+
+CK_RV objects_generate_key_pair(CK_SESSION_HANDLE hSession,
+			CK_MECHANISM_PTR pMechanism,
+			CK_ATTRIBUTE_PTR pPublicKeyTemplate,
+			CK_ULONG ulPublicKeyAttributeCount,
+			CK_ATTRIBUTE_PTR pPrivateKeyTemplate,
+			CK_ULONG ulPrivateKeyAttributeCount,
+			CK_OBJECT_HANDLE_PTR phPublicKey,
+			CK_OBJECT_HANDLE_PTR phPrivateKey)
+{
+	CK_RV rc = CKR_OK;
+	session *sess = NULL;
+	struct template_list *publ_tmpl = NULL, *priv_tmpl = NULL;
+	CK_ULONG subclass;
+	CK_ULONG op_type = OP_GENERATE;
+
+	SK_RET_CODE sk_ret = SKR_OK;
+	SK_MECHANISM_INFO mechanismType = {0};
+	SK_ATTRIBUTE *sk_attrs = NULL;
+	SK_OBJECT_HANDLE hObject = 1234;
+	uint32_t attrCount = 0;
+	struct object_node *public_key = NULL, *priv_key = NULL;
+	SK_FUNCTION_LIST_PTR sk_funcs = NULL;
+
+	sess = get_session(hSession);
+	if (!sess) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
+
+	sk_funcs = get_slot_function_list(sess->session_info.slotID);
+	if (!sk_funcs) {
+		print_error("get_slot_function_list failed\n");
+		return CKR_ARGUMENTS_BAD;
+	}
+
+	rc = mechanism_template_check_consistency(pMechanism,
+			pPublicKeyTemplate, ulPublicKeyAttributeCount,
+			pPrivateKeyTemplate, ulPrivateKeyAttributeCount,
+			&subclass);
+	if (rc) {
+		print_error("mechanism_template_check_consistency failed\n");
+		goto end;
+	}
+
+	rc = template_create_template_list(pPublicKeyTemplate,
+				ulPublicKeyAttributeCount,
+				&publ_tmpl);
+	if (rc) {
+		print_error("template_create_template_list failed\n");
+		goto end;
+	}
+
+	rc = template_create_template_list(pPrivateKeyTemplate,
+				ulPrivateKeyAttributeCount,
+				&priv_tmpl);
+	if (rc) {
+		print_error("template_create_template_list failed\n");
+		goto end;
+	}
+
+	rc = session_template_check_consistency(hSession, publ_tmpl);
+	if (rc) {
+		print_error("session_template_check_consistency failed\n");
+		goto end;
+	}
+
+	rc = session_template_check_consistency(hSession, priv_tmpl);
+	if (rc) {
+		print_error("session_template_check_consistency failed\n");
+		goto end;
+	}
+
+	rc = template_validate_attributes(publ_tmpl, CKO_PUBLIC_KEY,
+				subclass, op_type);
+	if (rc) {
+		print_error("template_validate_attributes public key failed\n");
+		goto end;
+	}
+
+	rc = template_validate_attributes(priv_tmpl, CKO_PRIVATE_KEY,
+				subclass, op_type);
+	if (rc) {
+		print_error("template_validate_attributes private key failed\n");
+		goto end;
+	}
+
+	rc = template_check_required_attributes(publ_tmpl,
+				CKO_PUBLIC_KEY, subclass, op_type);
+	if (rc) {
+		print_error("template_check_required_attributes public key failed\n");
+		goto end;
+	}
+
+	rc = template_check_required_attributes(priv_tmpl,
+				CKO_PRIVATE_KEY, subclass, op_type);
+	if (rc) {
+		print_error("template_check_required_attributes private key failed\n");
+		goto end;
+	}
+
+	rc = map_pkcs_to_sk_attr(pPublicKeyTemplate,
+				ulPublicKeyAttributeCount,
+				&sk_attrs, &attrCount);
+	if (rc != CKR_OK) {
+		print_error("map_pkcs_to_sk_attr failed\n");
+		goto end;
+	}
+
+	switch (subclass) {
+		case CKK_RSA:
+			mechanismType.mechanism =
+				SKM_RSA_PKCS_KEY_PAIR_GEN;
+			break;
+		case CKK_EC:
+			mechanismType.mechanism =
+				SKM_RSA_PKCS_KEY_PAIR_GEN;
+			break;
+		default:
+			print_error("Only RSA/EC Keys supported\n");
+	}
+
+	sk_ret = sk_funcs->SK_GenerateKeyPair(&mechanismType, sk_attrs,
+				attrCount, &hObject);
+	if (sk_ret != SKR_OK) {
+		print_error("SK_GenerateKeyPair failed wit err code = 0x%x\n", sk_ret);
+		rc = CKR_GENERAL_ERROR;
+		goto end;
+	}
+
+	rc = create_key_object(hObject, CKO_PUBLIC_KEY, subclass, publ_tmpl,
+			&public_key, sess->session_info.slotID);
+	if (rc != CKR_OK) {
+		print_error("SK_GenerateKeyPair failed wit err code = 0x%x\n", sk_ret);
+		goto end;
+	}
+
+	rc = create_key_object(hObject, CKO_PRIVATE_KEY, subclass, priv_tmpl,
+			&priv_key, sess->session_info.slotID);
+	if (rc != CKR_OK) {
+		print_error("SK_GenerateKeyPair failed wit err code = 0x%x\n", sk_ret);
+		goto end;
+	}
+
+	*phPublicKey = (CK_OBJECT_HANDLE)public_key;
+	*phPrivateKey = (CK_OBJECT_HANDLE)priv_key;
+
+end:
+	if (rc != CKR_OK) {
+		if (publ_tmpl)
+			template_destroy_template_list(publ_tmpl);
+		if (priv_tmpl)
+			template_destroy_template_list(priv_tmpl);
+	}
+
+	return rc;
+}
 
 CK_RV get_all_token_objects(struct object_list *obj_list,
 		CK_SLOT_ID slotID)
@@ -1838,6 +3470,7 @@ CK_RV get_all_token_objects(struct object_list *obj_list,
 	SK_OBJECT_TYPE obj_type;
 
 	CK_RV rc;
+	CK_ULONG op_type = OP_CREATE;
 
 	sk_funcs = get_slot_function_list(slotID);
 	if (!sk_funcs)
@@ -1894,10 +3527,7 @@ CK_RV get_all_token_objects(struct object_list *obj_list,
 							return rc;
 						}
 
-						rsa_pub_key->object.obj_class = CKO_PUBLIC_KEY;
-						rsa_pub_key->object.obj_subclass = CKK_RSA;
-
-						rc = p11_template_add_default_attr(&rsa_pub_key->object);
+						rc = p11_template_add_default_attr(&rsa_pub_key->object, op_type);
 						if (rc != CKR_OK) {
 							print_error("p11_template_add_default_attr failed\n");
 							return rc;
@@ -1911,10 +3541,7 @@ CK_RV get_all_token_objects(struct object_list *obj_list,
 							return rc;
 						}
 
-						rsa_priv_key->object.obj_class = CKO_PRIVATE_KEY;
-						rsa_priv_key->object.obj_subclass = CKK_RSA;
-
-						rc = p11_template_add_default_attr(&rsa_priv_key->object);
+						rc = p11_template_add_default_attr(&rsa_priv_key->object, op_type);
 						if (rc != CKR_OK) {
 							print_error("p11_template_add_default_attr failed\n");
 							return rc;
@@ -1932,10 +3559,7 @@ CK_RV get_all_token_objects(struct object_list *obj_list,
 							return rc;
 						}
 
-						ecc_pub_key->object.obj_class = CKO_PUBLIC_KEY;
-						ecc_pub_key->object.obj_subclass = CKK_EC;
-
-						rc = p11_template_add_default_attr(&ecc_pub_key->object);
+						rc = p11_template_add_default_attr(&ecc_pub_key->object, op_type);
 						if (rc != CKR_OK) {
 							print_error("p11_template_add_default_attr failed\n");
 							return rc;
@@ -1949,10 +3573,7 @@ CK_RV get_all_token_objects(struct object_list *obj_list,
 							return rc;
 						}
 
-						ecc_priv_key->object.obj_class = CKO_PRIVATE_KEY;
-						ecc_priv_key->object.obj_subclass = CKK_EC;
-
-						rc = p11_template_add_default_attr(&ecc_priv_key->object);
+						rc = p11_template_add_default_attr(&ecc_priv_key->object, op_type);
 						if (rc != CKR_OK) {
 							print_error("p11_template_add_default_attr failed\n");
 							return rc;
@@ -1977,10 +3598,7 @@ CK_RV get_all_token_objects(struct object_list *obj_list,
 							return rc;
 						}
 
-						pub_key->object.obj_class = CKO_PUBLIC_KEY;
-						pub_key->object.obj_subclass = CKK_RSA;
-
-						rc = p11_template_add_default_attr(&pub_key->object);
+						rc = p11_template_add_default_attr(&pub_key->object, op_type);
 						if (rc != CKR_OK) {
 							print_error("p11_template_add_default_attr failed\n");
 							return rc;
@@ -1999,10 +3617,7 @@ CK_RV get_all_token_objects(struct object_list *obj_list,
 							return rc;
 						}
 
-						pub_key->object.obj_class = CKO_PUBLIC_KEY;
-						pub_key->object.obj_subclass = CKK_EC;
-
-						rc = p11_template_add_default_attr(&pub_key->object);
+						rc = p11_template_add_default_attr(&pub_key->object, op_type);
 						if (rc != CKR_OK) {
 							print_error("p11_template_add_default_attr failed\n");
 							return rc;

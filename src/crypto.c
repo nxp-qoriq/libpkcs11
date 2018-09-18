@@ -44,6 +44,106 @@ CK_RV mechanism_get_info(CK_SLOT_ID slotID, CK_MECHANISM_TYPE type,
 	return rc;
 }
 
+CK_BBOOL mechanism_is_valid(CK_SLOT_ID slotID,
+	CK_MECHANISM_PTR pMechanism,  CK_FLAGS flags)
+{
+	CK_RV rc = CKR_OK;
+	CK_MECHANISM_INFO info;
+
+	if (pMechanism) {
+		memset(&info, 0, sizeof(info));
+		rc = mechanism_get_info(slotID,
+				pMechanism->mechanism, &info);
+
+		if (rc != CKR_OK || !(info.flags & (flags)))
+			return CK_FALSE;
+	} else
+		return CK_FALSE;
+
+	return CK_TRUE;
+}
+
+CK_RV mechanism_template_check_consistency(
+		CK_MECHANISM_PTR pMechanism,
+		CK_ATTRIBUTE_PTR pPublicKeyTemplate,
+		CK_ULONG ulPublicKeyAttributeCount,
+		CK_ATTRIBUTE_PTR pPrivateKeyTemplate,
+		CK_ULONG ulPrivateKeyAttributeCount,
+		CK_ULONG *subclass)
+{
+	CK_RV rc = CKR_OK;
+	CK_ULONG publ_attr_count = 0, priv_attr_count = 0;
+	CK_ATTRIBUTE_PTR public_temp = NULL, priv_temp = NULL;
+	CK_ULONG i = 0, class_tmp = 0, subclass_tmp = 0;
+
+	publ_attr_count = ulPublicKeyAttributeCount;
+	priv_attr_count = ulPrivateKeyAttributeCount;
+
+	public_temp = pPublicKeyTemplate;
+	priv_temp = pPrivateKeyTemplate;
+
+	for (i=0; i < publ_attr_count; i++) {
+		if (public_temp[i].type == CKA_CLASS) {
+			class_tmp = *(CK_OBJECT_CLASS *)public_temp[i].pValue;
+			if (class_tmp != CKO_PUBLIC_KEY){
+				rc = CKR_TEMPLATE_INCONSISTENT;
+				goto end;
+			}
+		}
+
+		if (public_temp[i].type == CKA_KEY_TYPE)
+			subclass_tmp = *(CK_ULONG *)public_temp[i].pValue;
+
+		class_tmp = CKO_PUBLIC_KEY;
+	}
+
+	for (i=0; i < priv_attr_count; i++) {
+		if (priv_temp[i].type == CKA_CLASS) {
+			class_tmp = *(CK_OBJECT_CLASS *)priv_temp[i].pValue;
+			if (class_tmp != CKO_PRIVATE_KEY){
+				rc = CKR_TEMPLATE_INCONSISTENT;
+				goto end;
+			}
+		}
+
+		if (priv_temp[i].type == CKA_KEY_TYPE) {
+			CK_ULONG temp = *(CK_ULONG *)priv_temp[i].pValue;
+			if (temp != subclass_tmp){
+				rc = CKR_TEMPLATE_INCONSISTENT;
+				goto end;
+			}
+		}
+
+		class_tmp = CKO_PRIVATE_KEY;
+	}
+
+	switch (pMechanism->mechanism) {
+		case CKM_RSA_PKCS_KEY_PAIR_GEN:
+			if (subclass_tmp != 0 && subclass_tmp != CKK_RSA) {
+				rc = CKR_TEMPLATE_INCONSISTENT;
+				goto end;
+			}
+
+			subclass_tmp = CKK_RSA;
+			break;
+
+		case CKM_EC_KEY_PAIR_GEN:
+			if (subclass_tmp != 0 && subclass_tmp != CKK_EC) {
+				rc = CKR_TEMPLATE_INCONSISTENT;
+				goto end;
+			}
+
+			subclass_tmp = CKK_EC;
+			break;
+		default:
+			rc = CKR_MECHANISM_INVALID;
+	}
+
+	*subclass = subclass_tmp;
+end:
+	return rc;
+}
+
 /* Init for sign mechanism */
 CK_RV sign_init(CK_SESSION_HANDLE hSession, sign_verify_context *ctx,
 		CK_MECHANISM *mech, CK_BBOOL recover_mode,

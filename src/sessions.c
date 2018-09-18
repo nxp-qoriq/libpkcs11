@@ -256,6 +256,60 @@ CK_BBOOL public_session_exist(void)
 		return CK_FALSE;
 }
 
+CK_RV session_template_check_consistency(
+			CK_SESSION_HANDLE hSession,
+			struct template_list *template)
+{
+	CK_RV rc = CKR_OK;
+	session *sess = NULL_PTR;
+	CK_BBOOL sess_obj = CK_FALSE, priv_obj = CK_FALSE;
+
+	sess = get_session(hSession);
+	if (!sess) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
+
+	sess_obj = template_is_session_object(template);
+	priv_obj = template_is_private_set(template);
+
+	if (sess->session_info.state == CKS_RO_PUBLIC_SESSION) {
+		if (priv_obj) {
+			rc = CKR_USER_NOT_LOGGED_IN;
+			goto end;
+		}
+
+		if (!sess_obj) {
+			rc = CKR_SESSION_READ_ONLY;
+			goto end;
+		}
+	}
+
+	if (sess->session_info.state == CKS_RO_USER_FUNCTIONS) {
+		if (!sess_obj) {
+			rc = CKR_SESSION_READ_ONLY;
+			goto end;
+		}
+	}
+
+	if (sess->session_info.state == CKS_RW_PUBLIC_SESSION) {
+		if (priv_obj) {
+			rc = CKR_USER_NOT_LOGGED_IN;
+			goto end;
+		}
+	}
+
+	if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
+		if (priv_obj) {
+			rc = CKR_USER_NOT_LOGGED_IN;
+			goto end;
+		}
+	}
+
+end:
+	return rc;
+
+}
 
 static CK_RV sessions_login_all(CK_SLOT_ID slotID,
 				CK_USER_TYPE userType)

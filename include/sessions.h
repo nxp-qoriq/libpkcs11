@@ -71,6 +71,10 @@ CK_BBOOL user_session_exist(void);
 
 CK_BBOOL public_session_exist(void);
 
+CK_RV session_template_check_consistency(
+			CK_SESSION_HANDLE hSession,
+			struct template_list *template);
+
 CK_RV session_login(CK_SESSION_HANDLE hSession,
 	      CK_USER_TYPE userType, CK_UTF8CHAR_PTR pPin,
 	      CK_ULONG ulPinLen);
