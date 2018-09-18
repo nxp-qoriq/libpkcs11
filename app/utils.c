@@ -162,7 +162,8 @@ char *getMechanismString(CK_MECHANISM_TYPE mechanismID)
 		return "CKM_ECDSA_SHA1";
 	case CKM_ECDSA:
 		return "CKM_ECDSA";
-
+	case CKM_RSA_PKCS_KEY_PAIR_GEN:
+		return "CKM_RSA_PKCS_KEY_PAIR_GEN";
 	default:
 		return NULL;
 	}

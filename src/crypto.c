@@ -11,6 +11,7 @@
 #include <crypto.h>
 #include <general.h>
 #include <objects.h>
+#include <tee_slot.h>
 
 #include <securekey_api.h>
 #include <securekey_api_types.h>
@@ -26,6 +27,22 @@ struct ec_curves supported_ec_curves[SUPPORTED_EC_CURVES] = {
 	{P256, 256, prime256, sizeof(prime256)},
 	{P384, 384, secp384, sizeof(secp384)},
 };
+
+CK_RV mechanism_get_info(CK_SLOT_ID slotID, CK_MECHANISM_TYPE type,
+		CK_MECHANISM_INFO_PTR pInfo)
+{
+	CK_RV rc = CKR_OK;
+
+	switch (slotID) {
+		case TEE_SLOT_ID:
+			rc = Get_TEE_MechanismInfo(type, pInfo);
+			break;
+		default:
+			rc = CKR_SLOT_ID_INVALID;
+	}
+
+	return rc;
+}
 
 /* Init for sign mechanism */
 CK_RV sign_init(CK_SESSION_HANDLE hSession, sign_verify_context *ctx,

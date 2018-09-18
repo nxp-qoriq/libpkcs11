@@ -31,6 +31,9 @@ extern char prime256[], secp384[];
 
 extern struct ec_curves supported_ec_curves[SUPPORTED_EC_CURVES];
 
+CK_RV mechanism_get_info(CK_SLOT_ID slotID, CK_MECHANISM_TYPE type,
+		CK_MECHANISM_INFO_PTR pInfo);
+
 CK_RV sign_init(CK_SESSION_HANDLE hSession, sign_verify_context * ctx,
 		CK_MECHANISM * mech, CK_BBOOL recover_mode,
 		CK_OBJECT_HANDLE key);

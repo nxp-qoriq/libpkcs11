@@ -13,6 +13,7 @@
 #include <tee_slot.h>
 #include <sessions.h>
 #include <objects.h>
+#include <crypto.h>
 
 /*
  *  SLOT AND TOKEN MANAGEMENT
@@ -184,13 +185,7 @@ CK_RV C_GetMechanismInfo(CK_SLOT_ID slotID, CK_MECHANISM_TYPE type,
 		goto end;
 	}
 
-	switch (slotID) {
-		case TEE_SLOT_ID:
-			rc = Get_TEE_MechanismInfo(type, pInfo);
-			break;
-		default:
-			rc = CKR_SLOT_ID_INVALID;
-	}
+	rc = mechanism_get_info(slotID, type, pInfo);
 
 end:
 	p11_global_unlock();
