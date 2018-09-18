@@ -35,8 +35,6 @@ printf(msg, ##__VA_ARGS__); \
 } while (0)
 #endif
 
-
-
 #define P11_MIN(a, b)  ((a) < (b) ? (a) : (b))
 
 #define SHA256_LEN	32

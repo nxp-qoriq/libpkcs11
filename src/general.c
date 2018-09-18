@@ -16,6 +16,8 @@
 #include <securekey_api.h>
 #include <securekey_api_types.h>
 
+#define LABEL_MAX_SIZE	32
+
 /* Flag to find if cryptoki library is initialised or not */
 CK_ULONG	initialized;
 
@@ -282,7 +284,7 @@ CK_RV destroy_slot(CK_SLOT_ID slotID)
 	s_info = get_global_slot_info(slotID);
 	if (s_info == NULL) {
 		print_error("get_global_slot_info failed\n");
-		return CKR_SLOT_ID_INVALID;
+		return CKR_GENERAL_ERROR;
 	}
 
 	shared_lib_handle = s_info->shared_lib_handle;
@@ -374,6 +376,7 @@ static uint32_t token_load_data_file(CK_SLOT_ID slotID,
 	}
 
 	memcpy(token_data, &td, sizeof(struct token_data));
+	fclose(fptr);
 end:
 	return rc;
 }
@@ -402,7 +405,7 @@ static uint32_t token_save_data_file(CK_SLOT_ID slotID,
 		rc = errno;
 		goto end;
 	}
-
+	fclose(fptr);
 end:
 	return rc;
 }
@@ -562,7 +565,7 @@ CK_RV token_init(CK_SLOT_ID slotID,
 	/* Update the label with user provided token label and
 	  * set token flags to CKF_TOKEN_INITIALIZED.
 	  */
-	memcpy(token_info->label, pLabel, 32);
+	memcpy(token_info->label, pLabel, LABEL_MAX_SIZE);
 	token_info->flags = CKF_TOKEN_INITIALIZED;
 
 	memcpy(token_data->so_pin_hash, newPinHash, PIN_LEN);

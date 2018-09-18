@@ -14,7 +14,6 @@
 #include <sessions.h>
 #include <objects.h>
 
-#define LABEL_MAX_SIZE	32
 /*
  *  SLOT AND TOKEN MANAGEMENT
  */
@@ -220,15 +219,8 @@ CK_RV C_InitToken(CK_SLOT_ID slotID,
 		goto end;
 	}
 
-#if 0
-	// TBD
-	if (strlen(pLabel) > LABEL_MAX_SIZE) {
-		rc = CKR_ARGUMENTS_BAD;
-		goto end;
-	}
-#endif
-
-	//|| (strlen(pPin) != ulPinLen)	TBD
+	/* Security Concern: since we are limiting PinLen it can be found
+	  * by brute force*/
 	if ((ulPinLen < 4) || (ulPinLen > 8)) {
 		rc = CKR_ARGUMENTS_BAD;
 		goto end;
