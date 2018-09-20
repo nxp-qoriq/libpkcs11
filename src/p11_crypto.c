@@ -73,14 +73,53 @@ CK_RV C_EncryptFinal(CK_SESSION_HANDLE hSession,
  * DECRYPTION FUNCTIONS
  */
 
-CK_RV C_DecryptInit(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism,
-		    CK_OBJECT_HANDLE hKey)
+CK_RV C_DecryptInit(CK_SESSION_HANDLE hSession,
+		CK_MECHANISM_PTR pMechanism,
+		CK_OBJECT_HANDLE hKey)
 {
-	hSession = hSession;
-	pMechanism = pMechanism;
-	hKey = hKey;
+	session *sess = NULL;
+	CK_RV rc = CKR_OK;
+	CK_BBOOL valid = FALSE;
 
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	p11_global_lock();
+
+	if (!is_lib_initialized()) {
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
+	}
+
+	if (!pMechanism) {
+		rc = CKR_MECHANISM_INVALID;
+		goto end;
+	}
+
+	sess = get_session(hSession);
+	if (!sess) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
+
+	/* Check is mechanism passed support Decryption operation */
+	if (!mechanism_is_valid(sess->session_info.slotID, pMechanism,
+			CKF_DECRYPT)) {
+		print_error("Invalid Mechanism passed\n");
+		rc = CKR_MECHANISM_INVALID;
+		goto end;
+	}
+
+	/* Check for valid object handle */
+	valid = is_object_handle_valid(hKey, sess->session_info.slotID);
+	if (valid != TRUE) {
+		rc = CKR_OBJECT_HANDLE_INVALID;
+		goto end;
+	}
+
+	/* Call decrypt init */
+	rc = decrypt_init(hSession, &sess->decr_ctx, pMechanism, hKey);
+
+end:
+	p11_global_unlock();
+	return rc;
 }
 
 CK_RV C_Decrypt(CK_SESSION_HANDLE hSession,
@@ -89,13 +128,40 @@ CK_RV C_Decrypt(CK_SESSION_HANDLE hSession,
 		CK_BYTE_PTR pData,
 		CK_ULONG_PTR pulDataLen)
 {
-	hSession = hSession;
-	pEncryptedData = pEncryptedData;
-	ulEncryptedDataLen = ulEncryptedDataLen;
-	pData = pData;
-	pulDataLen = pulDataLen;
+	session *sess = NULL;
+	CK_RV rc = CKR_OK;
 
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	p11_global_lock();
+
+	if (!is_lib_initialized()) {
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
+	}
+
+	if (!pEncryptedData || !pulDataLen) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
+
+	if (!is_session_valid(hSession)) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
+
+	sess = get_session(hSession);
+	if (!sess) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
+
+	/* Call Decrypt function */
+	rc = decrypt(hSession, sess, pEncryptedData, ulEncryptedDataLen, pData,
+		  pulDataLen);
+
+end:
+	p11_global_unlock();
+	return rc;
+
 }
 
 CK_RV C_DecryptUpdate(CK_SESSION_HANDLE hSession,
@@ -212,6 +278,13 @@ CK_RV C_SignInit(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism,
 	sess = get_session(hSession);
 	if (!sess) {
 		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
+
+	if (!mechanism_is_valid(sess->session_info.slotID, pMechanism,
+			CKF_SIGN)) {
+		print_error("Invalid Mechanism passed\n");
+		rc = CKR_MECHANISM_INVALID;
 		goto end;
 	}
 

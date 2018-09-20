@@ -785,7 +785,7 @@ privk_add_default_attr(struct template_list *tmpl_list,
 	privk_decrypt_attr->type       = CKA_DECRYPT;
 	privk_decrypt_attr->ulValueLen = sizeof(CK_BBOOL);
 	privk_decrypt_attr->pValue     = (CK_BYTE *)privk_decrypt_attr + sizeof(CK_ATTRIBUTE);
-	*(CK_BBOOL *)privk_decrypt_attr->pValue = FALSE;
+	*(CK_BBOOL *)privk_decrypt_attr->pValue = TRUE;
 
 	privk_sign_attr->type       = CKA_SIGN;
 	privk_sign_attr->ulValueLen = sizeof(CK_BBOOL);

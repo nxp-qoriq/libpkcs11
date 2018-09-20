@@ -144,6 +144,247 @@ end:
 	return rc;
 }
 
+/* Init for decrypt mechanism */
+CK_RV decrypt_init(CK_SESSION_HANDLE hSession, encr_decr_context *ctx,
+		CK_MECHANISM *mech, CK_OBJECT_HANDLE key)
+{
+	CK_ATTRIBUTE attr[4] = {0};
+	CK_BYTE *ptr = NULL;
+	CK_KEY_TYPE keytype;
+	CK_OBJECT_CLASS class;
+	CK_BBOOL decrypt = FALSE, found = FALSE;
+	CK_MECHANISM_TYPE_PTR obj_mechanisms = NULL;
+	CK_ULONG n;
+	CK_RV rc;
+
+	if (ctx->active == TRUE) {
+		rc = CKR_OPERATION_ACTIVE;
+		goto out;
+	}
+
+	/* Get all object attributes needed */
+	attr[0].type = CKA_DECRYPT;
+	attr[1].type = CKA_ALLOWED_MECHANISMS;
+	attr[2].type = CKA_KEY_TYPE;
+	attr[3].type = CKA_CLASS;
+
+	/* Check if key supports decrypt attribute */
+	rc = get_attr_value(hSession, key, attr, 1);
+	if (rc != CKR_OK) {
+		rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+		goto out;
+	}
+
+	rc = get_attr_value(hSession, key, &attr[1], 3);
+	if (rc != CKR_OK)
+		goto out;
+
+	obj_mechanisms =
+		(CK_MECHANISM_TYPE_PTR)malloc(attr[1].ulValueLen);
+	if (!obj_mechanisms) {
+		rc = CKR_HOST_MEMORY;
+		goto out;
+	}
+
+	attr[0].pValue = &decrypt;
+	attr[1].pValue = obj_mechanisms;
+	attr[2].pValue = &keytype;
+	attr[3].pValue = &class;
+	rc = get_attr_value(hSession, key, attr, 4);
+	if (rc != CKR_OK)
+		goto out;
+
+	/* Check if object can support decrypt mechanism */
+	if (decrypt != TRUE) {
+		rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+		goto out;
+	}
+
+	/* Check if object can support decrypt mechanism type */
+	for (n = 0; n < (attr[1].ulValueLen/sizeof(CK_MECHANISM_TYPE)); n++) {
+		if (mech->mechanism ==
+			*((CK_MECHANISM_TYPE_PTR)attr[1].pValue + n)) {
+			found = TRUE;
+			break;
+		}
+	}
+
+	if (found != TRUE) {
+		rc = CKR_MECHANISM_INVALID;
+		goto out;
+	}
+
+	/* Check for key attributes if they match with mechanism provided */
+	switch (mech->mechanism) {
+	case CKM_RSA_PKCS:
+		/* Key type must be RSA */
+		if (keytype != CKK_RSA) {
+			rc = CKR_KEY_TYPE_INCONSISTENT;
+			goto out;
+		}
+		break;
+
+	default:
+		rc = CKR_MECHANISM_INVALID;
+		goto out;
+	}
+
+	if (mech->ulParameterLen != 0) {
+		rc = CKR_MECHANISM_PARAM_INVALID;
+		goto out;
+	}
+
+	/* Key class must be Private */
+	if (class != CKO_PRIVATE_KEY) {
+		rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+		goto out;
+	}
+
+	/* Currently we don't support multi-part ops */
+	ctx->context_len = 0;
+	ctx->context     = NULL;
+
+	if (mech->ulParameterLen > 0) {
+		ptr = (CK_BYTE *)malloc(mech->ulParameterLen);
+		if (!ptr) {
+			rc = CKR_HOST_MEMORY;
+			goto out;
+		}
+		memcpy(ptr, mech->pParameter, mech->ulParameterLen);
+	}
+
+	/* Keeping the sign information in session ctx */
+	ctx->key                 = key;
+	ctx->mech.ulParameterLen = mech->ulParameterLen;
+	ctx->mech.mechanism      = mech->mechanism;
+	ctx->mech.pParameter     = ptr;
+	ctx->multi               = FALSE;
+	ctx->active              = TRUE;
+
+out:
+	if (obj_mechanisms)
+		free(obj_mechanisms);
+
+	return rc;
+}
+
+static CK_RV rsa_decrypt(CK_SESSION_HANDLE hSession, session *sess,
+		CK_BYTE_PTR pEncryptedData,
+		CK_ULONG ulEncryptedDataLen, CK_BYTE_PTR pData,
+		CK_ULONG_PTR pulDataLen)
+{
+	CK_RV rc = CKR_OK;
+	encr_decr_context *ctx = &sess->decr_ctx;
+	CK_ATTRIBUTE attr = {0};
+	CK_ULONG req_data_len = 0;
+
+	SK_FUNCTION_LIST_PTR sk_funcs = NULL;
+	SK_RET_CODE ret = SKR_OK;
+	SK_MECHANISM_INFO mechType = {0};
+	SK_OBJECT_HANDLE sk_key;
+
+	/* Get required signature buffer size from size of modulus */
+	attr.type = CKA_MODULUS;
+	rc = get_attr_value(hSession, ctx->key, &attr, 1);
+	if (rc != CKR_OK)
+		goto out;
+	req_data_len = attr.ulValueLen;
+
+	/*
+	 * If signature buffer is NULL then return size of
+	 * buffer to be allocated.
+	 */
+	if (!pData) {
+		*pulDataLen = req_data_len;
+		rc = CKR_OK;
+		goto out;
+	}
+
+	/* Data Len length should not be less than required size */
+	if (*pulDataLen < req_data_len) {
+		rc = CKR_BUFFER_TOO_SMALL;
+		goto out;
+	}
+
+	/* Maps RSA Decrypt --> SK_decrypt for private key operation */
+	sk_funcs = get_slot_function_list(sess->session_info.slotID);
+	if (!sk_funcs)
+		return CKR_ARGUMENTS_BAD;
+
+	switch (ctx->mech.mechanism) {
+		case CKM_RSA_PKCS:
+			mechType.mechanism = SKM_RSAES_PKCS1_V1_5;
+			break;
+		default:
+			rc = CKR_MECHANISM_INVALID;
+			goto out;
+	}
+
+	sk_key = ((struct object_node *)ctx->key)->object.sk_obj_handle;
+
+	ret = sk_funcs->SK_Decrypt(&mechType, sk_key, pEncryptedData,
+				ulEncryptedDataLen, pData,
+				(uint16_t *)pulDataLen);
+	if (ret != SKR_OK) {
+		print_error("SK_Decrypt failed with ret code 0x%x\n", ret);
+		rc = CKR_GENERAL_ERROR;
+		goto out;
+	}
+
+out:
+	return rc;
+}
+
+/* Implementation of decrypt api */
+CK_RV decrypt(CK_SESSION_HANDLE hSession, session *sess,
+		CK_BYTE_PTR pEncryptedData,
+		CK_ULONG ulEncryptedDataLen, CK_BYTE_PTR pData,
+		CK_ULONG_PTR pulDataLen)
+{
+	encr_decr_context *ctx = &sess->decr_ctx;
+	CK_RV rc = CKR_OK;
+
+	if (ctx->active == FALSE) {
+		rc = CKR_OPERATION_NOT_INITIALIZED;
+		goto out;
+	}
+
+	switch (ctx->mech.mechanism) {
+	case CKM_RSA_PKCS:
+		rc = rsa_decrypt(hSession, sess, pEncryptedData,
+				ulEncryptedDataLen, pData,
+				pulDataLen);
+		if (((rc == CKR_OK) && (pData == NULL)) ||
+			(rc == CKR_BUFFER_TOO_SMALL))
+			goto out;
+		break;
+
+	default:
+		rc = CKR_MECHANISM_INVALID;
+		goto out;
+	}
+
+	ctx->key = 0;
+	ctx->mech.ulParameterLen = 0;
+	ctx->mech.mechanism = 0;
+	ctx->multi = FALSE;
+	ctx->active = FALSE;
+	ctx->context_len = 0;
+
+	if (ctx->mech.pParameter) {
+		free(ctx->mech.pParameter);
+		ctx->mech.pParameter = NULL;
+	}
+
+	if (ctx->context) {
+		free(ctx->context);
+		ctx->context = NULL;
+	}
+
+out:
+	return rc;
+}
+
 /* Init for sign mechanism */
 CK_RV sign_init(CK_SESSION_HANDLE hSession, sign_verify_context *ctx,
 		CK_MECHANISM *mech, CK_BBOOL recover_mode,

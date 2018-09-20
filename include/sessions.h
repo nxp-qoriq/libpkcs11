@@ -18,6 +18,15 @@ typedef struct _sign_verify_context {
 	CK_BBOOL		active; /* Is Sign already initialized? */
 } sign_verify_context;
 
+typedef struct _encr_decr_context {
+	CK_OBJECT_HANDLE  key;
+	CK_MECHANISM	     mech;
+	CK_BYTE          *context;
+	CK_ULONG          context_len;
+	CK_BBOOL          multi;
+	CK_BBOOL          active;
+} encr_decr_context;
+
 typedef struct _session {
 	/* Information about this session */
 	CK_SESSION_INFO		session_info;
@@ -33,6 +42,8 @@ typedef struct _session {
 	CK_BBOOL		op_active;
 	/* Sign context info per session */
 	sign_verify_context sign_ctx;
+	/* Decrypt context info per session */
+	encr_decr_context decr_ctx;
 } session;
 
 /* The number of supported slots */

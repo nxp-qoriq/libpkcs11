@@ -45,6 +45,14 @@ CK_RV mechanism_template_check_consistency(
 			CK_ULONG ulPrivateKeyAttributeCount,
 			CK_ULONG *subclass);
 
+CK_RV decrypt_init(CK_SESSION_HANDLE hSession, encr_decr_context *ctx,
+		CK_MECHANISM *mech, CK_OBJECT_HANDLE key);
+
+CK_RV decrypt(CK_SESSION_HANDLE hSession, session *sess,
+		CK_BYTE_PTR pEncryptedData,
+		CK_ULONG ulEncryptedDataLen, CK_BYTE_PTR pData,
+		CK_ULONG_PTR pulDataLen);
+
 CK_RV sign_init(CK_SESSION_HANDLE hSession, sign_verify_context * ctx,
 		CK_MECHANISM * mech, CK_BBOOL recover_mode,
 		CK_OBJECT_HANDLE key);

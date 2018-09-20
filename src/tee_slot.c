@@ -28,7 +28,7 @@ struct mechanisms tee_mechanisms[MAX_MECHANISM_COUNT] = {
 	.info = {
 		.ulMinKeySize = 512,
 		.ulMaxKeySize = 2048,
-		.flags = CKF_SIGN
+		.flags = CKF_SIGN | CKF_DECRYPT
 	}
 },
 {
