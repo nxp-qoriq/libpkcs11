@@ -217,6 +217,7 @@ CK_RV decrypt_init(CK_SESSION_HANDLE hSession, encr_decr_context *ctx,
 	/* Check for key attributes if they match with mechanism provided */
 	switch (mech->mechanism) {
 	case CKM_RSA_PKCS:
+	case CKM_RSA_PKCS_OAEP:
 		/* Key type must be RSA */
 		if (keytype != CKK_RSA) {
 			rc = CKR_KEY_TYPE_INCONSISTENT;
@@ -229,9 +230,11 @@ CK_RV decrypt_init(CK_SESSION_HANDLE hSession, encr_decr_context *ctx,
 		goto out;
 	}
 
-	if (mech->ulParameterLen != 0) {
-		rc = CKR_MECHANISM_PARAM_INVALID;
-		goto out;
+	if (mech->mechanism == CKM_RSA_PKCS) {
+		if (mech->ulParameterLen != 0) {
+			rc = CKR_MECHANISM_PARAM_INVALID;
+			goto out;
+		}
 	}
 
 	/* Key class must be Private */
@@ -277,13 +280,14 @@ static CK_RV rsa_decrypt(CK_SESSION_HANDLE hSession, session *sess,
 	encr_decr_context *ctx = &sess->decr_ctx;
 	CK_ATTRIBUTE attr = {0};
 	CK_ULONG req_data_len = 0;
+	CK_RSA_PKCS_OAEP_PARAMS *oaep_params = NULL;
 
 	SK_FUNCTION_LIST_PTR sk_funcs = NULL;
 	SK_RET_CODE ret = SKR_OK;
 	SK_MECHANISM_INFO mechType = {0};
 	SK_OBJECT_HANDLE sk_key;
 
-	/* Get required signature buffer size from size of modulus */
+	/* Get required pData buffer size from size of modulus */
 	attr.type = CKA_MODULUS;
 	rc = get_attr_value(hSession, ctx->key, &attr, 1);
 	if (rc != CKR_OK)
@@ -291,7 +295,7 @@ static CK_RV rsa_decrypt(CK_SESSION_HANDLE hSession, session *sess,
 	req_data_len = attr.ulValueLen;
 
 	/*
-	 * If signature buffer is NULL then return size of
+	 * If pData buffer is NULL then return size of
 	 * buffer to be allocated.
 	 */
 	if (!pData) {
@@ -300,6 +304,8 @@ static CK_RV rsa_decrypt(CK_SESSION_HANDLE hSession, session *sess,
 		goto out;
 	}
 
+	print_info("ulDataLen = %lu, enc_len = %lu\n",
+		*pulDataLen, ulEncryptedDataLen);
 	/* Data Len length should not be less than required size */
 	if (*pulDataLen < req_data_len) {
 		rc = CKR_BUFFER_TOO_SMALL;
@@ -315,6 +321,30 @@ static CK_RV rsa_decrypt(CK_SESSION_HANDLE hSession, session *sess,
 		case CKM_RSA_PKCS:
 			mechType.mechanism = SKM_RSAES_PKCS1_V1_5;
 			break;
+		case CKM_RSA_PKCS_OAEP:
+			oaep_params = (CK_RSA_PKCS_OAEP_PARAMS *)ctx->mech.pParameter;
+			switch (oaep_params->hashAlg) {
+				case CKM_SHA_1:
+					mechType.mechanism = SKM_RSAES_PKCS1_OAEP_MGF1_SHA1;
+					break;
+				case CKM_SHA224:
+					mechType.mechanism = SKM_RSAES_PKCS1_OAEP_MGF1_SHA224;
+					break;
+				case CKM_SHA256:
+					mechType.mechanism = SKM_RSAES_PKCS1_OAEP_MGF1_SHA256;
+					break;
+				case CKM_SHA384:
+					mechType.mechanism = SKM_RSAES_PKCS1_OAEP_MGF1_SHA384;
+					break;
+				case CKM_SHA512:
+					mechType.mechanism = SKM_RSAES_PKCS1_OAEP_MGF1_SHA512;
+					break;
+				default:
+					rc = CKR_MECHANISM_PARAM_INVALID;
+					goto out;
+			}
+			break;
+
 		default:
 			rc = CKR_MECHANISM_INVALID;
 			goto out;
@@ -322,6 +352,8 @@ static CK_RV rsa_decrypt(CK_SESSION_HANDLE hSession, session *sess,
 
 	sk_key = ((struct object_node *)ctx->key)->object.sk_obj_handle;
 
+	print_info("ulEncryptedDataLen = %lu, pulDataLen = %lu\n",
+			ulEncryptedDataLen, *pulDataLen);
 	ret = sk_funcs->SK_Decrypt(&mechType, sk_key, pEncryptedData,
 				ulEncryptedDataLen, pData,
 				(uint16_t *)pulDataLen);
@@ -351,6 +383,7 @@ CK_RV decrypt(CK_SESSION_HANDLE hSession, session *sess,
 
 	switch (ctx->mech.mechanism) {
 	case CKM_RSA_PKCS:
+	case CKM_RSA_PKCS_OAEP:
 		rc = rsa_decrypt(hSession, sess, pEncryptedData,
 				ulEncryptedDataLen, pData,
 				pulDataLen);

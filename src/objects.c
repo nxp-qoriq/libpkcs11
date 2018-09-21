@@ -874,7 +874,7 @@ rsa_privk_add_default_attr(struct template_list *tmpl_list,
 				CK_ULONG op_type)
 {
 	CK_RV rc;
-	uint32_t rsa_priv_key_mech_count = 7;
+	uint32_t rsa_priv_key_mech_count = 8;
 	CK_MECHANISM_TYPE_PTR mech;
 	/* To satisfy compiler */
 	op_type = op_type;
@@ -952,6 +952,7 @@ rsa_privk_add_default_attr(struct template_list *tmpl_list,
 	mech[4] = CKM_SHA256_RSA_PKCS;
 	mech[5] = CKM_SHA384_RSA_PKCS;
 	mech[6] = CKM_SHA512_RSA_PKCS;
+	mech[7] = CKM_RSA_PKCS_OAEP;
 
 	key_type->attributes = key_type_attr;
 	keygen_mech->attributes = keygen_mech_attr;

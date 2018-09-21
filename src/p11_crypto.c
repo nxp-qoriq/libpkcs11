@@ -142,7 +142,12 @@ CK_RV C_Decrypt(CK_SESSION_HANDLE hSession,
 		rc = CKR_ARGUMENTS_BAD;
 		goto end;
 	}
-
+#if 0
+	uint32_t i = 0;
+	for (i = 0; i < ulEncryptedDataLen; i++) {
+		printf("%02x", pEncryptedData[i]);
+	}
+#endif
 	if (!is_session_valid(hSession)) {
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto end;
@@ -153,6 +158,9 @@ CK_RV C_Decrypt(CK_SESSION_HANDLE hSession,
 		rc = CKR_SESSION_HANDLE_INVALID;
 		goto end;
 	}
+
+	print_info("enc_len = %lu, datalen = %lu\n", ulEncryptedDataLen,
+			*pulDataLen);
 
 	/* Call Decrypt function */
 	rc = decrypt(hSession, sess, pEncryptedData, ulEncryptedDataLen, pData,

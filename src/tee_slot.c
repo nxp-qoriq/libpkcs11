@@ -15,7 +15,7 @@ CK_RV Get_TEE_MechanismList(CK_MECHANISM_TYPE_PTR pMechanismList,
 CK_RV Get_TEE_MechanismInfo(CK_MECHANISM_TYPE type,
 			CK_MECHANISM_INFO_PTR pInfo);
 
-#define MAX_MECHANISM_COUNT	9
+#define MAX_MECHANISM_COUNT	10
 
 struct mechanisms {
 	CK_MECHANISM_TYPE algo ;
@@ -93,6 +93,14 @@ struct mechanisms tee_mechanisms[MAX_MECHANISM_COUNT] = {
 		.ulMinKeySize = 1024,
 		.ulMaxKeySize = 2048,
 		.flags = CKF_GENERATE_KEY_PAIR
+	}
+},
+{
+	.algo =     CKM_RSA_PKCS_OAEP,
+	.info = {
+		.ulMinKeySize = 1024,
+		.ulMaxKeySize = 2048,
+		.flags = CKF_DECRYPT
 	}
 }
 };
