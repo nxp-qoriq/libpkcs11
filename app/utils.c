@@ -136,6 +136,8 @@ CK_MECHANISM_TYPE getMechId(char *mechIdStr)
 		return CKM_ECDSA_SHA1;
 	else if (strcmp(mechIdStr, "ec") == 0)
 		return CKM_ECDSA;
+	else if (strcmp(mechIdStr, "rsa-oaep") == 0)
+		return CKM_RSA_PKCS_OAEP;
 
 	printf("Unsupported Mechnism: %s\n", mechIdStr);
 	return UL_INVALID;

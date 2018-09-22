@@ -36,6 +36,7 @@ struct getOptValue_t {
 	CK_MECHANISM_TYPE mechanismID;
 	uint8_t *data;
 	uint8_t *signed_data;
+	uint8_t *enc_data;
 	uint32_t data_len;
 	uint32_t findCritCount;
 };
@@ -547,6 +548,359 @@ cleanup:
 	return ret;
 }
 
+int do_Decrypt(struct getOptValue_t *getOptValue)
+{
+	int ret =	APP_OK;
+	CK_FLAGS          flags;
+	CK_SLOT_ID        slot_id = getOptValue->slot_id;
+	CK_RV             rc = 0;
+	CK_SESSION_HANDLE h_session;
+
+	CK_BYTE           false = FALSE;
+	CK_ULONG i, j;
+
+	CK_OBJECT_HANDLE  obj;
+	CK_ULONG          num_existing_objects;
+
+	CK_ATTRIBUTE ck_attr[3];
+	CK_OBJECT_CLASS obj_type;
+	CK_KEY_TYPE key_type;
+	CK_ULONG count = 0;
+	CK_MECHANISM mech = {0};
+	CK_BYTE *plain_text = NULL;
+	CK_ULONG plain_text_bytes = 0;
+
+	FILE *decFile = NULL;
+	CK_BYTE enc[256];
+	CK_ULONG enc_bytes = 256;
+	FILE *encFile = NULL;
+	uint8_t *label = getOptValue->label;
+	CK_RSA_PKCS_OAEP_PARAMS oaep_params;
+
+	memset(enc, 0, 256);
+
+	encFile = fopen(getOptValue->enc_data, "rb");
+	if (encFile == NULL) {
+		printf("Error! opening file");
+		ret = APP_FILE_ERR;
+		return ret;
+	}
+
+	enc_bytes = fread(enc, 1, enc_bytes, encFile);
+	fclose(encFile);
+
+	if (getOptValue->key_type == UL_UNINTZD) {
+		key_type = CKK_RSA;
+		printf("No Key Type (-k option missing) is provided.\n");
+		printf("Continuing with key type = CKK_RSA\n");
+	} else
+		key_type = getOptValue->key_type;
+
+	/* Signature always done using Private Key */
+	obj_type = CKO_PRIVATE_KEY;
+
+	ck_attr[0].type = CKA_LABEL;
+	ck_attr[0].pValue = label;
+	ck_attr[0].ulValueLen = strlen(label);
+
+	ck_attr[1].type = CKA_CLASS;
+	ck_attr[1].pValue = &obj_type;
+	ck_attr[1].ulValueLen = sizeof(CK_OBJECT_CLASS);
+
+	ck_attr[2].type = CKA_KEY_TYPE;
+	ck_attr[2].pValue = &key_type;
+	ck_attr[2].ulValueLen = sizeof(CK_KEY_TYPE);
+
+	/* create a USER R/W session */
+	flags = CKF_SERIAL_SESSION;
+	rc = funcs->C_OpenSession(slot_id, flags, NULL, NULL, &h_session);
+	if (rc != CKR_OK) {
+		printf("C_OpenSession handle failed rc=%s\n", p11_get_error_string(rc));
+		ret = APP_CKR_ERR;
+		goto cleanup;
+	}
+
+	rc = funcs->C_FindObjectsInit(h_session, ck_attr, 3);
+	if (rc != CKR_OK) {
+		printf("C_FindObjectsInit handle failed rc=%s\n", p11_get_error_string(rc));
+		ret = APP_CKR_ERR;
+		goto cleanup;
+	}
+
+	rc = funcs->C_FindObjects(h_session, &obj, 1, &num_existing_objects);
+	if (rc != CKR_OK) {
+		printf("C_FindObjects handle failed rc=%s\n", p11_get_error_string(rc));
+		ret = APP_CKR_ERR;
+		goto cleanup;
+	}
+
+	rc = funcs->C_FindObjectsFinal(h_session);
+	if (rc != CKR_OK) {
+		printf("C_FindObjectsFinal handle failed rc=%s\n", p11_get_error_string(rc));
+		ret = APP_CKR_ERR;
+		goto cleanup;
+	}
+
+	if (num_existing_objects) {
+		if (num_existing_objects > 1)
+			printf("More than 1 Key with same label exists, continuing with first one.\n");
+	} else {
+		printf("No Object Found to Sign.\n");
+		goto cleanup;
+	}
+
+	mech.mechanism = getOptValue->mechanismID;
+	switch (mech.mechanism) {
+		case CKM_RSA_PKCS:
+			mech.pParameter = NULL;
+			mech.ulParameterLen = 0;
+			break;
+		case CKM_RSA_PKCS_OAEP:
+			memset(&oaep_params, 0, sizeof(CK_RSA_PKCS_OAEP_PARAMS));
+			oaep_params.hashAlg = CKM_SHA_1;
+			oaep_params.mgf = CKG_MGF1_SHA1;
+			oaep_params.source = CKZ_DATA_SPECIFIED;
+			oaep_params.pSourceData = NULL;
+			oaep_params.ulSourceDataLen = 0;
+			mech.pParameter = &oaep_params;
+			mech.ulParameterLen = sizeof(oaep_params);
+			break;
+		default:
+			printf("Only CKM_RSA_PKCS(rsa), CKM_RSA_PKCS_OAEP(rsa-oaep) supported\n");
+			goto cleanup;
+	}
+
+	rc = funcs->C_DecryptInit(h_session, &mech, obj);
+	if (rc != CKR_OK) {
+		printf("C_DecryptInit() rc = %s\n", p11_get_error_string(rc));
+		ret = APP_CKR_ERR;
+		goto cleanup;
+	}
+
+	rc = funcs->C_Decrypt(h_session, enc, enc_bytes, plain_text, &plain_text_bytes);
+	if (rc != CKR_OK) {
+		printf("C_Sign() rc = %s\n", p11_get_error_string(rc));
+		ret = APP_CKR_ERR;
+		goto cleanup;
+	}
+
+	plain_text = (CK_BYTE *)malloc(plain_text_bytes);
+	if (plain_text == NULL) {
+		printf("plain_text malloc failed\n");
+		ret = APP_MALLOC_FAIL;
+		goto cleanup;
+	}
+
+	rc = funcs->C_Decrypt(h_session, enc, enc_bytes, plain_text, &plain_text_bytes);
+	if (rc != CKR_OK) {
+		printf("C_Decrypt() rc = %s\n", p11_get_error_string(rc));
+		ret = APP_CKR_ERR;
+		goto cleanup;
+	}
+
+	printf("Deccrypted Data: %s \n", plain_text);
+
+cleanup:
+	rc = funcs->C_CloseSession(h_session);
+	if (rc != CKR_OK)
+		ret = APP_CKR_ERR;
+
+	return ret;
+}
+
+int do_Encrypt(struct getOptValue_t *getOptValue)
+{
+	int ret = APP_OK;
+	uint8_t res = 0;
+	CK_FLAGS          flags;
+	CK_SLOT_ID        slot_id = getOptValue->slot_id;
+	CK_ATTRIBUTE ck_attr[3];
+	CK_RV             rc = 0;
+	CK_SESSION_HANDLE h_session;
+	CK_OBJECT_HANDLE  obj;
+	CK_ULONG          num_existing_objects;
+
+	CK_MECHANISM mech = {0};
+	CK_BYTE data_out[512] = {0};
+	CK_ULONG data_out_len = 0;
+	CK_BYTE *data = getOptValue->data;
+	RSA *pub_key;
+	BIGNUM *bn_mod = NULL, *bn_exp = NULL;
+	CK_ULONG i, j;
+	CK_OBJECT_CLASS obj_type;
+	uint8_t *label = getOptValue->label;
+	CK_KEY_TYPE key_type = 0;
+
+	FILE *encFile = NULL;
+	CK_ULONG enc_bytes = 256;
+	CK_BYTE enc[256];
+	uint32_t attrCount = 0;
+
+	key_type = getOptValue->key_type;
+
+	/* Encrypt always done using Public Key */
+	obj_type = CKO_PUBLIC_KEY;
+
+	ck_attr[0].type = CKA_LABEL;
+	ck_attr[0].pValue = label;
+	ck_attr[0].ulValueLen = strlen(label);
+
+	ck_attr[1].type = CKA_CLASS;
+	ck_attr[1].pValue = &obj_type;
+	ck_attr[1].ulValueLen = sizeof(CK_OBJECT_CLASS);
+
+	ck_attr[2].type = CKA_KEY_TYPE;
+	ck_attr[2].pValue = &key_type;
+	ck_attr[2].ulValueLen = sizeof(CK_KEY_TYPE);
+
+	/* create a USER R/W session */
+	flags = CKF_SERIAL_SESSION;
+	rc = funcs->C_OpenSession(slot_id, flags, NULL, NULL, &h_session);
+	if (rc != CKR_OK) {
+		printf("C_OpenSession handle failed rc=%s\n", p11_get_error_string(rc));
+		ret = APP_CKR_ERR;
+		goto cleanup;
+	}
+
+	rc = funcs->C_FindObjectsInit(h_session, ck_attr, 3);
+	if (rc != CKR_OK) {
+		printf("C_FindObjectsInit handle failed rc=%s\n", p11_get_error_string(rc));
+		ret = APP_CKR_ERR;
+		goto cleanup;
+	}
+
+	rc = funcs->C_FindObjects(h_session, &obj, 1, &num_existing_objects);
+	if (rc != CKR_OK) {
+		printf("C_FindObjects handle failed rc=%s\n", p11_get_error_string(rc));
+		ret = APP_CKR_ERR;
+		goto cleanup;
+	}
+
+	rc = funcs->C_FindObjectsFinal(h_session);
+	if (rc != CKR_OK) {
+		printf("C_FindObjectsFinal handle failed rc=%s\n", p11_get_error_string(rc));
+		ret = APP_CKR_ERR;
+		goto cleanup;
+	}
+
+	if (num_existing_objects) {
+		if (num_existing_objects > 1)
+			printf("More than 1 Key with same label exists, continuing with first one.\n");
+	} else {
+		printf("No Object Found to Verify.\n");
+		goto cleanup;
+	}
+
+	memset(ck_attr, 0, sizeof(CK_ATTRIBUTE) * 2);
+	switch (key_type) {
+		case CKK_RSA:
+			ck_attr[attrCount].type = CKA_MODULUS;
+			ck_attr[attrCount].pValue = NULL;
+			ck_attr[attrCount].ulValueLen = 0;
+			attrCount++;
+
+			ck_attr[attrCount].type = CKA_PUBLIC_EXPONENT;
+			ck_attr[attrCount].pValue = NULL;
+			ck_attr[attrCount].ulValueLen = 0;
+			attrCount++;
+
+			break;
+		default:
+			printf("Unsupported Key Type\n");
+			goto cleanup;
+	}
+
+	rc = funcs->C_GetAttributeValue(h_session, obj, ck_attr, attrCount);
+	if (rc != CKR_OK) {
+		printf("C_GetAttributeValue() rc = %s\n", p11_get_error_string(rc));
+		ret = APP_CKR_ERR;
+		goto cleanup;
+	}
+#if 0
+	for (i = 0; i < 2; i++) {
+		printf("ck_attr[%lu].ulValueLen = %lu\n",
+				i, ck_attr[i].ulValueLen);
+	}
+#endif
+
+	attrCount = 0;
+	ck_attr[attrCount].pValue = (void *)malloc(ck_attr[attrCount].ulValueLen);
+	attrCount++;
+	ck_attr[attrCount].pValue = (void *)malloc(ck_attr[attrCount].ulValueLen);
+	attrCount++;
+
+	rc = funcs->C_GetAttributeValue(h_session, obj, ck_attr, attrCount);
+	if (rc != CKR_OK) {
+		printf("C_GetAttributeValue() rc = %s\n", p11_get_error_string(rc));
+		ret = APP_CKR_ERR;
+		goto cleanup;
+	}
+
+	switch (key_type) {
+		case CKK_RSA:
+			pub_key = RSA_new();
+			RSA_blinding_off(pub_key);
+			bn_mod = BN_new();
+			bn_exp = BN_new();
+
+			/* Convert from strings to BIGNUMs and stick them in the RSA struct */
+			BN_bin2bn((uint8_t *)ck_attr[0].pValue, ck_attr[0].ulValueLen,
+					bn_mod);
+			BN_bin2bn((uint8_t *)ck_attr[1].pValue, ck_attr[1].ulValueLen,
+					bn_exp);
+
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+			pub_key->n = bn_mod;
+			pub_key->e = bn_exp;
+#else
+			RSA_set0_key(pub_key, bn_mod, bn_exp, NULL);
+#endif
+			mech.mechanism = getOptValue->mechanismID;
+
+			switch (mech.mechanism) {
+				case CKM_RSA_PKCS:
+					data_out_len = RSA_public_encrypt(strlen(data), data, data_out,
+							pub_key, RSA_PKCS1_PADDING);
+					if (data_out_len == -1)
+						printf("RSA_public_encrypt failed\n");
+					break;
+				case CKM_RSA_PKCS_OAEP:
+					data_out_len = RSA_public_encrypt(strlen(data), data, data_out,
+							pub_key, RSA_PKCS1_OAEP_PADDING);
+					if (data_out_len == -1)
+						printf("RSA_public_encrypt failed\n");
+					break;
+				default:
+					rc = CKR_MECHANISM_INVALID;
+			}
+			break;
+		default:
+			printf("Unsupported Key Type\n");
+			goto cleanup;
+	}
+
+	encFile = fopen("enc.data", "wb");
+	if (encFile == NULL) {
+		printf("Error! opening file");
+		ret = APP_FILE_ERR;
+		goto cleanup;
+	}
+
+	fwrite((void *)data_out, 1, data_out_len, encFile);
+	printf("Encrypted data saved in enc.data\n");
+	fclose(encFile);
+
+cleanup:
+	/* done...close the session and verify the object is deleted */
+	rc = funcs->C_CloseSession(h_session);
+	if (rc != CKR_OK) {
+		ret = APP_CKR_ERR;
+		return rc;
+	}
+
+	return ret;
+}
+
 int do_Sign(struct getOptValue_t *getOptValue)
 {
 	int ret =	APP_OK;
@@ -1022,7 +1376,9 @@ void print_usage(void)
 	printf("\t -M - Mechanism\n");
 	printf("\t -F - Find\n");
 	printf("\t -S - Sign\n");
-	printf("\t -V - Verify\n\n");
+	printf("\t -V - Verify\n");
+	printf("\t -E - Encrypt\n");
+	printf("\t -D - Decrypt\n\n");
 	printf("\t Use below Sub options along with Main options:-\n");
 	printf("\t\t -i - Info.\n");
 	printf("\t\t -l - List.\n");
@@ -1031,9 +1387,13 @@ void print_usage(void)
 	printf("\t\t -b - Object Label.\n");
 	printf("\t\t -p - Slot Id.\n");
 	printf("\t\t -n - Number of Object to be Listed (Default n =10).\n");
-	printf("\t\t -m - Mechanism Id (Supported: rsa, md5-rsa, sha1-rsa, sha256-rsa, sha384-rsa, sha512-rsa, ec, sha1-ec)\n");
+	printf("\t\t -m - Mechanism Id \n");
+	printf("\t\t Supported Mechanism: rsa, rsa-oaep, md5-rsa, sha1-rsa, sha256-rsa, sha384-rsa, sha512-rsa, ec, sha1-ec\n");
+	printf("\t\t EC/RSA Sign/Verify: rsa, md5-rsa, sha1-rsa, sha256-rsa, sha384-rsa, sha512-rsa, ec, sha1-ec\n");
+	printf("\t\t RSA Encrypt/Decrypt: rsa, rsa-oaep\n");
 	printf("\t\t -d - Plain Data\n");
-	printf("\t\t -s - Signature Data\n\n");
+	printf("\t\t -s - Signature Data\n");
+	printf("\t\t -e - Encrypted Data\n\n");
 	printf("\t Usage:\n");
 	printf("\t\tLibrary Information:\n");
 	printf("\t\t\tpkcs11_app -I\n\n");
@@ -1055,7 +1415,14 @@ void print_usage(void)
 	printf("\t\tSignature Verification\n");
 	printf("\t\t\tpkcs11_app -V -k <key-type> -b <key-label> -d <Data-previously-signed> -s <signature-file> -m <mech-ID> -p <slot-ID>\n");
 	printf("\t\t\tpkcs11_app -V -k rsa -b Device_Key -d \"PKCS11 TEST DATA\" -s sig.data -m md5-rsa -p 0\n");
-	printf("\t\t\tpkcs11_app -V -k ec -b Device_Key -d \"PKCS11 TEST DATA\" -s sig.data -m sha1-ec -p 0\n");
+	printf("\t\t\tpkcs11_app -V -k ec -b Device_Key -d \"PKCS11 TEST DATA\" -s sig.data -m sha1-ec -p 0\n\n");
+	printf("\t\tPublic Key Encryption (RSA Only)\n");
+	printf("\t\t\tpkcs11_app -E -k <key-type> -b <key-label> -d <Data-to-be-encrypted> -m <mech-ID> -p <slot-ID>\n");
+	printf("\t\t\tpkcs11_app -E -k rsa -b Device_Key -d \"PKCS11 TEST DATA\" -m rsa -p 0\n\n");
+	printf("\t\tPrivate Key Decryption (RSA Only)\n");
+	printf("\t\t\tpkcs11_app -D -k <key-type> -b <key-label> -e enc.data -m <mech-ID> -p <slot-ID>\n");
+	printf("\t\t\tpkcs11_app -D -k rsa -b Device_Key -e enc.data -m rsa -p 0\n\n");
+
 }
 
 int process_sub_option(int option, uint8_t *optarg, struct getOptValue_t *getOptValue)
@@ -1106,6 +1473,16 @@ int process_sub_option(int option, uint8_t *optarg, struct getOptValue_t *getOpt
 	case 's':
 		getOptValue->signed_data = optarg;
 		file = fopen(getOptValue->signed_data, "r");
+		if (!file) {
+			ret = APP_IP_ERR;
+			printf("Error Opening the File.\n");
+		}
+		if (file)
+			fclose(file);
+		break;
+	case 'e':
+		getOptValue->enc_data = optarg;
+		file = fopen(getOptValue->enc_data, "r");
 		if (!file) {
 			ret = APP_IP_ERR;
 			printf("Error Opening the File.\n");
@@ -1298,6 +1675,42 @@ int process_main_option(int operation,
 			(getOptValue->numOfMainOpt)++;
 		}
 		break;
+	case 'D':
+		if (operation == PERFORM) {
+			printf("Decrypting...\n");
+			if ((getOptValue->label == NULL)
+				|| (getOptValue->slot_id == UL_UNINTZD)
+				|| (getOptValue->key_type == UL_UNINTZD)
+				|| (getOptValue->enc_data == NULL)
+				|| (getOptValue->mechanismID == UL_UNINTZD)) {
+					printf("Abort: Missing or Invalid Value to one or more of the mandatory options [-b -k -p -e -m]\n");
+					ret = APP_IP_ERR;
+				break;
+			}
+			ret = do_Decrypt(getOptValue);
+		} else {
+			getOptValue->main_option = option;
+			(getOptValue->numOfMainOpt)++;
+		}
+		break;
+	case 'E':
+		if (operation == PERFORM) {
+			printf("Encrypting...\n");
+			if ((getOptValue->label == NULL)
+				|| (getOptValue->slot_id == UL_UNINTZD)
+				|| (getOptValue->key_type == UL_UNINTZD)
+				|| (getOptValue->data == NULL)
+				|| (getOptValue->mechanismID == UL_UNINTZD)) {
+					printf("Abort: Missing or Invalid Value to one or more of the mandatory options [-b -k -d -p -m]\n");
+					ret = APP_IP_ERR;
+				break;
+			}
+			ret = do_Encrypt(getOptValue);
+		} else {
+			getOptValue->main_option = option;
+			(getOptValue->numOfMainOpt)++;
+		}
+		break;
 	default:
 		if (getOptValue->numOfMainOpt && operation == PARSE) {
 			if (option != '?') {
@@ -1345,7 +1758,7 @@ int main(int argc, char **argv)
 	extern char *optarg; extern int optind;
 	uint8_t *default_libFile = "libpkcs11.so";
 
-	while ((option = getopt(argc, argv, "FIMPSTVb:d:f:ik:lm:n:o:p:s:")) != -1) {
+	while ((option = getopt(argc, argv, "FIMPSTVEDb:d:f:ik:lm:n:o:p:s:e:")) != -1) {
 		ret = process_main_option(PARSE, option, optarg, &getOptValue);
 		if (ret != APP_OK)
 			break;
