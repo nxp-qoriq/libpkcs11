@@ -1159,9 +1159,9 @@ attribute_key_object_validate(CK_ATTRIBUTE *attr,
 	switch (attr->type) {
 		case CKA_KEY_TYPE:
 			if (op_type == OP_CREATE ||
-					op_type == OP_GENERATE)
+					op_type == OP_GENERATE) {
 				return CKR_OK;
-			else {
+			} else {
 				print_error("Attribute Read Only\n");
 				return CKR_ATTRIBUTE_READ_ONLY;
 			}
@@ -1929,7 +1929,7 @@ CK_BBOOL p11_template_compare(CK_ATTRIBUTE *t1, CK_ULONG ulCount,
 	return TRUE;
 }
 
-static CK_BBOOL p11_template_get_class(struct template_list *tmpl_list,
+CK_BBOOL p11_template_get_class(struct template_list *tmpl_list,
 	CK_ULONG *class, CK_ULONG *subclass)
 {
 	CK_BBOOL found = FALSE;
@@ -1941,7 +1941,6 @@ static CK_BBOOL p11_template_get_class(struct template_list *tmpl_list,
 	/* have to iterate through all attributes. no early exits */
 	STAILQ_FOREACH(tmpl_temp, tmpl_list, entry) {
 		CK_ATTRIBUTE *attr = (CK_ATTRIBUTE *)tmpl_temp->attributes;
-
 		if (attr->type == CKA_CLASS) {
 			*class = *(CK_OBJECT_CLASS *)attr->pValue;
 			found = TRUE;
@@ -2296,99 +2295,101 @@ static CK_BBOOL check_attr_exportability(struct template_list *tmpl_list,
 
 static CK_RV map_pkcs_to_sk_attr(CK_ATTRIBUTE_PTR ck_attr,
 		CK_ULONG ck_attr_count, SK_ATTRIBUTE **sk_attrs,
-		uint32_t *attr_count)
+		uint32_t *attr_count, CK_ULONG op_type)
 {
-	CK_ATTRIBUTE_TYPE ck_attr_type;
+	CK_ATTRIBUTE_TYPE ck_attr_type = 0;
 	CK_ATTRIBUTE_PTR ck_attrs = NULL;
 
 	SK_ATTRIBUTE *sk_attr =NULL;
+	SK_OBJECT_TYPE *sk_object_type = 0;
+	SK_KEY_TYPE *sk_key_type = 0;
 
 	unsigned char *sk_label = NULL, *sk_id = NULL;
 	uint32_t *mod_bits = NULL;
 	unsigned char *sk_mod = NULL, *sk_pub_exp = NULL;
+	unsigned char *sk_priv_exp = NULL, *sk_prime_1 = NULL;
+	unsigned char *sk_prime_2 = NULL, *sk_exp_1 = NULL;
+	unsigned char *sk_exp_2 = NULL, *sk_coeff = NULL;
 	unsigned char *sk_ec_params = NULL, *sk_ec_point = NULL;
 	uint32_t i = 0, attrCount = 0;
+	CK_OBJECT_CLASS ck_obj_class = 0;
+	CK_KEY_TYPE ck_key_type = 0;
 
-	sk_attr = malloc(sizeof(SK_ATTRIBUTE) * 7);
+	sk_attr = malloc(sizeof(SK_ATTRIBUTE) * 13);
 	if (!sk_attr)
 		return CKR_HOST_MEMORY;
 
-	memset(sk_attr, 0, sizeof(SK_ATTRIBUTE) * 7);
+	memset(sk_attr, 0, sizeof(SK_ATTRIBUTE) * 13);
 
 	for (i = 0; i < ck_attr_count; i++) {
 		ck_attrs = &ck_attr[i];
 		ck_attr_type = ck_attrs->type;
 
 		switch(ck_attr_type) {
-#if 0
 			case CKA_CLASS:
-				ck_obj_class = *(CK_OBJECT_CLASS *)ck_attr->pValue;
+			if (op_type == OP_CREATE) {
+				ck_obj_class = *(CK_OBJECT_CLASS *)ck_attrs->pValue;
 				switch (ck_obj_class) {
 					case CKO_PRIVATE_KEY:
-						sk_attr = (SK_ATTRIBUTE *)malloc(sizeof(SK_ATTRIBUTE) +
-							sizeof(CK_OBJECT_CLASS));
-						if (!sk_attr)
+						sk_object_type = (SK_OBJECT_TYPE *)malloc(sizeof(SK_OBJECT_TYPE));
+						if (!sk_object_type)
 							return CKR_HOST_MEMORY;
 
-						sk_object_type = (SK_OBJECT_TYPE *)((uint8_t  *)sk_attr + sizeof(SK_ATTRIBUTE));
 						*(sk_object_type) = SK_KEY_PAIR;
 
-						sk_attr->type = SK_ATTR_OBJECT_TYPE;
-						sk_attr->value = sk_object_type;
-						sk_attr->valueLen = sizeof(SK_OBJECT_TYPE);
-
+						sk_attr[attrCount].type = SK_ATTR_OBJECT_TYPE;
+						sk_attr[attrCount].value = sk_object_type;
+						sk_attr[attrCount].valueLen = sizeof(SK_OBJECT_TYPE);
+						attrCount++;
 						break;
 					case CKO_PUBLIC_KEY:
-						sk_attr = (SK_ATTRIBUTE *)malloc(sizeof(SK_ATTRIBUTE) +
-							sizeof(CK_OBJECT_CLASS));
-						if (!sk_attr)
+						sk_object_type = (SK_OBJECT_TYPE *)malloc(sizeof(SK_OBJECT_TYPE));
+						if (!sk_object_type)
 							return CKR_HOST_MEMORY;
 
-						sk_object_type = (SK_OBJECT_TYPE *)((uint8_t  *)sk_attr + sizeof(SK_ATTRIBUTE));
 						*(sk_object_type) = SK_PUBLIC_KEY;
 
-						sk_attr->type = SK_ATTR_OBJECT_TYPE;
-						sk_attr->value = sk_object_type;
-						sk_attr->valueLen = sizeof(SK_OBJECT_TYPE);
-
+						sk_attr[attrCount].type = SK_ATTR_OBJECT_TYPE;
+						sk_attr[attrCount].value = sk_object_type;
+						sk_attr[attrCount].valueLen = sizeof(SK_OBJECT_TYPE);
+						attrCount++;
 						break;
 					default:
 						print_error("Ojbect type not supported\n");
 						return CKR_ATTRIBUTE_TYPE_INVALID;
 				}
 				break;
+			} else {
+				break;
+			}
 			case CKA_KEY_TYPE:
-				ck_key_type = *(CK_KEY_TYPE *)ck_attr->pValue;
-
+			if (op_type == OP_CREATE) {
+				ck_key_type = *(CK_KEY_TYPE *)ck_attrs->pValue;
 				switch (ck_key_type) {
 					case CKK_RSA:
-						sk_attr = (SK_ATTRIBUTE *)malloc(sizeof(SK_ATTRIBUTE) +
-							sizeof(CK_KEY_TYPE));
-						if (!sk_attr)
+						sk_key_type = (SK_KEY_TYPE *)malloc(sizeof(SK_KEY_TYPE));
+						if (!sk_key_type)
 							return CKR_HOST_MEMORY;
 
-						sk_key_type = (SK_KEY_TYPE *)((uint8_t  *)sk_attr + sizeof(SK_ATTRIBUTE));
 						*(sk_key_type) = SKK_RSA;
 
-						sk_attr->type = SK_ATTR_KEY_TYPE;
-						sk_attr->value = sk_key_type;
-						sk_attr->valueLen = sizeof(SK_KEY_TYPE);
-
+						sk_attr[attrCount].type = SK_ATTR_KEY_TYPE;
+						sk_attr[attrCount].value = sk_key_type;
+						sk_attr[attrCount].valueLen = sizeof(SK_KEY_TYPE);
+						attrCount++;
 						break;
 
 					case CKK_EC:
-						sk_attr = (SK_ATTRIBUTE *)malloc(sizeof(SK_ATTRIBUTE) +
-							sizeof(CK_KEY_TYPE));
-						if (!sk_attr)
+						sk_key_type = (SK_KEY_TYPE *)malloc(sizeof(SK_KEY_TYPE));
+						if (!sk_key_type)
 							return CKR_HOST_MEMORY;
 
-						sk_key_type = (SK_KEY_TYPE *)((uint8_t  *)sk_attr + sizeof(SK_ATTRIBUTE));
 						*(sk_key_type) = SKK_EC;
 
-						sk_attr->type = SK_ATTR_KEY_TYPE;
-						sk_attr->value = sk_key_type;
-						sk_attr->valueLen = sizeof(SK_KEY_TYPE);
-
+						sk_attr[attrCount].type = SK_ATTR_KEY_TYPE;
+						sk_attr[attrCount].value = sk_key_type;
+						sk_attr[attrCount].valueLen = sizeof(SK_KEY_TYPE);
+						attrCount++;
 						break;
 
 					default:
@@ -2396,7 +2397,9 @@ static CK_RV map_pkcs_to_sk_attr(CK_ATTRIBUTE_PTR ck_attr,
 						return CKR_ATTRIBUTE_TYPE_INVALID;
 				}
 				break;
-#endif
+			} else {
+				break;
+			}
 			case CKA_LABEL:
 				sk_label = (unsigned char *)malloc(
 					ck_attrs->ulValueLen);
@@ -2464,6 +2467,102 @@ static CK_RV map_pkcs_to_sk_attr(CK_ATTRIBUTE_PTR ck_attr,
 
 				sk_attr[attrCount].type = SK_ATTR_PUBLIC_EXPONENT;
 				sk_attr[attrCount].value = sk_pub_exp;
+				sk_attr[attrCount].valueLen = (uint32_t)ck_attrs->ulValueLen;
+				attrCount++;
+
+				break;
+			case CKA_PRIVATE_EXPONENT:
+				sk_priv_exp = (unsigned char *)malloc(
+					ck_attrs->ulValueLen);
+				if (!sk_priv_exp)
+					return CKR_HOST_MEMORY;
+
+				memset(sk_priv_exp, 0, ck_attrs->ulValueLen);
+				memcpy(sk_priv_exp, ck_attrs->pValue,
+					ck_attrs->ulValueLen);
+
+				sk_attr[attrCount].type = SK_ATTR_PRIVATE_EXPONENT;
+				sk_attr[attrCount].value = sk_priv_exp;
+				sk_attr[attrCount].valueLen = (uint32_t)ck_attrs->ulValueLen;
+				attrCount++;
+
+				break;
+			case CKA_PRIME_1:
+				sk_prime_1 = (unsigned char *)malloc(
+					ck_attrs->ulValueLen);
+				if (!sk_prime_1)
+					return CKR_HOST_MEMORY;
+
+				memset(sk_prime_1, 0, ck_attrs->ulValueLen);
+				memcpy(sk_prime_1, ck_attrs->pValue,
+					ck_attrs->ulValueLen);
+
+				sk_attr[attrCount].type = SK_ATTR_PRIME_1;
+				sk_attr[attrCount].value = sk_prime_1;
+				sk_attr[attrCount].valueLen = (uint32_t)ck_attrs->ulValueLen;
+				attrCount++;
+
+				break;
+			case CKA_PRIME_2:
+				sk_prime_2 = (unsigned char *)malloc(
+					ck_attrs->ulValueLen);
+				if (!sk_prime_2)
+					return CKR_HOST_MEMORY;
+
+				memset(sk_prime_2, 0, ck_attrs->ulValueLen);
+				memcpy(sk_prime_2, ck_attrs->pValue,
+					ck_attrs->ulValueLen);
+
+				sk_attr[attrCount].type = SK_ATTR_PRIME_2;
+				sk_attr[attrCount].value = sk_prime_2;
+				sk_attr[attrCount].valueLen = (uint32_t)ck_attrs->ulValueLen;
+				attrCount++;
+
+				break;
+			case CKA_EXPONENT_1:
+				sk_exp_1 = (unsigned char *)malloc(
+					ck_attrs->ulValueLen);
+				if (!sk_exp_1)
+					return CKR_HOST_MEMORY;
+
+				memset(sk_exp_1, 0, ck_attrs->ulValueLen);
+				memcpy(sk_exp_1, ck_attrs->pValue,
+					ck_attrs->ulValueLen);
+
+				sk_attr[attrCount].type = SK_ATTR_EXPONENT_1;
+				sk_attr[attrCount].value = sk_exp_1;
+				sk_attr[attrCount].valueLen = (uint32_t)ck_attrs->ulValueLen;
+				attrCount++;
+
+				break;
+			case CKA_EXPONENT_2:
+				sk_exp_2 = (unsigned char *)malloc(
+					ck_attrs->ulValueLen);
+				if (!sk_exp_2)
+					return CKR_HOST_MEMORY;
+
+				memset(sk_exp_2, 0, ck_attrs->ulValueLen);
+				memcpy(sk_exp_2, ck_attrs->pValue,
+					ck_attrs->ulValueLen);
+
+				sk_attr[attrCount].type = SK_ATTR_EXPONENT_2;
+				sk_attr[attrCount].value = sk_exp_2;
+				sk_attr[attrCount].valueLen = (uint32_t)ck_attrs->ulValueLen;
+				attrCount++;
+
+				break;
+			case CKA_COEFFICIENT:
+				sk_coeff = (unsigned char *)malloc(
+					ck_attrs->ulValueLen);
+				if (!sk_coeff)
+					return CKR_HOST_MEMORY;
+
+				memset(sk_coeff, 0, ck_attrs->ulValueLen);
+				memcpy(sk_coeff, ck_attrs->pValue,
+					ck_attrs->ulValueLen);
+
+				sk_attr[attrCount].type = SK_ATTR_COEFFICIENT;
+				sk_attr[attrCount].value = sk_coeff;
 				sk_attr[attrCount].valueLen = (uint32_t)ck_attrs->ulValueLen;
 				attrCount++;
 
@@ -3302,6 +3401,115 @@ CK_RV destroy_object(CK_OBJECT_HANDLE hObject,
 	return CKR_OK;
 }
 
+CK_RV objects_create_object(CK_SESSION_HANDLE hSession,
+			CK_ATTRIBUTE_PTR pTemplate,
+			CK_ULONG ulCount,
+			CK_OBJECT_HANDLE_PTR phObject)
+{
+	CK_RV rc = CKR_OK;
+	session *sess = NULL;
+	struct template_list *template = NULL;
+	CK_ULONG class = 0;
+	CK_ULONG subclass = 0;
+	CK_ULONG op_type = OP_CREATE;
+
+	SK_RET_CODE sk_ret = SKR_OK;
+	SK_ATTRIBUTE *sk_attrs = NULL;
+	SK_OBJECT_HANDLE hObject = 1234;
+
+	uint32_t attrCount = 0;
+	struct object_node *object = NULL;
+	SK_FUNCTION_LIST_PTR sk_funcs = NULL;
+
+	sess = get_session(hSession);
+	if (!sess) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
+
+	sk_funcs = get_slot_function_list(sess->session_info.slotID);
+	if (!sk_funcs) {
+		print_error("get_slot_function_list failed\n");
+		return CKR_ARGUMENTS_BAD;
+	}
+
+	rc = template_create_template_list(pTemplate, ulCount,
+				&template);
+	if (rc) {
+		print_error("template_create_template_list failed rc = %lx\n", rc);
+		goto end;
+	}
+
+	if (p11_template_get_class(template, &class, &subclass) != CK_TRUE) {
+		print_error("p11_template_get_class failed\n");
+		rc = CKR_FUNCTION_FAILED;
+		goto end;
+	}
+
+	rc = session_template_check_consistency(hSession, template);
+	if (rc) {
+		print_error("session_template_check_consistency failed\n");
+		goto end;
+	}
+
+	rc = template_validate_attributes(template, class, subclass,
+				op_type);
+	if (rc) {
+		print_error("template_validate_attributes public key failed\n");
+		goto end;
+	}
+
+	rc = template_check_required_attributes(template, class, subclass,
+				op_type);
+	if (rc) {
+		print_error("template_check_required_attributes public key failed\n");
+		goto end;
+	}
+
+#if 0
+	CK_ULONG i = 0;
+	for (i = 0; i < ulCount; i++) {
+		if ((pTemplate[i].type == CKA_CLASS) ||
+			(pTemplate[i].type == CKA_KEY_TYPE)) {
+			print_error("type = %lx, value = %lx, len = %lu\n",
+				pTemplate[i].type, *(CK_ULONG *)pTemplate[i].pValue, pTemplate[i].ulValueLen);
+		}
+	}
+#endif
+	rc = map_pkcs_to_sk_attr(pTemplate, ulCount, &sk_attrs,
+				&attrCount, op_type);
+	if (rc != CKR_OK) {
+		print_error("map_pkcs_to_sk_attr failed\n");
+		goto end;
+	}
+
+	sk_ret = sk_funcs->SK_CreateObject(sk_attrs,
+				attrCount, &hObject);
+	if (sk_ret != SKR_OK) {
+		print_error("SK_CreateObject failed wit err code = 0x%x\n", sk_ret);
+		rc = CKR_GENERAL_ERROR;
+		goto end;
+	}
+
+	rc = create_key_object(hObject, class, subclass, template,
+			&object, sess->session_info.slotID);
+	if (rc != CKR_OK) {
+		print_error("create_key_object failed wit err code = 0x%lx\n", rc);
+		goto end;
+	}
+
+	*phObject = (CK_OBJECT_HANDLE)object;
+
+end:
+	if (rc != CKR_OK) {
+		if (template)
+			template_destroy_template_list(template);
+	}
+
+	return rc;
+}
+
+
 CK_RV objects_generate_key_pair(CK_SESSION_HANDLE hSession,
 			CK_MECHANISM_PTR pMechanism,
 			CK_ATTRIBUTE_PTR pPublicKeyTemplate,
@@ -3404,7 +3612,7 @@ CK_RV objects_generate_key_pair(CK_SESSION_HANDLE hSession,
 
 	rc = map_pkcs_to_sk_attr(pPublicKeyTemplate,
 				ulPublicKeyAttributeCount,
-				&sk_attrs, &attrCount);
+				&sk_attrs, &attrCount, op_type);
 	if (rc != CKR_OK) {
 		print_error("map_pkcs_to_sk_attr failed\n");
 		goto end;

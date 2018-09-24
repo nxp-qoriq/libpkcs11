@@ -132,5 +132,11 @@ template_is_session_object(struct template_list *template);
 
 CK_RV destroy_object(CK_OBJECT_HANDLE hObject,
 			CK_SLOT_ID slotID);
+CK_BBOOL p11_template_get_class(struct template_list *tmpl_list,
+	CK_ULONG *class, CK_ULONG *subclass);
 
+CK_RV objects_create_object(CK_SESSION_HANDLE hSession,
+			CK_ATTRIBUTE_PTR pTemplate,
+			CK_ULONG ulCount,
+			CK_OBJECT_HANDLE_PTR phObject);
 #endif

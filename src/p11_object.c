@@ -24,11 +24,38 @@ CK_RV C_CreateObject(CK_SESSION_HANDLE hSession,
 		CK_ULONG ulCount,
 		CK_OBJECT_HANDLE_PTR phObject)
 {
-	hSession = hSession;
-	pTemplate = pTemplate;
-	ulCount = ulCount;
-	phObject = phObject;
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	session *sess = NULL;
+	CK_RV rc = CKR_OK;
+
+	p11_global_lock();
+
+	if (!is_lib_initialized()) {
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
+	}
+
+	if (!pTemplate || !phObject) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
+
+	if (!pTemplate && (ulCount != 0)) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
+
+	sess = get_session(hSession);
+	if (!sess) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
+
+	rc = objects_create_object(hSession, pTemplate,
+			ulCount, phObject);
+
+end:
+	p11_global_unlock();
+	return rc;
 }
 
 CK_RV C_CopyObject(CK_SESSION_HANDLE hSession,
