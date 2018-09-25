@@ -1773,6 +1773,8 @@ p11_template_add_default_common_attr(
 		com_priv_attr->pValue = (CK_BYTE *)com_priv_attr +
 					sizeof(CK_ATTRIBUTE);
 		*(CK_BBOOL *)com_priv_attr->pValue = FALSE;
+
+		p11_template_update_attr(tmpl_list, priv_node);
 	}
 
 	return CKR_OK;
@@ -2311,6 +2313,7 @@ static CK_RV map_pkcs_to_sk_attr(CK_ATTRIBUTE_PTR ck_attr,
 	unsigned char *sk_prime_2 = NULL, *sk_exp_1 = NULL;
 	unsigned char *sk_exp_2 = NULL, *sk_coeff = NULL;
 	unsigned char *sk_ec_params = NULL, *sk_ec_point = NULL;
+	uint32_t *sk_priv = NULL;
 	uint32_t i = 0, attrCount = 0;
 	CK_OBJECT_CLASS ck_obj_class = 0;
 	CK_KEY_TYPE ck_key_type = 0;
@@ -2414,6 +2417,23 @@ static CK_RV map_pkcs_to_sk_attr(CK_ATTRIBUTE_PTR ck_attr,
 				attrCount++;
 
 				break;
+			case CKA_PRIVATE:
+				sk_priv = (uint32_t *)malloc(sizeof(uint32_t));
+				if (!sk_priv)
+					return CKR_HOST_MEMORY;
+
+				if (*((CK_BBOOL *)(ck_attrs->pValue)) == CK_TRUE)
+					*sk_priv = 1;
+				else
+					*sk_priv = 0;
+
+				sk_attr[attrCount].type = SK_ATTR_PRIVATE;
+				sk_attr[attrCount].value = sk_priv;
+				sk_attr[attrCount].valueLen = sizeof(uint32_t);
+				attrCount++;
+
+				break;
+
 			case CKA_ID:
 				sk_id = (unsigned char *)malloc(
 					ck_attrs->ulValueLen);
@@ -2800,6 +2820,23 @@ static CK_RV map_sk_to_pkcs_attr(SK_ATTRIBUTE *sk_attrs,
 			ck_attrs->ulValueLen = sk_attrs->valueLen;
 			break;
 
+		case SK_ATTR_PRIVATE:
+			ck_attrs = (CK_ATTRIBUTE_PTR)malloc(sizeof(CK_ATTRIBUTE) +
+				sizeof(CK_BBOOL));
+			if (!ck_attrs)
+				return CKR_HOST_MEMORY;
+
+			temp = (CK_BYTE *)ck_attrs + sizeof(CK_ATTRIBUTE);
+
+			if (*((uint32_t *)(sk_attrs->value)) == 0)
+				*temp = CK_FALSE;
+			else
+				*temp = CK_TRUE;
+
+			ck_attrs->type = CKA_PRIVATE;
+			ck_attrs->pValue = temp;
+			ck_attrs->ulValueLen = sizeof(CK_BBOOL);
+			break;
 		default:
 			return CKR_ATTRIBUTE_TYPE_INVALID;
 	}
@@ -2810,17 +2847,25 @@ static CK_RV map_sk_to_pkcs_attr(SK_ATTRIBUTE *sk_attrs,
 
 CK_RV find_matching_objects(CK_OBJECT_HANDLE_PTR object_handle,
 	struct object_list *obj_list, CK_ATTRIBUTE_PTR pTemplate,
-	CK_ULONG ulCount, CK_ULONG *pobjCount)
+	CK_ULONG ulCount, CK_ULONG *pobjCount, CK_BBOOL private)
 {
 	struct object_node *temp;
 	uint32_t i = 0;
 	CK_BBOOL ret;
+	CK_ATTRIBUTE *attr = NULL;
 
 	if (ulCount != 0) {
 		STAILQ_FOREACH(temp, obj_list, entry) {
 			ret = p11_template_compare(pTemplate, ulCount,
 				&temp->object.template_list);
 			if (ret == TRUE) {
+				if (!private) {
+					if (p11_template_attribute_find(&temp->object.template_list, CKA_PRIVATE, &attr)) {
+						if (*(CK_BBOOL *)attr->pValue == CK_TRUE) {
+							continue;
+						}
+					}
+				}
 				object_handle[i] = (CK_OBJECT_HANDLE)temp;
 				i++;
 				if (i > MAX_FIND_LIST_OBJECTS)
@@ -2829,6 +2874,13 @@ CK_RV find_matching_objects(CK_OBJECT_HANDLE_PTR object_handle,
 		}
 	} else {
 		STAILQ_FOREACH(temp, obj_list, entry) {
+			if (!private) {
+				if (p11_template_attribute_find(&temp->object.template_list, CKA_PRIVATE, &attr)) {
+					if (*(CK_BBOOL *)attr->pValue == CK_TRUE) {
+						continue;
+					}
+				}
+			}
 			object_handle[i] = (CK_OBJECT_HANDLE)temp;
 			i++;
 			if (i > MAX_FIND_LIST_OBJECTS)
@@ -2998,12 +3050,13 @@ end:
 }
 
 #define OBJ_SK_ATTR_COUNT	2
-#define RSA_PUB_SK_ATTR_COUNT	5
-#define RSA_PRIV_SK_ATTR_COUNT	4
+#define RSA_PUB_SK_ATTR_COUNT	6
+#define RSA_PRIV_SK_ATTR_COUNT	7
 
 SK_ATTRIBUTE_TYPE rsa_pub_attr_type[RSA_PUB_SK_ATTR_COUNT] = {
 	SK_ATTR_OBJECT_LABEL,
 	SK_ATTR_OBJECT_INDEX,
+	SK_ATTR_PRIVATE,
 	SK_ATTR_MODULUS,
 	SK_ATTR_PUBLIC_EXPONENT,
 	SK_ATTR_MODULUS_BITS
@@ -3012,16 +3065,18 @@ SK_ATTRIBUTE_TYPE rsa_pub_attr_type[RSA_PUB_SK_ATTR_COUNT] = {
 SK_ATTRIBUTE_TYPE rsa_priv_attr_type[RSA_PRIV_SK_ATTR_COUNT] = {
 	SK_ATTR_OBJECT_LABEL,
 	SK_ATTR_OBJECT_INDEX,
+	SK_ATTR_PRIVATE,
 	SK_ATTR_MODULUS,
 	SK_ATTR_PUBLIC_EXPONENT
 };
 
-#define ECC_PUB_SK_ATTR_COUNT	4
-#define ECC_PRIV_SK_ATTR_COUNT	3
+#define ECC_PUB_SK_ATTR_COUNT	5
+#define ECC_PRIV_SK_ATTR_COUNT	4
 
 SK_ATTRIBUTE_TYPE ecc_pub_attr_type[ECC_PUB_SK_ATTR_COUNT] = {
 	SK_ATTR_OBJECT_LABEL,
 	SK_ATTR_OBJECT_INDEX,
+	SK_ATTR_PRIVATE,
 	SK_ATTR_PARAMS,
 	SK_ATTR_POINT
 };
@@ -3029,6 +3084,7 @@ SK_ATTRIBUTE_TYPE ecc_pub_attr_type[ECC_PUB_SK_ATTR_COUNT] = {
 SK_ATTRIBUTE_TYPE ecc_priv_attr_type[ECC_PRIV_SK_ATTR_COUNT] = {
 	SK_ATTR_OBJECT_LABEL,
 	SK_ATTR_OBJECT_INDEX,
+	SK_ATTR_PRIVATE,
 	SK_ATTR_PARAMS
 };
 

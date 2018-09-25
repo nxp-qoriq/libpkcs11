@@ -232,22 +232,43 @@ CK_RV C_FindObjectsInit(CK_SESSION_HANDLE hSession,
 			memset(sess->find_list, 0x0, MAX_FIND_LIST_OBJECTS * sizeof(CK_OBJECT_HANDLE));
 	}
 
-	if  (ulCount == 0) {
-		/*
-		* Filling the sess->find_list with all objects in that
-		* token object list.
-		*/
-		find_matching_objects(sess->find_list, obj_list,
-			NULL, 0, &objCount);
-		sess->find_count = objCount;
+	if ((sess->session_info.state == CKS_RW_USER_FUNCTIONS) ||
+		(sess->session_info.state == CKS_RO_USER_FUNCTIONS)) {
+		if  (ulCount == 0) {
+			/*
+			* Filling the sess->find_list with all objects in that
+			* token object list.
+			*/
+			find_matching_objects(sess->find_list, obj_list,
+				NULL, 0, &objCount, 1);
+			sess->find_count = objCount;
+		} else {
+			/*
+			* Filling the sess->find_list with only objects matching
+			* template passed from token object list.
+			*/
+			find_matching_objects(sess->find_list, obj_list,
+				pTemplate, ulCount, &objCount, 1);
+			sess->find_count = objCount;
+		}
 	} else {
-		/*
-		* Filling the sess->find_list with only objects matching
-		* template passed from token object list.
-		*/
-		find_matching_objects(sess->find_list, obj_list,
-			pTemplate, ulCount, &objCount);
-		sess->find_count = objCount;
+		if  (ulCount == 0) {
+			/*
+			* Filling the sess->find_list with all objects in that
+			* token object list.
+			*/
+			find_matching_objects(sess->find_list, obj_list,
+				NULL, 0, &objCount, 0);
+			sess->find_count = objCount;
+		} else {
+			/*
+			* Filling the sess->find_list with only objects matching
+			* template passed from token object list.
+			*/
+			find_matching_objects(sess->find_list, obj_list,
+				pTemplate, ulCount, &objCount, 0);
+			sess->find_count = objCount;
+		}
 	}
 
 	sess->find_idx = 0;
