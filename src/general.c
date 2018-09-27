@@ -417,7 +417,7 @@ CK_RV token_load_data(CK_SLOT_ID slotID,
 	CK_RV rc = CKR_OK;
 
 	if (token_load_data_file(slotID, token_data)) {
-		print_error("token_load_data_file failed\n");
+		print_info("token_load_data_file failed\n");
 		rc = CKR_DEVICE_ERROR;
 	}
 
@@ -543,6 +543,12 @@ CK_RV token_init(CK_SLOT_ID slotID,
 		}
 	}
 
+	rc = delete_all_token_objects(slotID);
+	if (rc != CKR_OK) {
+		print_error("delete_all_token_objects failed\n");
+		goto end;
+	}
+
 	slot_info = get_global_slot_info(slotID);
 	if (slot_info == NULL) {
 		print_error("get_global_slot_info failed\n");
@@ -551,6 +557,8 @@ CK_RV token_init(CK_SLOT_ID slotID,
 	}
 
 	token_data = &slot_info->token_data;
+	memset(token_data, 0, sizeof(struct token_data));
+
 	token_info = &token_data->token_info;
 	switch (slotID) {
 		case TEE_SLOT_ID:

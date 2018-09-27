@@ -3681,7 +3681,7 @@ CK_RV objects_generate_key_pair(CK_SESSION_HANDLE hSession,
 			break;
 		case CKK_EC:
 			mechanismType.mechanism =
-				SKM_RSA_PKCS_KEY_PAIR_GEN;
+				SKM_EC_PKCS_KEY_PAIR_GEN;
 			break;
 		default:
 			print_error("Only RSA/EC Keys supported\n");
@@ -3897,6 +3897,35 @@ CK_RV get_all_token_objects(struct object_list *obj_list,
 			break;
 			default:
 				continue;
+		}
+	}
+
+	return CKR_OK;
+}
+
+CK_RV delete_all_token_objects(CK_SLOT_ID slotID)
+{
+	uint32_t obj_count, j = 0;
+	SK_FUNCTION_LIST_PTR sk_funcs = NULL;
+	SK_RET_CODE ret;
+	SK_OBJECT_HANDLE objs[MAX_FIND_LIST_OBJECTS];
+
+	sk_funcs = get_slot_function_list(slotID);
+	if (!sk_funcs)
+		return CKR_ARGUMENTS_BAD;
+
+	ret = sk_funcs->SK_EnumerateObjects(NULL, 0, objs,
+			MAX_FIND_LIST_OBJECTS, &obj_count);
+	if (ret != SKR_OK) {
+		print_error("SK_EnumerateObjects failed with ret code 0x%x\n", ret);
+		return CKR_GENERAL_ERROR;
+	}
+
+	for (j = 0; j < obj_count; j++) {
+		ret = sk_funcs->SK_EraseObject(objs[j]);
+		if (ret != SKR_OK) {
+			print_error("SK_EraseObject failed\n");
+			return CKR_GENERAL_ERROR;
 		}
 	}
 

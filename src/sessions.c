@@ -273,6 +273,9 @@ CK_RV session_template_check_consistency(
 	sess_obj = template_is_session_object(template);
 	priv_obj = template_is_private_set(template);
 
+	print_info("sess_obj = %u, priv_obj = %u\n",
+			sess_obj, priv_obj);
+
 	if (sess->session_info.state == CKS_RO_PUBLIC_SESSION) {
 		if (priv_obj) {
 			rc = CKR_USER_NOT_LOGGED_IN;

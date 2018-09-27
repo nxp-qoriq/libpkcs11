@@ -51,6 +51,8 @@ CK_BBOOL is_object_handle_valid(CK_OBJECT_HANDLE hObject,
 CK_RV get_all_token_objects(struct object_list *obj_list,
 		CK_SLOT_ID slotID);
 
+CK_RV delete_all_token_objects(CK_SLOT_ID slotID);
+
 CK_RV destroy_object_list(CK_SLOT_ID slotID);
 
 CK_RV initialize_object_list(CK_SLOT_ID slotID);
