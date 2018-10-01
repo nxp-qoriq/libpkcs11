@@ -1039,6 +1039,168 @@ cleanup:
 	return ret;
 }
 
+int do_Sign_init_update_final(struct getOptValue_t *getOptValue)
+{
+	int ret =	APP_OK;
+	CK_FLAGS          flags;
+	CK_SLOT_ID        slot_id = getOptValue->slot_id;
+	CK_RV             rc = 0;
+	CK_SESSION_HANDLE h_session;
+
+	CK_BYTE           false = FALSE;
+	CK_ULONG i, j;
+
+	CK_OBJECT_HANDLE  obj;
+	CK_ULONG          num_existing_objects;
+
+	CK_ATTRIBUTE ck_attr[3];
+	CK_OBJECT_CLASS obj_type;
+	CK_KEY_TYPE key_type;
+	CK_ULONG count = 0;
+
+	CK_MECHANISM mech = {0};
+	CK_BYTE *data = (CK_BYTE *)getOptValue->data;
+	CK_BYTE *data_array[] = {"111111111111111111111",
+				 "222222222222222222222",
+				 "333333333333333333333",
+				 "444444444444444444444",
+				 "555555555555555555555",
+				 "666666666666666666666",
+				 "777777777777777777777",
+				 "888888888888888888888",
+				 "999999999999999999999",
+				 "aaaaaaaaaaaaaaaaaaaaa",
+				};
+	CK_BYTE *sig = NULL;
+	CK_ULONG sig_bytes = 0;
+	FILE *sigFile = NULL;
+	uint8_t *label = getOptValue->label;
+
+	if (getOptValue->key_type == UL_UNINTZD) {
+		key_type = CKK_RSA;
+		printf("No Key Type (-k option missing) is provided.\n");
+		printf("Continuing with key type = CKK_RSA\n");
+	} else
+		key_type = getOptValue->key_type;
+
+	/* Signature always done using Private Key */
+	obj_type = CKO_PRIVATE_KEY;
+
+	ck_attr[0].type = CKA_LABEL;
+	ck_attr[0].pValue = label;
+	ck_attr[0].ulValueLen = strlen(label);
+
+	ck_attr[1].type = CKA_CLASS;
+	ck_attr[1].pValue = &obj_type;
+	ck_attr[1].ulValueLen = sizeof(CK_OBJECT_CLASS);
+
+	ck_attr[2].type = CKA_KEY_TYPE;
+	ck_attr[2].pValue = &key_type;
+	ck_attr[2].ulValueLen = sizeof(CK_KEY_TYPE);
+
+	/* create a USER R/W session */
+	flags = CKF_SERIAL_SESSION;
+	rc = funcs->C_OpenSession(slot_id, flags, NULL, NULL, &h_session);
+	if (rc != CKR_OK) {
+		printf("C_OpenSession handle failed rc=%s\n", p11_get_error_string(rc));
+		ret = APP_CKR_ERR;
+		goto cleanup;
+	}
+
+	rc = funcs->C_FindObjectsInit(h_session, ck_attr, 3);
+	if (rc != CKR_OK) {
+		printf("C_FindObjectsInit handle failed rc=%s\n", p11_get_error_string(rc));
+		ret = APP_CKR_ERR;
+		goto cleanup;
+	}
+
+	rc = funcs->C_FindObjects(h_session, &obj, 1, &num_existing_objects);
+	if (rc != CKR_OK) {
+		printf("C_FindObjects handle failed rc=%s\n", p11_get_error_string(rc));
+		ret = APP_CKR_ERR;
+		goto cleanup;
+	}
+
+	rc = funcs->C_FindObjectsFinal(h_session);
+	if (rc != CKR_OK) {
+		printf("C_FindObjectsFinal handle failed rc=%s\n", p11_get_error_string(rc));
+		ret = APP_CKR_ERR;
+		goto cleanup;
+	}
+
+	if (num_existing_objects) {
+		if (num_existing_objects > 1)
+			printf("More than 1 Key with same label exists, continuing with first one.\n");
+	} else {
+		printf("No Object Found to Sign.\n");
+		goto cleanup;
+	}
+	mech.mechanism = getOptValue->mechanismID;
+
+	rc = funcs->C_SignInit(h_session, &mech, obj);
+	if (rc != CKR_OK) {
+		printf("C_SignInit() rc = %s\n", p11_get_error_string(rc));
+		ret = APP_CKR_ERR;
+		goto cleanup;
+	}
+
+	j = 0;
+	for (i = 0; i < 100; i++) {
+		printf("Sign Update count with string[%lu] = %lu\n", j, i);
+		rc = funcs->C_SignUpdate(h_session, data_array[j], strlen(data_array[j]));
+		if (rc != CKR_OK) {
+			printf("C_Sign() rc = %s\n", p11_get_error_string(rc));
+			ret = APP_CKR_ERR;
+			goto cleanup;
+		}
+		j++;
+		j = j % 10;
+	}
+
+	rc = funcs->C_SignFinal(h_session, sig, &sig_bytes);
+	if (rc != CKR_OK) {
+		printf("C_Sign() rc = %s\n", p11_get_error_string(rc));
+		ret = APP_CKR_ERR;
+		goto cleanup;
+	}
+
+	printf("Signature size: %lu\n", sig_bytes);
+	sig = (CK_BYTE *)malloc(sig_bytes);
+	if (sig == NULL) {
+		printf("Signature malloc failed\n");
+		ret = APP_MALLOC_FAIL;
+		goto cleanup;
+	}
+
+	rc = funcs->C_SignFinal(h_session, sig, &sig_bytes);
+	if (rc != CKR_OK) {
+		printf("C_Sign() rc = %s\n", p11_get_error_string(rc));
+		ret = APP_CKR_ERR;
+		goto cleanup;
+	}
+
+	sigFile = fopen("sig.data", "wb");
+	if (sigFile == NULL) {
+		printf("Error! opening file");
+		ret = APP_FILE_ERR;
+		goto cleanup;
+	}
+	fwrite((void *)sig, 1, sig_bytes, sigFile);
+	fclose(sigFile);
+
+	printf("Signature is saved in the file sig.data:\n");
+
+cleanup:
+	if (sig)
+		free(sig);
+
+	rc = funcs->C_CloseSession(h_session);
+	if (rc != CKR_OK)
+		ret = APP_CKR_ERR;
+
+	return ret;
+}
+
 int do_Verify(struct getOptValue_t *getOptValue)
 {
 	int ret = APP_OK;

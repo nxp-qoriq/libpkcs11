@@ -14,6 +14,7 @@ typedef struct _sign_verify_context {
 	CK_BYTE			*context; /* temporary work area */
 	CK_ULONG		context_len;
 	CK_BBOOL		multi;	/* is this a multi-part operation? */
+	CK_BBOOL		multi_init;	/* is this a multi-part operation ongoing? */
 	CK_BBOOL		recover; /* are we in recover mode? */
 	CK_BBOOL		active; /* Is Sign already initialized? */
 } sign_verify_context;
@@ -27,6 +28,19 @@ typedef struct _encr_decr_context {
 	CK_BBOOL          active;
 } encr_decr_context;
 
+typedef struct _digest_ctx {
+	CK_MECHANISM mechanism;
+	CK_BYTE *context;
+	CK_ULONG context_len;
+	CK_BBOOL active;	/* Not Used Currently. Will be used When C_DigestInit, C_DigestUpdate, C_DigestFinal */
+	CK_BBOOL multi;		/* Not Used Currently. Same as above */
+	CK_BBOOL multi_init;/* Not Used Currently. Same as above */
+} digest_ctx;
+
+typedef struct _rsa_digest_ctx {
+	digest_ctx dgt_ctx;
+	CK_BBOOL start_flag;
+} rsa_digest_ctx;
 typedef struct _session {
 	/* Information about this session */
 	CK_SESSION_INFO		session_info;

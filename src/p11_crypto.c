@@ -352,25 +352,83 @@ end:
 	return rc;
 }
 
-CK_RV C_SignUpdate(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pPart,
-		   CK_ULONG ulPartLen)
+CK_RV C_SignUpdate(CK_SESSION_HANDLE hSession,
+	     CK_BYTE_PTR pPart,
+	     CK_ULONG ulPartLen)
 {
-	hSession = hSession;
-	pPart = pPart;
-	ulPartLen = ulPartLen;
+	session *sess = NULL;
+	CK_RV rc = CKR_OK;
 
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	p11_global_lock();
+
+	if (!is_lib_initialized()) {
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
+	}
+
+	if (!pPart) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
+
+	if (!is_session_valid(hSession)) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
+
+	sess = get_session(hSession);
+	if (!sess) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
+
+	/* Call sign_update function */
+	rc = sign_update(sess, pPart, ulPartLen);
+
+end:
+	p11_global_unlock();
+	return rc;
 }
 
-CK_RV C_SignFinal(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pSignature,
-		  CK_ULONG_PTR pulSignatureLen)
+CK_RV C_SignFinal(CK_SESSION_HANDLE hSession,
+	     CK_BYTE_PTR pSignature,
+	     CK_ULONG_PTR pulSignatureLen)
 {
-	hSession = hSession;
-	pSignature = pSignature;
-	pulSignatureLen = pulSignatureLen;
+	session *sess = NULL;
+	CK_RV rc = CKR_OK;
 
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	p11_global_lock();
+
+	if (!is_lib_initialized()) {
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
+	}
+
+	if (!pulSignatureLen) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
+
+	if (!is_session_valid(hSession)) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
+
+	sess = get_session(hSession);
+	if (!sess) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
+
+	/* Call sign_final function */
+	rc = sign_final(hSession, sess, pSignature,
+		  pulSignatureLen);
+
+end:
+	p11_global_unlock();
+	return rc;
 }
+
 
 CK_RV C_SignRecoverInit(CK_SESSION_HANDLE hSession,
 			CK_MECHANISM_PTR pMechanism,
