@@ -204,10 +204,45 @@ CK_RV C_DecryptFinal(CK_SESSION_HANDLE hSession,
 
 CK_RV C_DigestInit(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism)
 {
-	hSession = hSession;
-	pMechanism = pMechanism;
+	session *sess = NULL;
+	CK_RV rc = CKR_OK;
 
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	p11_global_lock();
+
+	if (!is_lib_initialized()) {
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
+	}
+
+	if (!pMechanism) {
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
+
+	if (!is_session_valid(hSession)) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
+
+	sess = get_session(hSession);
+	if (!sess) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
+
+	if (!mechanism_is_valid(sess->session_info.slotID, pMechanism,
+			CKF_DIGEST)) {
+		print_error("Invalid Mechanism passed\n");
+		rc = CKR_MECHANISM_INVALID;
+		goto end;
+	}
+
+	/* Call digest init */
+	rc = digest_init(sess, &sess->dgt_ctx, pMechanism);
+
+end:
+	p11_global_unlock();
+	return rc;
 }
 
 CK_RV C_Digest(CK_SESSION_HANDLE hSession,
@@ -216,23 +251,77 @@ CK_RV C_Digest(CK_SESSION_HANDLE hSession,
 	       CK_BYTE_PTR pDigest,
 	       CK_ULONG_PTR pulDigestLen)
 {
-	hSession = hSession;
-	pData = pData;
-	ulDataLen = ulDataLen;
-	pDigest = pDigest;
-	pulDigestLen = pulDigestLen;
+	session *sess = NULL;
+	CK_RV rc = CKR_OK;
 
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	p11_global_lock();
+
+	if (!is_lib_initialized()) {
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
+	}
+
+	if (!is_session_valid(hSession)) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
+
+	sess = get_session(hSession);
+	if (!sess) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
+
+	if (!pData || (ulDataLen == 0)) {
+		print_error("Input arguments are invalid.\n");
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
+
+	/* Call digest */
+	rc = digest(sess, &sess->dgt_ctx,
+			pData,
+			ulDataLen,
+			pDigest,
+			pulDigestLen);
+
+
+end:
+	p11_global_unlock();
+	return rc;
 }
 
 CK_RV C_DigestUpdate(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pPart,
 		     CK_ULONG ulPartLen)
 {
-	hSession = hSession;
-	pPart = pPart;
-	ulPartLen = ulPartLen;
+	session *sess = NULL;
+	CK_RV rc = CKR_OK;
 
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	p11_global_lock();
+
+	if (!is_lib_initialized()) {
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
+	}
+
+	sess = get_session(hSession);
+	if (!sess) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
+
+	if (!pPart || (ulPartLen == 0)) {
+		print_error("Input arguments are invalid.\n");
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
+
+	/* Call digest update */
+	rc = digest_update(sess, &sess->dgt_ctx, pPart, ulPartLen);
+
+end:
+	p11_global_unlock();
+	return rc;
 }
 
 CK_RV C_DigestKey(CK_SESSION_HANDLE hSession, CK_OBJECT_HANDLE hKey)
@@ -247,11 +336,34 @@ CK_RV C_DigestFinal(CK_SESSION_HANDLE hSession,
 		    CK_BYTE_PTR pDigest,
 		    CK_ULONG_PTR pulDigestLen)
 {
-	hSession = hSession;
-	pDigest = pDigest;
-	pulDigestLen = pulDigestLen;
+	session *sess = NULL;
+	CK_RV rc = CKR_OK;
 
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	p11_global_lock();
+
+	if (!is_lib_initialized()) {
+		rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+		goto end;
+	}
+
+	sess = get_session(hSession);
+	if (!sess) {
+		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
+
+	if (pDigest && (*pulDigestLen == 0)) {
+		print_error("Input Arguments are invalid.\n");
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
+
+	/* Call digest final */
+	rc = digest_final(sess, &sess->dgt_ctx, pDigest, pulDigestLen);
+
+end:
+	p11_global_unlock();
+	return rc;
 }
 
 
@@ -343,6 +455,12 @@ CK_RV C_Sign(CK_SESSION_HANDLE hSession,
 		goto end;
 	}
 
+	if (!pData || (ulDataLen == 0)) {
+		print_error("Input arguments are invalid.\n");
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
+
 	/* Call sign function */
 	rc = sign(hSession, sess, pData, ulDataLen, pSignature,
 		  pulSignatureLen);
@@ -382,6 +500,12 @@ CK_RV C_SignUpdate(CK_SESSION_HANDLE hSession,
 		goto end;
 	}
 
+	if (!pPart || !ulPartLen) {
+		print_error("Input arguments are invalid.\n");
+		rc = CKR_ARGUMENTS_BAD;
+		goto end;
+	}
+
 	/* Call sign_update function */
 	rc = sign_update(sess, pPart, ulPartLen);
 
@@ -417,6 +541,12 @@ CK_RV C_SignFinal(CK_SESSION_HANDLE hSession,
 	sess = get_session(hSession);
 	if (!sess) {
 		rc = CKR_SESSION_HANDLE_INVALID;
+		goto end;
+	}
+
+	if (pSignature && (*pulSignatureLen == 0)) {
+		print_error("Input Arguments are invalid.\n");
+		rc = CKR_ARGUMENTS_BAD;
 		goto end;
 	}
 

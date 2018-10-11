@@ -15,7 +15,7 @@ CK_RV Get_TEE_MechanismList(CK_MECHANISM_TYPE_PTR pMechanismList,
 CK_RV Get_TEE_MechanismInfo(CK_MECHANISM_TYPE type,
 			CK_MECHANISM_INFO_PTR pInfo);
 
-#define MAX_MECHANISM_COUNT	11
+#define MAX_MECHANISM_COUNT	16
 
 struct mechanisms {
 	CK_MECHANISM_TYPE algo ;
@@ -23,6 +23,46 @@ struct mechanisms {
 };
 
 struct mechanisms tee_mechanisms[MAX_MECHANISM_COUNT] = {
+{
+	.algo =     CKM_MD5,
+	.info = {
+		.ulMinKeySize = 0,
+		.ulMaxKeySize = 0,
+		.flags = CKF_DIGEST
+	}
+},
+{
+	.algo =     CKM_SHA_1,
+	.info = {
+		.ulMinKeySize = 0,
+		.ulMaxKeySize = 0,
+		.flags = CKF_DIGEST
+	}
+},
+{
+	.algo =     CKM_SHA256,
+	.info = {
+		.ulMinKeySize = 0,
+		.ulMaxKeySize = 0,
+		.flags = CKF_DIGEST
+	}
+},
+{
+	.algo =     CKM_SHA384,
+	.info = {
+		.ulMinKeySize = 0,
+		.ulMaxKeySize = 0,
+		.flags = CKF_DIGEST
+	}
+},
+{
+	.algo =     CKM_SHA512,
+	.info = {
+		.ulMinKeySize = 0,
+		.ulMaxKeySize = 0,
+		.flags = CKF_DIGEST
+	}
+},
 {
 	.algo =     CKM_RSA_PKCS,
 	.info = {

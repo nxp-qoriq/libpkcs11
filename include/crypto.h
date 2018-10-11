@@ -67,6 +67,15 @@ CK_RV sign_update(session *sess, CK_BYTE_PTR pPart,
 CK_RV sign_final(CK_SESSION_HANDLE hSession, session *sess,
 		CK_BYTE_PTR pSignature, CK_ULONG_PTR pulSignatureLen);
 
+CK_RV digest_init(session *sess, digest_ctx *ctx, CK_MECHANISM *mech);
+
+CK_RV digest(session *sess, digest_ctx *ctx, CK_BYTE_PTR pData, CK_ULONG ulDataLen, CK_BYTE_PTR pDigest,
+	   CK_ULONG_PTR pDigestLen);
+
+CK_RV digest_update(session *sess, digest_ctx *ctx, CK_BYTE_PTR pPart, CK_ULONG ulPartLen);
+
+CK_RV digest_final(session *sess, digest_ctx *ctx, CK_BYTE_PTR pDigest, CK_ULONG_PTR pDigestLen);
+
 CK_RV get_digest(CK_UTF8CHAR_PTR pPin, CK_ULONG ulPinLen,
 		  CK_UTF8CHAR_PTR newPinHash);
 

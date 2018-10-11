@@ -28,6 +28,33 @@ struct ec_curves supported_ec_curves[SUPPORTED_EC_CURVES] = {
 	{P384, 384, secp384, sizeof(secp384)},
 };
 
+static SK_MECHANISM_TYPE getSK_Mechanism(CK_MECHANISM_TYPE mechId)
+{
+	SK_MECHANISM_TYPE mechanism;
+
+	switch (mechId) {
+	case CKM_SHA_1:
+		mechanism = SKM_SHA1;
+		break;
+	case CKM_SHA256:
+		mechanism = SKM_SHA256;
+		break;
+	case CKM_SHA384:
+		mechanism = SKM_SHA384;
+		break;
+	case CKM_SHA512:
+		mechanism = SKM_SHA512;
+		break;
+	case CKM_MD5:
+		mechanism = SKM_MD5;
+		break;
+	default:
+		mechanism = CKR_MECHANISM_INVALID;
+	}
+
+	return mechanism;
+}
+
 CK_RV mechanism_get_info(CK_SLOT_ID slotID, CK_MECHANISM_TYPE type,
 		CK_MECHANISM_INFO_PTR pInfo)
 {
@@ -44,8 +71,8 @@ CK_RV mechanism_get_info(CK_SLOT_ID slotID, CK_MECHANISM_TYPE type,
 	return rc;
 }
 
-CK_BBOOL mechanism_is_valid(CK_SLOT_ID slotID,
-	CK_MECHANISM_PTR pMechanism,  CK_FLAGS flags)
+CK_BBOOL mechanism_is_valid(CK_SLOT_ID slotID, CK_MECHANISM_PTR pMechanism,
+				CK_FLAGS flags)
 {
 	CK_RV rc = CKR_OK;
 	CK_MECHANISM_INFO info;
@@ -418,6 +445,262 @@ out:
 	return rc;
 }
 
+
+CK_RV digest_init(session *sess, digest_ctx *ctx, CK_MECHANISM *mech)
+{
+	CK_RV rc = CKR_OK;
+	CK_BYTE *ptr = NULL;
+	SK_RET_CODE ret = SKR_OK;
+	SK_FUNCTION_LIST_PTR sk_funcs = NULL;
+	SK_MECHANISM_INFO digestType = {0};
+
+	if (ctx->active != FALSE) {
+		print_error("Previous Digest Init Operation is not concluded.\n");
+		rc = CKR_OPERATION_ACTIVE;
+		goto out;
+	}
+
+	/* Maps to Digest Init API in SK. --> SK_DigestInit */
+	sk_funcs = get_slot_function_list(sess->session_info.slotID);
+	if (!sk_funcs) {
+		print_error("Invalid Mechanism\n");
+		rc = CKR_ARGUMENTS_BAD;
+		goto out;
+	}
+	memcpy(&ctx->mech, mech, sizeof(CK_MECHANISM));
+	digestType.mechanism = getSK_Mechanism(ctx->mech.mechanism);
+
+	if (digestType.mechanism == CKR_MECHANISM_INVALID) {
+		print_error("Un-support or Invalid mechanism.\n");
+		rc = CKR_MECHANISM_PARAM_INVALID;
+		goto out;
+	}
+	if (mech->ulParameterLen != 0) {
+		print_error("Err: Mechanism Param length[%lu] should be zero.\n", mech->ulParameterLen);
+		rc = CKR_MECHANISM_PARAM_INVALID;
+		goto out;
+	}
+
+	ctx->context = NULL;
+	ctx->context = malloc(sizeof(SK_CONTEXT_INFO));
+
+	if (!ctx->context) {
+		print_error("Insufficient Memory.\n");
+		rc = CKR_HOST_MEMORY;
+		goto out;
+	}
+	ctx->context_len = sizeof(SK_CONTEXT_INFO);
+
+	ret = sk_funcs->SK_DigestInit(&digestType, (SK_CONTEXT_INFO *)ctx->context);
+	if (ret != SKR_OK) {
+		print_error("SK_DigestInit failed with ret code 0x%x\n", ret);
+		rc = CKR_GENERAL_ERROR;
+		if (ctx->context) {
+			free(ctx->context);
+			ctx->context = NULL;
+		}
+		ctx->active = FALSE;
+		goto out;
+	}
+
+	ctx->mech.ulParameterLen = mech->ulParameterLen;
+	ctx->mech.mechanism = mech->mechanism;
+	ctx->mech.pParameter = ptr;
+	ctx->multi_init = FALSE;
+	ctx->multi = FALSE;
+	ctx->active = TRUE;
+
+out:
+	return rc;
+}
+
+CK_RV digest(session *sess, digest_ctx *ctx, CK_BYTE_PTR pData,
+	   CK_ULONG ulDataLen, CK_BYTE_PTR pDigest,
+	   CK_ULONG_PTR pDigestLen)
+{
+	CK_RV rc = CKR_OK;
+	SK_RET_CODE ret = SKR_OK;
+	SK_FUNCTION_LIST_PTR sk_funcs = NULL;
+	SK_MECHANISM_INFO digestType = {0};
+
+	if (ctx->active == FALSE) {
+		print_error("Digest Operation is not initialized.");
+		rc = CKR_OPERATION_NOT_INITIALIZED;
+		goto out;
+	}
+
+	if (ctx->multi_init == FALSE) {
+		ctx->multi = FALSE;
+		ctx->multi_init = TRUE;
+	}
+
+	if (ctx->multi == TRUE) {
+		print_error("Digest Update operation is ongoing.\n");
+		rc = CKR_OPERATION_ACTIVE;
+		goto out;
+	}
+
+	/* Maps to Digest API in SK --> SK_Digest */
+	sk_funcs = get_slot_function_list(sess->session_info.slotID);
+	if (!sk_funcs)
+		return CKR_ARGUMENTS_BAD;
+
+	digestType.mechanism = getSK_Mechanism(ctx->mech.mechanism);
+	if (digestType.mechanism == CKR_MECHANISM_INVALID) {
+		print_error("Un-support or Invalid mechanism.\n");
+		rc = CKR_MECHANISM_PARAM_INVALID;
+		goto out;
+	}
+
+	ret = sk_funcs->SK_Digest(&digestType, pData, ulDataLen, pDigest,
+				  (uint16_t *)&pDigestLen);
+
+	if ((ret == SKR_OK) && (pDigest == NULL))
+		goto out;
+
+	if (ret != SKR_OK) {
+		print_error("SK_Digest failed with ret code 0x%x\n", ret);
+		rc = CKR_GENERAL_ERROR;
+	}
+
+	ctx->mech.ulParameterLen = 0;
+	ctx->mech.mechanism = 0;
+	ctx->multi_init = FALSE;
+	ctx->multi = FALSE;
+	ctx->active = FALSE;
+	ctx->context_len = 0;
+
+	if (ctx->mech.pParameter) {
+		free(ctx->mech.pParameter);
+		ctx->mech.pParameter = NULL;
+	}
+
+	if (ctx->context != NULL) {
+		free(ctx->context);
+		ctx->context = NULL;
+	}
+out:
+	return rc;
+}
+
+/* Digest Update for  mechanism */
+CK_RV digest_update(session *sess, digest_ctx *ctx,
+			CK_BYTE_PTR pPart, CK_ULONG ulPartLen)
+{
+	CK_RV rc = CKR_OK;
+	SK_RET_CODE ret = SKR_OK;
+	SK_FUNCTION_LIST_PTR sk_funcs = NULL;
+
+	if (ctx->active == FALSE) {
+		print_error("Digest Operation is not initialized.");
+		rc = CKR_OPERATION_NOT_INITIALIZED;
+		goto out;
+	}
+
+	if (ctx->multi_init == FALSE) {
+		ctx->multi = TRUE;
+		ctx->multi_init = TRUE;
+	}
+
+	if (ctx->multi == FALSE) {
+		print_error("Digest is called before current call of Digest Update.\n");
+		rc = CKR_OPERATION_ACTIVE;
+		goto out;
+	}
+
+	/* Maps to Digest API in SK --> SK_DigestUpdate  */
+	sk_funcs = get_slot_function_list(sess->session_info.slotID);
+	if (!sk_funcs)
+		return CKR_ARGUMENTS_BAD;
+
+	ret = sk_funcs->SK_DigestUpdate((SK_CONTEXT_INFO *)ctx->context, pPart, ulPartLen);
+	if (ret != SKR_OK) {
+		print_error("SK_DigestUpdate failed with ret code 0x%x\n", ret);
+		rc = CKR_GENERAL_ERROR;
+	}
+
+	if (rc != CKR_OK) {
+		ctx->mech.ulParameterLen = 0;
+		ctx->mech.mechanism = 0;
+		ctx->multi_init = FALSE;
+		ctx->multi = FALSE;
+		ctx->active = FALSE;
+		ctx->context_len = 0;
+
+		if (ctx->mech.pParameter) {
+			free(ctx->mech.pParameter);
+			ctx->mech.pParameter = NULL;
+		}
+
+		if (ctx->context != NULL) {
+			free(ctx->context);
+			ctx->context = NULL;
+		}
+	}
+out:
+	return rc;
+}
+
+CK_RV digest_final(session *sess, digest_ctx *ctx,
+		CK_BYTE_PTR pDigest, CK_ULONG_PTR pDigestLen)
+{
+	CK_RV rc = CKR_OK;
+	SK_RET_CODE ret = SKR_OK;
+	SK_FUNCTION_LIST_PTR sk_funcs = NULL;
+
+	if (ctx->active == FALSE) {
+		print_error("Digest Operation is not initialized.");
+		rc = CKR_OPERATION_NOT_INITIALIZED;
+		goto out;
+	}
+
+	if (ctx->multi_init == FALSE) {
+		ctx->multi = TRUE;
+		ctx->multi_init = TRUE;
+	}
+
+	if (ctx->multi == FALSE) {
+		print_error("Digest operation is ongoing.\n");
+		rc = CKR_OPERATION_ACTIVE;
+		goto out;
+	}
+
+	/* Maps C_DigestFinal --> SK_DigestFinal */
+	sk_funcs = get_slot_function_list(sess->session_info.slotID);
+	if (!sk_funcs)
+		return CKR_ARGUMENTS_BAD;
+
+	ret = sk_funcs->SK_DigestFinal((SK_CONTEXT_INFO *)ctx->context, pDigest, (uint16_t *)pDigestLen);
+
+	if ((ret == SKR_OK) && (pDigest == NULL))
+		goto out;
+
+	if (ret != SKR_OK) {
+		print_error("SK_DigestFinal failed with ret code 0x%x\n", ret);
+		rc = CKR_GENERAL_ERROR;
+	}
+
+	ctx->mech.ulParameterLen = 0;
+	ctx->mech.mechanism = 0;
+	ctx->multi_init = FALSE;
+	ctx->multi = FALSE;
+	ctx->active = FALSE;
+	ctx->context_len = 0;
+
+	if (ctx->mech.pParameter) {
+		free(ctx->mech.pParameter);
+		ctx->mech.pParameter = NULL;
+	}
+
+	if (ctx->context != NULL) {
+		free(ctx->context);
+		ctx->context = NULL;
+	}
+
+out:
+	return rc;
+}
+
 /* Init for sign mechanism */
 CK_RV sign_init(CK_SESSION_HANDLE hSession, sign_verify_context *ctx,
 		CK_MECHANISM *mech, CK_BBOOL recover_mode,
@@ -606,6 +889,11 @@ static CK_RV rsa_sign_pkcs(CK_SESSION_HANDLE hSession, session *sess,
 		goto out;
 	}
 
+	print_info("Digest before Padding & SK_Decrypt.\n");
+	for (i = 0; i < ulDataLen; i++) {
+		print_info("%x", pData[i]);
+	}
+	print_info("\n");
 	/* The padding string PS shall consist of k-3-||D|| octets. */
 	padding_len = req_sig_len - 3 - ulDataLen;
 
@@ -740,13 +1028,11 @@ static CK_RV rsa_hash_update_sign_pkcs(session *sess,
 {
 	CK_RV rc = CKR_OK;
 	sign_verify_context *ctx = &sess->sign_ctx;
-	rsa_digest_ctx *rsa_digest_context = (rsa_digest_ctx *) ctx->context;
+	rsa_ec_digest_ctx *rsa_digest_context = (rsa_ec_digest_ctx *) ctx->context;
 
 	SK_FUNCTION_LIST_PTR sk_funcs = NULL;
-	SK_RET_CODE ret = SKR_OK;
-	SK_MECHANISM_INFO digestType = {0};
 
-	/* Maps RSA hash based sign --> SK_Digest and SK_Sign */
+	/* Maps RSA hash-update based C_SignUpdate --> SK_DigestUpdate */
 	sk_funcs = get_slot_function_list(sess->session_info.slotID);
 	if (!sk_funcs)
 		return CKR_ARGUMENTS_BAD;
@@ -755,56 +1041,34 @@ static CK_RV rsa_hash_update_sign_pkcs(session *sess,
 
 		switch (ctx->mech.mechanism) {
 		case CKM_MD5_RSA_PKCS:
-			digestType.mechanism = SKM_MD5;
+			rsa_digest_context->dgt_ctx.mech.mechanism = CKM_MD5;
 			break;
 		case CKM_SHA1_RSA_PKCS:
-			digestType.mechanism = SKM_SHA1;
+			rsa_digest_context->dgt_ctx.mech.mechanism = CKM_SHA_1;
 			break;
 		case CKM_SHA256_RSA_PKCS:
-			digestType.mechanism = SKM_SHA256;
+			rsa_digest_context->dgt_ctx.mech.mechanism = CKM_SHA256;
 			break;
 		case CKM_SHA384_RSA_PKCS:
-			digestType.mechanism = SKM_SHA384;
+			rsa_digest_context->dgt_ctx.mech.mechanism = CKM_SHA384;
 			break;
 		case CKM_SHA512_RSA_PKCS:
-			digestType.mechanism = SKM_SHA512;
+			rsa_digest_context->dgt_ctx.mech.mechanism = CKM_SHA512;
 			break;
 		default:
 			rc = CKR_MECHANISM_INVALID;
 			goto out;
 		}
-		rsa_digest_context->start_flag = TRUE;
-		rsa_digest_context->dgt_ctx.mechanism.mechanism = (CK_ULONG) digestType.mechanism;
-		rsa_digest_context->dgt_ctx.context = malloc(sizeof(SK_CONTEXT_INFO));
 
-		if (!rsa_digest_context->dgt_ctx.context) {
-			print_error("Insufficient CKR_HOST_MEMORY.\n");
-			rc = CKR_HOST_MEMORY;
+		rc = digest_init(sess, &rsa_digest_context->dgt_ctx, &(rsa_digest_context->dgt_ctx.mech));
+
+		if (rc != CKR_OK)
 			goto out;
-		}
-		rsa_digest_context->dgt_ctx.context_len = sizeof(SK_CONTEXT_INFO);
-		ret = sk_funcs->SK_DigestInit(&digestType, (SK_CONTEXT_INFO *)rsa_digest_context->dgt_ctx.context);
-		if (ret != SKR_OK) {
-			print_error("SK_DigestInit failed with ret code 0x%x\n", ret);
-			rc = CKR_GENERAL_ERROR;
-			if (rsa_digest_context->dgt_ctx.context) {
-				free(rsa_digest_context->dgt_ctx.context);
-				rsa_digest_context->dgt_ctx.context = NULL;
-			}
-			goto out;
-		}
+
+		rsa_digest_context->start_flag = TRUE;
 	}
-	digestType.mechanism = rsa_digest_context->dgt_ctx.mechanism.mechanism;
-	ret = sk_funcs->SK_DigestUpdate(&digestType, (SK_CONTEXT_INFO *)rsa_digest_context->dgt_ctx.context, pPart, ulPartLen);
-	if (ret != SKR_OK) {
-		print_error("SK_DigestUpdate failed with ret code 0x%x\n", ret);
-		rc = CKR_GENERAL_ERROR;
-		if (rsa_digest_context->dgt_ctx.context) {
-			free(rsa_digest_context->dgt_ctx.context);
-			rsa_digest_context->dgt_ctx.context = NULL;
-		}
-		goto out;
-	}
+
+	rc = digest_update(sess, &rsa_digest_context->dgt_ctx, pPart, ulPartLen);
 out:
 	return rc;
 }
@@ -816,14 +1080,14 @@ static CK_RV rsa_hash_final_sign_pkcs(CK_SESSION_HANDLE hSession, session *sess,
 {
 	CK_RV rc = CKR_OK;
 	sign_verify_context *ctx = &sess->sign_ctx;
-	rsa_digest_ctx *rsa_digest_context = (rsa_digest_ctx *) ctx->context;
+	rsa_ec_digest_ctx *rsa_digest_context = (rsa_ec_digest_ctx *) ctx->context;
 	CK_ATTRIBUTE attr = {0};
 	CK_ULONG req_sig_len = 0;
 	CK_BYTE hash[MAX_HASH_LEN];
 	CK_ULONG hash_len = MAX_HASH_LEN;
 	SK_FUNCTION_LIST_PTR sk_funcs = NULL;
 	SK_RET_CODE ret = SKR_OK;
-	SK_MECHANISM_INFO signType = {0}, digestType = {0};
+	SK_MECHANISM_INFO signType = {0};
 	SK_OBJECT_HANDLE sk_key;
 
 	/* Get required signature buffer size from size of modulus */
@@ -841,16 +1105,16 @@ static CK_RV rsa_hash_final_sign_pkcs(CK_SESSION_HANDLE hSession, session *sess,
 	if (!pSignature) {
 		*pulSignatureLen = req_sig_len;
 		rc = CKR_OK;
-		goto out1;
+		goto out;
 	}
 
 	/* Signature length should not be less than required size */
 	if (*pulSignatureLen < req_sig_len) {
 		rc = CKR_BUFFER_TOO_SMALL;
-		goto out1;
+		goto out;
 	}
 
-	/* Maps RSA hash based sign --> SK_Digest and SK_Sign */
+	/* Maps RSA hash-final based C_SignFinal --> SK_DigestFinal and SK_Sign */
 	sk_funcs = get_slot_function_list(sess->session_info.slotID);
 	if (!sk_funcs)
 		return CKR_ARGUMENTS_BAD;
@@ -858,23 +1122,23 @@ static CK_RV rsa_hash_final_sign_pkcs(CK_SESSION_HANDLE hSession, session *sess,
 	switch (ctx->mech.mechanism) {
 	case CKM_MD5_RSA_PKCS:
 		signType.mechanism = SKM_RSASSA_PKCS1_V1_5_MD5;
-		digestType.mechanism = SKM_MD5;
+		rsa_digest_context->dgt_ctx.mech.mechanism = CKM_MD5;
 		break;
 	case CKM_SHA1_RSA_PKCS:
 		signType.mechanism = SKM_RSASSA_PKCS1_V1_5_SHA1;
-		digestType.mechanism = SKM_SHA1;
+		rsa_digest_context->dgt_ctx.mech.mechanism = CKM_SHA_1;
 		break;
 	case CKM_SHA256_RSA_PKCS:
 		signType.mechanism = SKM_RSASSA_PKCS1_V1_5_SHA256;
-		digestType.mechanism = SKM_SHA256;
+		rsa_digest_context->dgt_ctx.mech.mechanism = CKM_SHA256;
 		break;
 	case CKM_SHA384_RSA_PKCS:
 		signType.mechanism = SKM_RSASSA_PKCS1_V1_5_SHA384;
-		digestType.mechanism = SKM_SHA384;
+		rsa_digest_context->dgt_ctx.mech.mechanism = CKM_SHA384;
 		break;
 	case CKM_SHA512_RSA_PKCS:
 		signType.mechanism = SKM_RSASSA_PKCS1_V1_5_SHA512;
-		digestType.mechanism = SKM_SHA512;
+		rsa_digest_context->dgt_ctx.mech.mechanism = CKM_SHA512;
 		break;
 	default:
 		rc = CKR_MECHANISM_INVALID;
@@ -891,12 +1155,15 @@ static CK_RV rsa_hash_final_sign_pkcs(CK_SESSION_HANDLE hSession, session *sess,
 		goto out;
 	}
 
-	ret = sk_funcs->SK_DigestFinal(&digestType, (SK_CONTEXT_INFO *)rsa_digest_context->dgt_ctx.context, hash, (uint16_t *)&hash_len);
-	if (ret != SKR_OK) {
-		print_error("SK_DigestFinal failed with ret code 0x%x\n", ret);
-		rc = CKR_GENERAL_ERROR;
+	rc = digest_final(sess, &rsa_digest_context->dgt_ctx, hash, &hash_len);
+	if (rc != CKR_OK)
 		goto out;
+
+	print_info("Digest before Sign Final\n");
+	for (uint32_t i = 0; i < hash_len; i++)	{
+		print_info("%x", hash[i]);
 	}
+	print_info("\n");
 
 	ret = sk_funcs->SK_Sign(&signType, sk_key, hash, hash_len,
 				pSignature, (uint16_t *)pulSignatureLen);
@@ -907,12 +1174,6 @@ static CK_RV rsa_hash_final_sign_pkcs(CK_SESSION_HANDLE hSession, session *sess,
 	}
 
 out:
-	if (rsa_digest_context->dgt_ctx.context) {
-		free(rsa_digest_context->dgt_ctx.context);
-		rsa_digest_context->dgt_ctx.context = NULL;
-	}
-
-out1:
 	return rc;
 }
 
@@ -1040,6 +1301,130 @@ out:
 	return rc;
 }
 
+/* Implementation of hash update based sign api for ECC keys.*/
+static CK_RV ecc_hash_update_sign_pkcs(session *sess,
+				CK_BYTE_PTR pPart, CK_ULONG ulPartLen)
+{
+	CK_RV rc = CKR_OK;
+	sign_verify_context *ctx = &sess->sign_ctx;
+	rsa_ec_digest_ctx *ec_digest_context = (rsa_ec_digest_ctx *) ctx->context;
+
+	SK_FUNCTION_LIST_PTR sk_funcs = NULL;
+
+	/* Maps EC hash-update based C_SignUpdate --> SK_DigestUpdate */
+	sk_funcs = get_slot_function_list(sess->session_info.slotID);
+	if (!sk_funcs)
+		return CKR_ARGUMENTS_BAD;
+
+	if (ec_digest_context->start_flag == FALSE) {
+
+		switch (ctx->mech.mechanism) {
+		case CKM_ECDSA_SHA1:
+			ec_digest_context->dgt_ctx.mech.mechanism = CKM_MD5;
+			break;
+		default:
+			rc = CKR_MECHANISM_INVALID;
+			goto out;
+		}
+
+		digest_init(sess, &ec_digest_context->dgt_ctx, &(ec_digest_context->dgt_ctx.mech));
+		if (rc != CKR_OK)
+			goto out;
+
+		ec_digest_context->start_flag = TRUE;
+	}
+	rc = digest_update(sess, &ec_digest_context->dgt_ctx, pPart, ulPartLen);
+out:
+	return rc;
+}
+
+/* Implementation of hash final based sign final api for ECC key.*/
+static CK_RV ecc_hash_final_sign_pkcs(CK_SESSION_HANDLE hSession, session *sess,
+				CK_BYTE_PTR pSignature,
+				CK_ULONG_PTR pulSignatureLen)
+{
+	CK_RV rc = CKR_OK;
+	sign_verify_context *ctx = &sess->sign_ctx;
+	rsa_ec_digest_ctx *ec_digest_context = (rsa_ec_digest_ctx *) ctx->context;
+	CK_ATTRIBUTE attr = {0};
+	CK_ULONG req_sig_len = 0;
+	CK_BYTE hash[MAX_HASH_LEN];
+	CK_ULONG hash_len = MAX_HASH_LEN;
+	SK_FUNCTION_LIST_PTR sk_funcs = NULL;
+	SK_RET_CODE ret = SKR_OK;
+	SK_MECHANISM_INFO signType = {0};
+	SK_OBJECT_HANDLE sk_key;
+
+	/* Get required signature buffer size from size of modulus */
+	attr.type = CKA_MODULUS;
+	rc = get_attr_value(hSession, ctx->key, &attr, 1);
+	if (rc != CKR_OK)
+		goto out;
+
+	req_sig_len = attr.ulValueLen;
+
+	/*
+	 * If signature buffer is NULL then return size of
+	 * buffer to be allocated.
+	 */
+	if (!pSignature) {
+		*pulSignatureLen = req_sig_len;
+		rc = CKR_OK;
+		goto out1;
+	}
+
+	/* Signature length should not be less than required size */
+	if (*pulSignatureLen < req_sig_len) {
+		rc = CKR_BUFFER_TOO_SMALL;
+		goto out1;
+	}
+
+	/* Maps EC hash-final based C_SignFinal --> SK_DigestFinal and SK_Sign */
+	sk_funcs = get_slot_function_list(sess->session_info.slotID);
+	if (!sk_funcs)
+		return CKR_ARGUMENTS_BAD;
+
+	switch (ctx->mech.mechanism) {
+	case CKM_ECDSA_SHA1:
+		signType.mechanism = SKM_ECDSA_SHA1;
+		break;
+	default:
+		rc = CKR_MECHANISM_INVALID;
+		goto out;
+	}
+
+	sk_key = ((struct object_node *)ctx->key)->object.sk_obj_handle;
+
+	/* Checking for the scenario where sign_final is called after sign_init.
+	 * i.e., without calling sign_update.
+	 */
+	if (ec_digest_context->dgt_ctx.context == NULL) {
+		rc = CKR_OPERATION_NOT_INITIALIZED;
+		goto out;
+	}
+
+	rc = digest_final(sess, &ec_digest_context->dgt_ctx, hash, &hash_len);
+	if (rc != CKR_OK)
+		goto out;
+
+	ret = sk_funcs->SK_Sign(&signType, sk_key, hash, hash_len,
+				pSignature, (uint16_t *)pulSignatureLen);
+	if (ret != SKR_OK) {
+		print_error("SK_Sign failed with ret code 0x%x\n", ret);
+		rc = CKR_GENERAL_ERROR;
+		goto out;
+	}
+
+out:
+	if (ec_digest_context->dgt_ctx.context) {
+		free(ec_digest_context->dgt_ctx.context);
+		ec_digest_context->dgt_ctx.context = NULL;
+	}
+
+out1:
+	return rc;
+}
+
 /* NOTE: If mechanism also include calculating the digest please note
   * API supports calculating digest for upto 512bytes.
   */
@@ -1140,14 +1525,14 @@ CK_RV sign_update(session *sess, CK_BYTE_PTR pPart,
 		ctx->multi = TRUE;
 		ctx->multi_init = TRUE;
 
-		ctx->context_len = sizeof(rsa_digest_ctx);
-		ctx->context = (CK_BYTE *) malloc(sizeof(rsa_digest_ctx));
+		ctx->context_len = sizeof(rsa_ec_digest_ctx);
+		ctx->context = (CK_BYTE *) malloc(sizeof(rsa_ec_digest_ctx));
 		if (!ctx->context) {
 			print_error("Insufficient CKR_HOST_MEMORY.\n");
 			rc = CKR_HOST_MEMORY;
 			goto clean_up;
 		}
-		memset(ctx->context, 0x0, sizeof(rsa_digest_ctx));
+		memset(ctx->context, 0x0, sizeof(rsa_ec_digest_ctx));
 	}
 	/* Sign is called before SignUpdate */
 	if (ctx->multi == FALSE) {
@@ -1167,9 +1552,12 @@ CK_RV sign_update(session *sess, CK_BYTE_PTR pPart,
 		}
 		goto out;
 	case CKM_ECDSA_SHA1:
-		/* CKM_ECDSA_SHA1:  To Be Supported */
-	case CKM_RSA_PKCS:
-	case CKM_ECDSA:
+		rc = ecc_hash_update_sign_pkcs(sess, pPart, ulPartLen);
+		if ((rc == CKR_HOST_MEMORY) || (rc == CKR_GENERAL_ERROR)) {
+			print_error("Error : CKR_HOST_MEMORY or CKR_GENERAL_ERROR.\n");
+			goto clean_up;
+		}
+		goto out;
 	default:
 		rc = CKR_MECHANISM_INVALID;
 		goto out;
@@ -1230,9 +1618,16 @@ CK_RV sign_final(CK_SESSION_HANDLE hSession, session *sess,
 		}
 		break;
 	case CKM_ECDSA_SHA1:
-		/* CKM_ECDSA_SHA1:  To Be Supported */
-	case CKM_RSA_PKCS:
-	case CKM_ECDSA:
+		if (ctx->context == NULL) {
+			rc = CKR_OPERATION_NOT_INITIALIZED;
+			goto out;
+		}
+		rc = ecc_hash_final_sign_pkcs(hSession, sess, pSignature, pulSignatureLen);
+		if (((rc == CKR_OK) && (pSignature == NULL)) ||
+			(rc == CKR_BUFFER_TOO_SMALL)) {
+			goto out;
+		}
+		break;
 	default:
 		rc = CKR_MECHANISM_INVALID;
 		goto out;

@@ -29,18 +29,19 @@ typedef struct _encr_decr_context {
 } encr_decr_context;
 
 typedef struct _digest_ctx {
-	CK_MECHANISM mechanism;
+	CK_MECHANISM mech;
 	CK_BYTE *context;
 	CK_ULONG context_len;
-	CK_BBOOL active;	/* Not Used Currently. Will be used When C_DigestInit, C_DigestUpdate, C_DigestFinal */
-	CK_BBOOL multi;		/* Not Used Currently. Same as above */
-	CK_BBOOL multi_init;/* Not Used Currently. Same as above */
+	CK_BBOOL active;
+	CK_BBOOL multi;
+	CK_BBOOL multi_init;
 } digest_ctx;
 
-typedef struct _rsa_digest_ctx {
+typedef struct _rsa_ec_digest_ctx {
 	digest_ctx dgt_ctx;
 	CK_BBOOL start_flag;
-} rsa_digest_ctx;
+} rsa_ec_digest_ctx;
+
 typedef struct _session {
 	/* Information about this session */
 	CK_SESSION_INFO		session_info;
@@ -58,6 +59,8 @@ typedef struct _session {
 	sign_verify_context sign_ctx;
 	/* Decrypt context info per session */
 	encr_decr_context decr_ctx;
+	/* Digest context dgt_ctx */
+	digest_ctx dgt_ctx;
 } session;
 
 /* The number of supported slots */

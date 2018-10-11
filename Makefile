@@ -68,25 +68,23 @@ app:
 		 -o app/thread_test app/thread_test.c -ldl -lssl -lcrypto -Lout/libpkcs11/
 	$(VPREFIX)$(CC) -I$(OPENSSL)/include/ -L$(OPENSSL)/ -g -Iinclude/ -Ipublic/ \
 		 -o app/utils.o app/utils.c \
-		 -o app/sign_update_final_app app/sign_update_final.c \
+		 -o app/pkcs11_app app/pkcs11_app.c \
 		 -lpkcs11 -ldl -lssl -lcrypto -Lout/libpkcs11/
 
-	@echo "Building sign_update_final apps"
-	$(VPREFIX)$(CC) -pthread -g -I$(OPENSSL)/include/ -L$(OPENSSL)/ -Iinclude/ -Ipublic/ \
-		 -o app/thread_test app/thread_test.c -ldl -lssl -lcrypto -Lout/libpkcs11/
+	@echo "Building sign_digest_update_final apps"
 	$(VPREFIX)$(CC) -I$(OPENSSL)/include/ -L$(OPENSSL)/ -g -Iinclude/ -Ipublic/ \
 		 -o app/utils.o app/utils.c \
-		 -o app/pkcs11_app app/sign_update_final.c \
+		 -o app/sign_digest_update_final app/sign_digest_update_final.c \
 		 -lpkcs11 -ldl -lssl -lcrypto -Lout/libpkcs11/
 
 install:
 	mkdir -p ${EXPORT_DIR}/lib ${EXPORT_DIR}/include ${EXPORT_DIR}/app images
 	cp ${OUT_DIR}/libpkcs11.so ${EXPORT_DIR}/lib
 	cp ${CURDIR}/public/*.h ${EXPORT_DIR}/include
-	mv app/sign_update_final_app ${EXPORT_DIR}/app
+	mv app/sign_digest_update_final ${EXPORT_DIR}/app
 	mv app/pkcs11_app ${EXPORT_DIR}/app
 	mv app/thread_test ${EXPORT_DIR}/app
-	cp ${OUT_DIR}/libpkcs11.so ${EXPORT_DIR}/app/pkcs11_app ${EXPORT_DIR}/app/sign_update_final_app  ${EXPORT_DIR}/app/thread_test images
+	cp ${OUT_DIR}/libpkcs11.so ${EXPORT_DIR}/app/pkcs11_app ${EXPORT_DIR}/app/thread_test images
 
 ################################################################################
 # Cleaning up configuration
