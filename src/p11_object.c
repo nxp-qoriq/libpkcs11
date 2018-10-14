@@ -366,6 +366,7 @@ CK_RV C_FindObjectsFinal(CK_SESSION_HANDLE hSession)
 		memset(sess->find_list, 0, sizeof(CK_OBJECT_HANDLE) *
 			MAX_FIND_LIST_OBJECTS);
 		free(sess->find_list);
+		sess->find_list = NULL;
 	}
 
 end:

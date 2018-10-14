@@ -302,7 +302,7 @@ CK_RV destroy_slot(CK_SLOT_ID slotID)
 
 CK_RV initialize_slot(CK_SLOT_ID slotID)
 {
-	struct slot_info *s_info;
+	struct slot_info *s_info = NULL;
 	void *shared_lib_handle;
 	char library[20];
 	CK_RV rc = CKR_OK;

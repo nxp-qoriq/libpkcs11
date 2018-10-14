@@ -3731,8 +3731,8 @@ CK_RV get_all_token_objects(struct object_list *obj_list,
 	SK_FUNCTION_LIST_PTR sk_funcs = NULL;
 	SK_RET_CODE ret;
 	SK_OBJECT_HANDLE objs[MAX_FIND_LIST_OBJECTS];
-	SK_KEY_TYPE key_type;
-	SK_OBJECT_TYPE obj_type;
+	SK_KEY_TYPE key_type = 0;
+	SK_OBJECT_TYPE obj_type = 0;
 
 	CK_RV rc;
 	CK_ULONG op_type = OP_CREATE;
