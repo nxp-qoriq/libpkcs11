@@ -84,7 +84,7 @@ install:
 	mv app/sign_digest_update_final ${EXPORT_DIR}/app
 	mv app/pkcs11_app ${EXPORT_DIR}/app
 	mv app/thread_test ${EXPORT_DIR}/app
-	cp ${OUT_DIR}/libpkcs11.so ${EXPORT_DIR}/app/pkcs11_app ${EXPORT_DIR}/app/thread_test images
+	cp ${OUT_DIR}/libpkcs11.so ${EXPORT_DIR}/app/pkcs11_app ${EXPORT_DIR}/app/thread_test ${EXPORT_DIR}/app/sign_digest_update_final images
 
 ################################################################################
 # Cleaning up configuration

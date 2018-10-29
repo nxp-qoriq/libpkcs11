@@ -180,7 +180,7 @@ int do_Sign_init_update_final(struct getOptValue_t *getOptValue)
 	j = 0;
 	for (i = 0; i < getOptValue->num_of_times; i++) {
 		memcpy(&data[data_len], &data_array[j], strlen(data_array[j]));
-		printf("Sign Update count[%d].\n", i);
+		printf("Sign Update count[%lu].\n", i);
 		rc = funcs->C_SignUpdate(h_session, data, strlen(data));
 		if (rc != CKR_OK) {
 			printf("C_Sign() rc = %s\n", p11_get_error_string(rc));
@@ -382,7 +382,7 @@ int do_Digest_init_update_final_Sign(struct getOptValue_t *getOptValue)
 	j = 0;
 	for (i = 0; i < getOptValue->num_of_times; i++) {
 		memcpy(&data[data_len], &data_array[j], strlen(data_array[j]));
-		printf("Digest Update count[%d].\n", i);
+		printf("Digest Update count[%lu].\n", i);
 		rc = funcs->C_DigestUpdate(h_session, data, strlen(data));
 		if (rc != CKR_OK) {
 			printf("C_DigestUpdate() rc = %s\n", p11_get_error_string(rc));
@@ -818,7 +818,7 @@ int do_Verify(struct getOptValue_t *getOptValue)
 				data_out_len = RSA_public_decrypt(sig_bytes, sig, data_out,
 						pub_key, RSA_PKCS1_PADDING);
 
-				printf("Public Decrypted data[%d] =\n", data_out_len);
+				printf("Public Decrypted data[%lu] =\n", data_out_len);
 				for (i = 0; i < data_out_len; i++)
 					printf("%x ", data_out[i]);
 				printf("\n");
