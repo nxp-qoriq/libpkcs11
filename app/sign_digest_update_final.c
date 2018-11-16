@@ -84,17 +84,6 @@ int do_Sign_init_update_final(struct getOptValue_t *getOptValue)
 	CK_MECHANISM mech = {0};
 	CK_BYTE *data = NULL;
 	CK_ULONG data_len = 0;
-	CK_BYTE *data_array[] = {"111111111111111111111",
-				 "222222222222222222222",
-				 "333333333333333333333",
-				 "444444444444444444444",
-				 "555555555555555555555",
-				 "666666666666666666666",
-				 "777777777777777777777",
-				 "888888888888888888888",
-				 "999999999999999999999",
-				 "aaaaaaaaaaaaaaaaaaaaa",
-				};
 	CK_BYTE *sig = NULL;
 	CK_ULONG sig_bytes = 0;
 	FILE *sigFile = NULL;
@@ -168,7 +157,7 @@ int do_Sign_init_update_final(struct getOptValue_t *getOptValue)
 		goto cleanup;
 	}
 
-	data = malloc(strlen(getOptValue->data) + strlen(data_array[0]));
+	data = malloc(strlen(getOptValue->data));
 	if (data == NULL) {
 		printf("Digest Data malloc failed\n");
 		ret = APP_MALLOC_FAIL;
@@ -179,7 +168,6 @@ int do_Sign_init_update_final(struct getOptValue_t *getOptValue)
 
 	j = 0;
 	for (i = 0; i < getOptValue->num_of_times; i++) {
-		memcpy(&data[data_len], &data_array[j], strlen(data_array[j]));
 		printf("Sign Update count[%lu].\n", i);
 		rc = funcs->C_SignUpdate(h_session, data, strlen(data));
 		if (rc != CKR_OK) {
@@ -258,17 +246,6 @@ int do_Digest_init_update_final_Sign(struct getOptValue_t *getOptValue)
 	CK_MECHANISM s_mech = {0};
 	CK_BYTE *data = NULL;
 	CK_ULONG data_len = 0;
-	CK_BYTE *data_array[] = {"111111111111111111111",
-				 "222222222222222222222",
-				 "333333333333333333333",
-				 "444444444444444444444",
-				 "555555555555555555555",
-				 "666666666666666666666",
-				 "777777777777777777777",
-				 "888888888888888888888",
-				 "999999999999999999999",
-				 "aaaaaaaaaaaaaaaaaaaaa",
-				};
 	CK_BYTE *sig = NULL;
 	CK_ULONG sig_bytes = 0;
 	CK_BYTE *dig = NULL;
@@ -371,7 +348,7 @@ int do_Digest_init_update_final_Sign(struct getOptValue_t *getOptValue)
 		ret = APP_CKR_ERR;
 		goto cleanup;
 	}
-	data = malloc(strlen(getOptValue->data) + strlen(data_array[0]));
+	data = malloc(strlen(getOptValue->data));
 	if (data == NULL) {
 		printf("Malloc failed for Data to be digest.\n");
 		ret = APP_MALLOC_FAIL;
@@ -381,7 +358,6 @@ int do_Digest_init_update_final_Sign(struct getOptValue_t *getOptValue)
 	memcpy(data, getOptValue->data, data_len);
 	j = 0;
 	for (i = 0; i < getOptValue->num_of_times; i++) {
-		memcpy(&data[data_len], &data_array[j], strlen(data_array[j]));
 		printf("Digest Update count[%lu].\n", i);
 		rc = funcs->C_DigestUpdate(h_session, data, strlen(data));
 		if (rc != CKR_OK) {
@@ -493,17 +469,6 @@ int do_Verify(struct getOptValue_t *getOptValue)
 	CK_ULONG data_out_len = 0;
 	CK_BYTE *data = NULL;
 	CK_ULONG data_len = 0;
-	CK_BYTE *data_array[] = {"111111111111111111111",
-				 "222222222222222222222",
-				 "333333333333333333333",
-				 "444444444444444444444",
-				 "555555555555555555555",
-				 "666666666666666666666",
-				 "777777777777777777777",
-				 "888888888888888888888",
-				 "999999999999999999999",
-				 "aaaaaaaaaaaaaaaaaaaaa",
-				};
 	RSA *pub_key;
 	EC_KEY *ec_pub_key;
 	BIGNUM *bn_mod = NULL, *bn_exp = NULL;
@@ -650,7 +615,7 @@ int do_Verify(struct getOptValue_t *getOptValue)
 		goto cleanup;
 	}
 
-	data = malloc(strlen(getOptValue->data) + strlen(data_array[0]));
+	data = malloc(strlen(getOptValue->data));
 	if (data == NULL) {
 		printf("Digest Data malloc failed\n");
 		ret = APP_MALLOC_FAIL;
@@ -685,7 +650,6 @@ int do_Verify(struct getOptValue_t *getOptValue)
 					MD5_Init(&c0);
 					j = 0;
 					for (i = 0; i < getOptValue->num_of_times; i++) {
-						memcpy(&data[data_len], &data_array[j], strlen(data_array[j]));
 						printf("Digest Update count with string[%lu] = %lu.\n", j, i);
 						MD5_Update(&c0, data, strlen(data));
 						j++;
@@ -711,7 +675,6 @@ int do_Verify(struct getOptValue_t *getOptValue)
 					SHA1_Init(&c1);
 					j = 0;
 					for (i = 0; i < getOptValue->num_of_times; i++) {
-						memcpy(&data[data_len], &data_array[j], strlen(data_array[j]));
 						printf("Digest Update count with string[%lu] = %lu.\n", j, i);
 						SHA1_Update(&c1, data, strlen(data));
 						j++;
@@ -737,7 +700,6 @@ int do_Verify(struct getOptValue_t *getOptValue)
 					SHA256_Init(&c2);
 					j = 0;
 					for (i = 0; i < getOptValue->num_of_times; i++) {
-						memcpy(&data[data_len], &data_array[j], strlen(data_array[j]));
 						printf("Digest Update count with string[%lu] = %lu.\n", j, i);
 						SHA256_Update(&c2, data, strlen(data));
 						j++;
@@ -763,7 +725,6 @@ int do_Verify(struct getOptValue_t *getOptValue)
 					SHA384_Init(&c3);
 					j = 0;
 					for (i = 0; i < getOptValue->num_of_times; i++) {
-						memcpy(&data[data_len], &data_array[j], strlen(data_array[j]));
 						printf("Digest Update count with string[%lu] = %lu.\n", j, i);
 						SHA384_Update(&c3, data, strlen(data));
 						j++;
@@ -789,7 +750,6 @@ int do_Verify(struct getOptValue_t *getOptValue)
 					SHA512_Init(&c3);
 					j = 0;
 					for (i = 0; i < getOptValue->num_of_times; i++) {
-						memcpy(&data[data_len], &data_array[j], strlen(data_array[j]));
 						printf("Digest Update count with string[%lu] = %lu.\n", j, i);
 						SHA512_Update(&c3, data, strlen(data));
 						j++;
@@ -870,7 +830,6 @@ int do_Verify(struct getOptValue_t *getOptValue)
 					SHA1_Init(&c1);
 					j = 0;
 					for (i = 0; i < getOptValue->num_of_times; i++) {
-						memcpy(&data[data_len], &data_array[j], strlen(data_array[j]));
 						printf("Digest Update count with string[%lu] = %lu.\n", j, i);
 						SHA1_Update(&c1, data, strlen(data));
 						j++;
@@ -918,7 +877,7 @@ void print_help(void)
 	printf("\t -W - Verify -D option. (Make sure to use all the same options used earlier while running the command with -D option).\n");
 	printf("\t Use below Sub options along with Main options:-\n");
 	printf("\t\t -n - Number of times (Default n =100).\n");
-	printf("\t\t -k - Key Type (Supported: rsa, ec)\n");
+	printf("\t\t -k - Key Type (Supported: rsa)\n");
 	printf("\t\t -b - Object Label.\n");
 	printf("\t\t -p - Slot Id.\n");
 	printf("\t\t -m - Mechanism Id \n");
