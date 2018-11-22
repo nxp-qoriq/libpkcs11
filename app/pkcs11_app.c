@@ -698,7 +698,7 @@ int do_Decrypt(struct getOptValue_t *getOptValue)
 		goto cleanup;
 	}
 
-	printf("Deccrypted Data: %s \n", plain_text);
+	printf("Decrypted Data: %s \n", plain_text);
 
 cleanup:
 	rc = funcs->C_CloseSession(h_session);

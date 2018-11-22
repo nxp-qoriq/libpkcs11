@@ -170,6 +170,16 @@ char *getMechanismString(CK_MECHANISM_TYPE mechanismID)
 		return "CKM_ECDSA_SHA1";
 	case CKM_EC_KEY_PAIR_GEN:
 		return "CKM_EC_KEY_PAIR_GEN";
+	case CKM_MD5:
+		return "CKM_MD5";
+	case CKM_SHA_1:
+		return "CKM_SHA_1";
+	case CKM_SHA256:
+		return "CKM_SHA256";
+	case CKM_SHA384:
+		return "CKM_SHA384";
+	case CKM_SHA512:
+		return "CKM_SHA512";
 	default:
 		return NULL;
 	}
