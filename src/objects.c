@@ -3471,7 +3471,7 @@ CK_RV objects_create_object(CK_SESSION_HANDLE hSession,
 
 	SK_RET_CODE sk_ret = SKR_OK;
 	SK_ATTRIBUTE *sk_attrs = NULL;
-	SK_OBJECT_HANDLE hObject = 1234;
+	SK_OBJECT_HANDLE hObject = CK_INVALID_HANDLE;
 
 	uint32_t attrCount = 0;
 	struct object_node *object = NULL;
@@ -3584,7 +3584,7 @@ CK_RV objects_generate_key_pair(CK_SESSION_HANDLE hSession,
 	SK_RET_CODE sk_ret = SKR_OK;
 	SK_MECHANISM_INFO mechanismType = {0};
 	SK_ATTRIBUTE *sk_attrs = NULL;
-	SK_OBJECT_HANDLE hObject = 1234;
+	SK_OBJECT_HANDLE hPubObject = CK_INVALID_HANDLE, hPrivObject = CK_INVALID_HANDLE;
 	uint32_t attrCount = 0;
 	struct object_node *public_key = NULL, *priv_key = NULL;
 	SK_FUNCTION_LIST_PTR sk_funcs = NULL;
@@ -3688,21 +3688,21 @@ CK_RV objects_generate_key_pair(CK_SESSION_HANDLE hSession,
 	}
 
 	sk_ret = sk_funcs->SK_GenerateKeyPair(&mechanismType, sk_attrs,
-				attrCount, &hObject);
+				attrCount, &hPrivObject, &hPubObject);
 	if (sk_ret != SKR_OK) {
 		print_error("SK_GenerateKeyPair failed wit err code = 0x%x\n", sk_ret);
 		rc = CKR_GENERAL_ERROR;
 		goto end;
 	}
 
-	rc = create_key_object(hObject, CKO_PUBLIC_KEY, subclass, publ_tmpl,
+	rc = create_key_object(hPubObject, CKO_PUBLIC_KEY, subclass, publ_tmpl,
 			&public_key, sess->session_info.slotID);
 	if (rc != CKR_OK) {
 		print_error("SK_GenerateKeyPair failed wit err code = 0x%x\n", sk_ret);
 		goto end;
 	}
 
-	rc = create_key_object(hObject, CKO_PRIVATE_KEY, subclass, priv_tmpl,
+	rc = create_key_object(hPrivObject, CKO_PRIVATE_KEY, subclass, priv_tmpl,
 			&priv_key, sess->session_info.slotID);
 	if (rc != CKR_OK) {
 		print_error("SK_GenerateKeyPair failed wit err code = 0x%x\n", sk_ret);
@@ -3784,22 +3784,7 @@ CK_RV get_all_token_objects(struct object_list *obj_list,
 				switch (key_type) {
 					case SKK_RSA:
 					{
-						struct object_node *rsa_pub_key, *rsa_priv_key;
-
-						rc = create_rsa_pub_key_object(objs[j], &rsa_pub_key, slotID);
-						if (rc != CKR_OK) {
-							print_error("create_rsa_pub_key_object failed\n");
-							return rc;
-						}
-
-						rc = p11_template_add_default_attr(&rsa_pub_key->object, op_type);
-						if (rc != CKR_OK) {
-							print_error("p11_template_add_default_attr failed\n");
-							return rc;
-						}
-
-						STAILQ_INSERT_HEAD(obj_list, rsa_pub_key, entry);
-
+						struct object_node *rsa_priv_key = NULL;
 						rc = create_rsa_priv_key_object(objs[j], &rsa_priv_key, slotID);
 						if (rc != CKR_OK) {
 							print_error("create_rsa_priv_key_object failed\n");
@@ -3816,22 +3801,7 @@ CK_RV get_all_token_objects(struct object_list *obj_list,
 					break;
 					case SKK_EC:
 					{
-						struct object_node *ecc_pub_key, *ecc_priv_key;
-
-						rc = create_ecc_pub_key_object(objs[j], &ecc_pub_key, slotID);
-						if (rc != CKR_OK) {
-							print_error("create_ecc_pub_key_object failed\n");
-							return rc;
-						}
-
-						rc = p11_template_add_default_attr(&ecc_pub_key->object, op_type);
-						if (rc != CKR_OK) {
-							print_error("p11_template_add_default_attr failed\n");
-							return rc;
-						}
-
-						STAILQ_INSERT_HEAD(obj_list, ecc_pub_key, entry);
-
+						struct object_node *ecc_priv_key = NULL;
 						rc = create_ecc_priv_key_object(objs[j], &ecc_priv_key, slotID);
 						if (rc != CKR_OK) {
 							print_error("create_ecc_priv_key_object failed\n");
