@@ -369,9 +369,6 @@ int do_Digest_init_update_final_Sign(struct getOptValue_t *getOptValue)
 		j = j % 10;
 	}
 
-	if (data)
-		free(data);
-
 	rc = funcs->C_DigestFinal(h_session, dig, &dig_bytes);
 	if (rc != CKR_OK) {
 		printf("C_DigestFinal() rc = %s\n", p11_get_error_string(rc));
